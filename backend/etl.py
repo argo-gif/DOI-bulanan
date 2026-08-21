@@ -1,6 +1,6 @@
 """
 ETL Pipeline & Metric Calculator Engine for DOI Monitoring Dashboard (MNJ & KX Principal)
-Updated with DOI Min (Days) and DOI Max (Days) calculated from Min Qty and Max Qty in Master data.
+Calculates Stok Max (Qty & Value) dynamically as (DOI Max Master / 30.0) * Avg Sales, and weighted DOI Max per GB.
 """
 
 import os
@@ -64,7 +64,7 @@ class DataEngine:
         # 0: Principal_product_code, 1: Principal_product_code_lama, 2: Product_code,
         # 3: Product_code_lama, 4: Product_name, 5: GB, 6: Harga Dasar,
         # 7: KATEGORI, 8: Keterangan produk, 9: Batch Yield, 10: Line Produksi,
-        # 11: Min Qty, 12: Max Qty
+        # 11: Min DOI, 12: Max DOI
         for row in sheet.iter_rows(min_row=2, values_only=True):
             if not row or len(row) < 7 or not row[2]:
                 continue
@@ -87,14 +87,14 @@ class DataEngine:
                 keterangan = "Regular"
 
             try:
-                min_qty = float(row[11]) if len(row) > 11 and row[11] is not None else 0.0
+                doi_min = float(row[11]) if len(row) > 11 and row[11] is not None else 30.0
             except (ValueError, TypeError):
-                min_qty = 0.0
+                doi_min = 30.0
 
             try:
-                max_qty = float(row[12]) if len(row) > 12 and row[12] is not None else 0.0
+                doi_max = float(row[12]) if len(row) > 12 and row[12] is not None else 60.0
             except (ValueError, TypeError):
-                max_qty = 0.0
+                doi_max = 60.0
 
             product_info = {
                 "principal_code": principal_code,
@@ -106,10 +106,9 @@ class DataEngine:
                 "harga_dasar": harga_dasar,
                 "kategori": kategori,
                 "keterangan": keterangan,
-                "min_qty": min_qty,
-                "max_qty": max_qty,
-                "min_value": round(min_qty * harga_dasar, 2),
-                "max_value": round(max_qty * harga_dasar, 2)
+                "doi_min_days": doi_min,
+                "doi_max_days": doi_max,
+                "target_doi_days": doi_max
             }
 
             self.master_products[product_code] = product_info
@@ -269,7 +268,7 @@ class DataEngine:
         return avg_sales
 
     def get_doi_mnj_report(self, period: Optional[str] = None, avg_months: int = 1) -> List[Dict[str, Any]]:
-        """Generates comprehensive report containing MNJ stock, KX principal stock, combined stock, DOI Total, DOI Min (Days), and DOI Max (Days)."""
+        """Generates comprehensive report containing MNJ stock, KX principal stock, combined stock, DOI Total, and DOI Max Master."""
         if not self._is_preloaded:
             self.preload_all_data()
 
@@ -299,6 +298,15 @@ class DataEngine:
             avg_sales_qty = avg_sales_dict.get(pcode, 0.0)
             avg_sales_value = avg_sales_qty * harga_dasar
 
+            doi_min_days = pinfo["doi_min_days"]
+            doi_max_days = pinfo["doi_max_days"]
+
+            # Calculate Stok Min and Stok Max dynamically: (DOI Max / 30.0) * Avg Sales
+            stok_min_qty = (doi_min_days / 30.0) * avg_sales_qty
+            stok_max_qty = (doi_max_days / 30.0) * avg_sales_qty
+            stok_min_value = stok_min_qty * harga_dasar
+            stok_max_value = stok_max_qty * harga_dasar
+
             # DOI MNJ
             if avg_sales_qty > 0:
                 doi_mnj = (stok_mnj_qty / avg_sales_qty) * 30.0
@@ -317,22 +325,11 @@ class DataEngine:
             else:
                 doi_total = 999.0 if stok_total_qty > 0 else 0.0
 
-            min_qty = pinfo["min_qty"]
-            max_qty = pinfo["max_qty"]
-
-            # DOI Min (Days) & DOI Max (Days) calculated from Min Qty & Max Qty in Master data
-            if avg_sales_qty > 0:
-                doi_min = (min_qty / avg_sales_qty) * 30.0
-                doi_max = (max_qty / avg_sales_qty) * 30.0
-            else:
-                doi_min = 999.0 if min_qty > 0 else 0.0
-                doi_max = 999.0 if max_qty > 0 else 0.0
-
-            # Health status based on Min Qty and Max Qty from Master data
-            def get_health_status(stok_qty: float) -> str:
-                if stok_qty < min_qty:
+            # Health status based on DOI Total vs DOI Min / DOI Max Master
+            def get_health_status(doi_val: float) -> str:
+                if doi_val < doi_min_days:
                     return "Understock"
-                elif stok_qty <= max_qty:
+                elif doi_val <= doi_max_days:
                     return "Normal"
                 else:
                     return "Overstock"
@@ -346,15 +343,17 @@ class DataEngine:
                 "category": pinfo["kategori"],
                 "keterangan_produk": pinfo["keterangan"],
                 "harga_dasar": harga_dasar,
-                "min_qty": min_qty,
-                "max_qty": max_qty,
-                "min_value": pinfo["min_value"],
-                "max_value": pinfo["max_value"],
 
-                # DOI Min & DOI Max (Days)
-                "doi_min_days": round(doi_min, 1),
-                "doi_max_days": round(doi_max, 1),
-                "target_doi_days": round(doi_max, 1),
+                # Min & Max threshold quantities and values
+                "min_qty": round(stok_min_qty, 2),
+                "max_qty": round(stok_max_qty, 2),
+                "min_value": round(stok_min_value, 2),
+                "max_value": round(stok_max_value, 2),
+
+                # DOI Days thresholds
+                "doi_min_days": round(doi_min_days, 1),
+                "doi_max_days": round(doi_max_days, 1),
+                "target_doi_days": round(doi_max_days, 1),
 
                 # MNJ Stock
                 "qty_baik": qty_baik,
@@ -362,19 +361,19 @@ class DataEngine:
                 "stok_mnj_qty": stok_mnj_qty,
                 "stok_mnj_value": round(stok_mnj_value, 2),
                 "doi_mnj_days": round(doi_mnj, 1),
-                "health_status_mnj": get_health_status(stok_mnj_qty),
+                "health_status_mnj": get_health_status(doi_mnj),
 
                 # KX Stock
                 "stok_kx_qty": stok_kx_qty,
                 "stok_kx_value": round(stok_kx_value, 2),
                 "doi_kx_days": round(doi_kx, 1),
-                "health_status_kx": get_health_status(stok_kx_qty),
+                "health_status_kx": get_health_status(doi_kx),
 
                 # Total Combined Stock
                 "stok_total_qty": stok_total_qty,
                 "stok_total_value": round(stok_total_value, 2),
                 "doi_total_days": round(doi_total, 1),
-                "health_status_total": get_health_status(stok_total_qty),
+                "health_status_total": get_health_status(doi_total),
 
                 # Sales
                 "avg_sales_qty": avg_sales_qty,
@@ -384,7 +383,7 @@ class DataEngine:
         return report
 
     def get_gb_summary_report(self, period: Optional[str] = None, avg_months: int = 1, keterangan: Union[str, List[str]] = "All", unit: str = "qty") -> List[Dict[str, Any]]:
-        """Calculates aggregated DOI metrics grouped per GB and Total Consolidated with DOI Min and DOI Max (Days)."""
+        """Calculates aggregated DOI metrics grouped per GB and Total Consolidated with weighted DOI Max (Days)."""
         report = self.get_doi_mnj_report(period=period, avg_months=avg_months)
         ket_set = parse_multi_param(keterangan)
 
