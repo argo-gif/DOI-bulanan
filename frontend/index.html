@@ -21,7 +21,7 @@
       <div class="brand-logo">📊</div>
       <div class="brand-text">
         <h1>Dashboard Monitoring DOI Bulanan (MNJ & Principal KX)</h1>
-        <p>Distributor MNJ & Principal Konimex Inventory Analytics — DOI Total vs Target DOI Max Master Data</p>
+        <p>Distributor MNJ & Principal Konimex Inventory Analytics — Evaluasi DOI Total vs DOI Min & DOI Max Master Data</p>
       </div>
     </div>
 
@@ -48,31 +48,31 @@
     <!-- Understock -->
     <div class="metric-card glass-panel" style="--card-accent: linear-gradient(135deg, #ef4444, #f87171);">
       <div class="metric-header">
-        <span class="metric-title">Understock (< Min Qty)</span>
+        <span class="metric-title">Understock (< DOI Min)</span>
         <span class="metric-icon">🚨</span>
       </div>
       <div class="metric-value" id="metricUnderstock" style="color: #f87171;">0</div>
-      <div class="metric-subtitle">Stok Combined < Min Qty Master</div>
+      <div class="metric-subtitle">DOI Total < DOI Min Master</div>
     </div>
 
     <!-- Normal -->
     <div class="metric-card glass-panel" style="--card-accent: linear-gradient(135deg, #10b981, #34d399);">
       <div class="metric-header">
-        <span class="metric-title">Normal Stock (Min–Max)</span>
+        <span class="metric-title">Normal Stock (DOI Min–Max)</span>
         <span class="metric-icon">✅</span>
       </div>
       <div class="metric-value" id="metricNormal" style="color: #34d399;">0</div>
-      <div class="metric-subtitle">Min Qty ≤ Stok Combined ≤ Max Qty</div>
+      <div class="metric-subtitle">DOI Min ≤ DOI Total ≤ DOI Max</div>
     </div>
 
     <!-- Overstock -->
     <div class="metric-card glass-panel" style="--card-accent: linear-gradient(135deg, #f59e0b, #fbbf24);">
       <div class="metric-header">
-        <span class="metric-title">Overstock (> Max Qty)</span>
+        <span class="metric-title">Overstock (> DOI Max)</span>
         <span class="metric-icon">⚠️</span>
       </div>
       <div class="metric-value" id="metricOverstock" style="color: #fbbf24;">0</div>
-      <div class="metric-subtitle">Stok Combined > Max Qty Master</div>
+      <div class="metric-subtitle">DOI Total > DOI Max Master</div>
     </div>
 
     <!-- Total Stok MNJ -->
@@ -198,11 +198,11 @@
     <!-- Health Status Quick Filters -->
     <div class="filter-row" style="margin-top: 4px;">
       <div class="filter-group">
-        <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">Filter Evaluasi Stok Master:</span>
+        <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">Filter Evaluasi DOI Master:</span>
         <button class="toggle-btn active" data-health="All">Semua Status</button>
-        <button class="toggle-btn" data-health="Understock" style="color: #f87171;">🔴 Understock (< Min Qty)</button>
-        <button class="toggle-btn" data-health="Normal" style="color: #34d399;">🟢 Normal (Min–Max Qty)</button>
-        <button class="toggle-btn" data-health="Overstock" style="color: #fbbf24;">🟡 Overstock (> Max Qty)</button>
+        <button class="toggle-btn" data-health="Understock" style="color: #f87171;">🔴 Understock (< DOI Min)</button>
+        <button class="toggle-btn" data-health="Normal" style="color: #34d399;">🟢 Normal (DOI Min–Max)</button>
+        <button class="toggle-btn" data-health="Overstock" style="color: #fbbf24;">🟡 Overstock (> DOI Max)</button>
       </div>
     </div>
   </section>
@@ -236,7 +236,7 @@
       <h2 style="font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
         <span>🏢</span> Ringkasan DOI Per Group Business (GB) & Total Konsolidasi
       </h2>
-      <p style="font-size: 13px; color: var(--text-secondary);">Perbandingan stok persediaan MNJ, KX Principal, Total Combined, DOI Total, dan Target DOI (Max Qty / Avg Sales).</p>
+      <p style="font-size: 13px; color: var(--text-secondary);">Perbandingan stok persediaan MNJ, KX Principal, Total Combined, DOI Total, DOI Min, dan DOI Max per GB.</p>
     </div>
 
     <table class="data-table">
@@ -251,7 +251,8 @@
           <th style="text-align: right;">DOI MNJ</th>
           <th style="text-align: right;">DOI KX</th>
           <th style="text-align: right; color: var(--accent-cyan);">DOI Total</th>
-          <th style="text-align: right; color: #a7f3d0;">Target DOI (Max)</th>
+          <th style="text-align: right; color: #f87171;">DOI Min</th>
+          <th style="text-align: right; color: #a7f3d0;">DOI Max</th>
           <th>Status Health</th>
         </tr>
       </thead>
@@ -265,7 +266,7 @@
   <section class="glass-panel" style="overflow: hidden;">
     <div style="padding: 20px 24px 10px 24px;">
       <h2 style="font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
-        <span>📋</span> Detail Produk & Evaluasi Min / Max Stok Master
+        <span>📋</span> Detail Produk & Evaluasi DOI Min / DOI Max Master
       </h2>
     </div>
 
@@ -277,13 +278,12 @@
             <th>Nama Produk</th>
             <th>GB</th>
             <th>Keterangan</th>
-            <th style="text-align: right;">Min Qty</th>
-            <th style="text-align: right;">Max Qty</th>
+            <th style="text-align: right; color: #f87171;">DOI Min</th>
+            <th style="text-align: right; color: #a7f3d0;">DOI Max</th>
             <th style="text-align: right;">Stok MNJ</th>
             <th style="text-align: right;">Stok KX</th>
             <th style="text-align: right;">Total Combined</th>
             <th style="text-align: right; color: var(--accent-cyan);">DOI Total</th>
-            <th style="text-align: right; color: #a7f3d0;">Target DOI (Max)</th>
             <th>Status Health</th>
           </tr>
         </thead>
