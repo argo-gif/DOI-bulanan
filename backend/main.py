@@ -1,6 +1,6 @@
 """
-Backend REST API Server for DOI MNJ Monitoring Dashboard
-Guarantees 100% complete synchronous preloading before listening on HTTP port 8000.
+Backend REST API Server for DOI Monitoring Dashboard (MNJ & KX Principal)
+Provides REST API endpoints for MNJ Stock, KX Principal Stock, Combined DOI Metrics, Multi-Select Filters, and Exports.
 """
 
 import sys
@@ -9,6 +9,7 @@ import json
 import csv
 import io
 import mimetypes
+import threading
 from urllib.parse import parse_qs, urlparse
 from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 
@@ -67,7 +68,7 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         try:
             if path == "/health":
                 self._set_headers(200)
-                res = {"status": "online", "version": "1.0.0", "app": "DOI MNJ Monitoring API"}
+                res = {"status": "online", "version": "2.0.0", "app": "DOI MNJ & KX Monitoring API"}
                 self.wfile.write(json.dumps(res).encode("utf-8"))
 
             elif path == "/api/v1/metadata":
@@ -144,7 +145,7 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             if ket_set and r["keterangan_produk"] not in ket_set:
                 continue
 
-            if health_status != "All" and r["health_status_mnj"] != health_status:
+            if health_status != "All" and r["health_status_total"] != health_status and r["health_status_mnj"] != health_status:
                 continue
 
             if search:
@@ -165,13 +166,18 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         under = 0
         normal = 0
         over = 0
-        total_stok_val = 0.0
-        total_avg_sales_val = 0.0
-        total_stok_qty = 0.0
-        total_avg_sales_qty = 0.0
+        
+        tot_mnj_val = 0.0
+        tot_mnj_qty = 0.0
+        tot_kx_val = 0.0
+        tot_kx_qty = 0.0
+        tot_comb_val = 0.0
+        tot_comb_qty = 0.0
+        tot_sales_val = 0.0
+        tot_sales_qty = 0.0
 
         for r in filtered:
-            status = r["health_status_mnj"]
+            status = r["health_status_total"]
             if status == "Understock":
                 under += 1
             elif status == "Normal":
@@ -179,10 +185,17 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             elif status == "Overstock":
                 over += 1
 
-            total_stok_val += r["stok_mnj_value"]
-            total_avg_sales_val += r["avg_sales_value"]
-            total_stok_qty += r["stok_mnj_qty"]
-            total_avg_sales_qty += r["avg_sales_qty"]
+            tot_mnj_val += r["stok_mnj_value"]
+            tot_mnj_qty += r["stok_mnj_qty"]
+
+            tot_kx_val += r["stok_kx_value"]
+            tot_kx_qty += r["stok_kx_qty"]
+
+            tot_comb_val += r["stok_total_value"]
+            tot_comb_qty += r["stok_total_qty"]
+
+            tot_sales_val += r["avg_sales_value"]
+            tot_sales_qty += r["avg_sales_qty"]
 
         period_active = filtered[0]["period"] if filtered else get_param("period", "2026-07")
 
@@ -193,10 +206,22 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             "understock_count": under,
             "normal_count": normal,
             "overstock_count": over,
-            "total_stok_value": round(total_stok_val, 2),
-            "total_avg_sales_value": round(total_avg_sales_val, 2),
-            "total_stok_qty": round(total_stok_qty, 2),
-            "total_avg_sales_qty": round(total_avg_sales_qty, 2)
+
+            # MNJ Stock
+            "total_stok_mnj_value": round(tot_mnj_val, 2),
+            "total_stok_mnj_qty": round(tot_mnj_qty, 2),
+
+            # KX Stock
+            "total_stok_kx_value": round(tot_kx_val, 2),
+            "total_stok_kx_qty": round(tot_kx_qty, 2),
+
+            # Combined Stock
+            "total_stok_combined_value": round(tot_comb_val, 2),
+            "total_stok_combined_qty": round(tot_comb_qty, 2),
+
+            # Sales
+            "total_avg_sales_value": round(tot_sales_val, 2),
+            "total_avg_sales_qty": round(tot_sales_qty, 2)
         }
         self._set_headers(200)
         self.wfile.write(json.dumps(res).encode("utf-8"))
@@ -263,24 +288,27 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         
         writer.writerow([
             "Periode", "Product Code", "Principal Product Code", "Product Name", "GB", "Keterangan Produk",
-            "Harga Dasar (IDR)", "Qty Stok Baik", "Qty BDP", "Total Stok MNJ Qty",
-            "Stok MNJ Value (IDR)", "Avg Sales Qty", "Avg Sales Value (IDR)",
-            "DOI MNJ (Hari)", "Status Health MNJ"
+            "Harga Dasar (IDR)", "Qty Baik MNJ", "Qty BDP MNJ", "Stok MNJ Qty", "Stok MNJ Value (IDR)", "DOI MNJ (Hari)",
+            "Stok KX Qty", "Stok KX Value (IDR)", "DOI KX (Hari)",
+            "Total Combined Stok Qty", "Total Combined Stok Value (IDR)", "DOI Total (Hari)",
+            "Avg Sales Qty", "Avg Sales Value (IDR)", "Status Health Total"
         ])
 
         for r in filtered:
             writer.writerow([
                 r["period"], r["product_code"], r["principal_product_code"], r["product_name"],
-                r["gb"], r["keterangan_produk"], r["harga_dasar"], r["qty_baik"],
-                r["qty_bdp"], r["stok_mnj_qty"], r["stok_mnj_value"], r["avg_sales_qty"],
-                r["avg_sales_value"], r["doi_mnj_days"], r["health_status_mnj"]
+                r["gb"], r["keterangan_produk"], r["harga_dasar"],
+                r["qty_baik"], r["qty_bdp"], r["stok_mnj_qty"], r["stok_mnj_value"], r["doi_mnj_days"],
+                r["stok_kx_qty"], r["stok_kx_value"], r["doi_kx_days"],
+                r["stok_total_qty"], r["stok_total_value"], r["doi_total_days"],
+                r["avg_sales_qty"], r["avg_sales_value"], r["health_status_total"]
             ])
 
         csv_content = output.getvalue()
         
         self.send_response(200)
         self.send_header("Content-Type", "text/csv")
-        self.send_header("Content-Disposition", "attachment; filename=doi_mnj_report.csv")
+        self.send_header("Content-Disposition", "attachment; filename=doi_mnj_kx_report.csv")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(csv_content.encode("utf-8"))
@@ -291,7 +319,7 @@ def run_server(port=8000):
 
     server_address = ("", port)
     httpd = ThreadingHTTPServer(server_address, DOIRequestHandler)
-    print(f"[SERVER] DOI MNJ Monitoring API Server running on http://localhost:{port}")
+    print(f"[SERVER] DOI MNJ & KX Monitoring API Server running on http://localhost:{port}")
 
     try:
         httpd.serve_forever()

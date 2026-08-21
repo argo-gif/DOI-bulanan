@@ -1,6 +1,6 @@
 """
-ETL Pipeline & Metric Calculator Engine for DOI MNJ Dashboard
-Supports Period Scanning, Multi-Select GB, Multi-Select Keterangan Produk, Lookback Sales Window, and Historical DOI Trends.
+ETL Pipeline & Metric Calculator Engine for DOI Monitoring Dashboard (MNJ & KX Principal)
+Supports MNJ Stock, KX Principal Stock, Combined DOI Calculations, Multi-Select Filters, and Historical Trends.
 """
 
 import os
@@ -36,6 +36,7 @@ class DataEngine:
         self.base_dir = base_dir
         self.master_file = os.path.join(base_dir, "Master produk.xlsx")
         self.mnj_file = os.path.join(base_dir, "Stok Akhir bulan MNJ.xlsx")
+        self.kx_file = os.path.join(base_dir, "Stok Akhir bulan KX dan Produksi.xlsx")
         self.sales_file = os.path.join(base_dir, "Data sales.xlsx")
 
         self.master_products: Dict[str, Dict[str, Any]] = {}
@@ -45,6 +46,7 @@ class DataEngine:
 
         self._is_preloaded = False
         self._mnj_cache: Dict[str, Dict[str, Dict[str, float]]] = {}  # {period: {pcode: {baik, bdp, total}}}
+        self._kx_cache: Dict[str, Dict[str, float]] = {}             # {period: {pcode: saldo_akhir_qty}}
         self._sales_cache: Dict[str, Dict[str, float]] = {}          # {month: {pcode: qty}}
 
     def load_master_data(self) -> Dict[str, Dict[str, Any]]:
@@ -98,7 +100,7 @@ class DataEngine:
         return self.master_products
 
     def resolve_product_code(self, raw_code: str) -> Optional[str]:
-        """Resolves raw/old code to primary Product_code."""
+        """Resolves raw/old/principal code to primary Product_code."""
         code = raw_code.strip()
         if code in self.master_products:
             return code
@@ -109,11 +111,11 @@ class DataEngine:
         return None
 
     def preload_all_data(self):
-        """Preloads MNJ stock and Sales datasets into memory."""
+        """Preloads MNJ stock, KX stock, and Sales datasets into memory."""
         if self._is_preloaded:
             return
 
-        print("[ENGINE] Preloading MNJ datasets into memory...")
+        print("[ENGINE] Preloading datasets into memory...")
         self.load_master_data()
 
         # 1. Preload MNJ Stock
@@ -143,7 +145,29 @@ class DataEngine:
                 self._mnj_cache[period][target_code]["total"] += (qty_baik + qty_bdp)
             wb.close()
 
-        # 2. Preload Sales Data
+        # 2. Preload KX Principal Stock
+        if os.path.exists(self.kx_file):
+            wb = openpyxl.load_workbook(self.kx_file, read_only=True, data_only=True)
+            sheet = wb.active
+            for row in sheet.iter_rows(min_row=4, values_only=True):
+                if not row or len(row) < 17 or row[2] is None or row[1] is None:
+                    continue
+                raw_code = str(row[2]).strip()
+                period = parse_year_month(row[16])
+                if not period:
+                    continue
+                saldo_akhir = float(row[15]) if row[15] is not None else 0.0
+
+                target_code = self.resolve_product_code(raw_code)
+                if not target_code:
+                    continue
+
+                if period not in self._kx_cache:
+                    self._kx_cache[period] = {}
+                self._kx_cache[period][target_code] = self._kx_cache[period].get(target_code, 0.0) + saldo_akhir
+            wb.close()
+
+        # 3. Preload Sales Data
         if os.path.exists(self.sales_file):
             wb = openpyxl.load_workbook(self.sales_file, read_only=True, data_only=True)
             sheet = wb.active
@@ -163,7 +187,11 @@ class DataEngine:
                 self._sales_cache[month][target_code] = self._sales_cache[month].get(target_code, 0.0) + qty
             wb.close()
 
-        self.available_periods = sorted(list(self._mnj_cache.keys()), reverse=True)
+        mnj_periods = set(self._mnj_cache.keys())
+        kx_periods = set(self._kx_cache.keys())
+        combined_periods = sorted(list(mnj_periods.union(kx_periods)), reverse=True)
+
+        self.available_periods = combined_periods
         self._is_preloaded = True
         print(f"[ENGINE] Preload complete! {len(self.master_products)} products, {len(self.available_periods)} periods.")
 
@@ -216,6 +244,7 @@ class DataEngine:
         return avg_sales
 
     def get_doi_mnj_report(self, period: Optional[str] = None, avg_months: int = 1) -> List[Dict[str, Any]]:
+        """Generates comprehensive report containing MNJ stock, KX principal stock, combined stock, and DOI metrics."""
         if not self._is_preloaded:
             self.preload_all_data()
 
@@ -223,6 +252,7 @@ class DataEngine:
         selected_period = period if period and period in periods else (periods[0] if periods else "2026-07")
 
         mnj_data = self._mnj_cache.get(selected_period, {})
+        kx_data = self._kx_cache.get(selected_period, {})
         avg_sales_dict = self.load_sales(target_period=selected_period, avg_months=avg_months)
 
         report = []
@@ -233,23 +263,43 @@ class DataEngine:
             qty_bdp = stok_info["bdp"]
             stok_mnj_qty = stok_info["total"]
 
+            stok_kx_qty = kx_data.get(pcode, 0.0)
+            stok_total_qty = stok_mnj_qty + stok_kx_qty
+
             harga_dasar = pinfo["harga_dasar"]
             stok_mnj_value = stok_mnj_qty * harga_dasar
+            stok_kx_value = stok_kx_qty * harga_dasar
+            stok_total_value = stok_total_qty * harga_dasar
 
             avg_sales_qty = avg_sales_dict.get(pcode, 0.0)
             avg_sales_value = avg_sales_qty * harga_dasar
 
+            # DOI MNJ
             if avg_sales_qty > 0:
                 doi_mnj = (stok_mnj_qty / avg_sales_qty) * 30.0
             else:
                 doi_mnj = 999.0 if stok_mnj_qty > 0 else 0.0
 
-            if doi_mnj < 30.0:
-                health_status = "Understock"
-            elif doi_mnj <= 90.0:
-                health_status = "Normal"
+            # DOI KX
+            if avg_sales_qty > 0:
+                doi_kx = (stok_kx_qty / avg_sales_qty) * 30.0
             else:
-                health_status = "Overstock"
+                doi_kx = 999.0 if stok_kx_qty > 0 else 0.0
+
+            # DOI Total
+            if avg_sales_qty > 0:
+                doi_total = (stok_total_qty / avg_sales_qty) * 30.0
+            else:
+                doi_total = 999.0 if stok_total_qty > 0 else 0.0
+
+            # Health status helper
+            def get_status(doi_days: float) -> str:
+                if doi_days < 30.0:
+                    return "Understock"
+                elif doi_days <= 90.0:
+                    return "Normal"
+                else:
+                    return "Overstock"
 
             report.append({
                 "period": selected_period,
@@ -261,21 +311,35 @@ class DataEngine:
                 "keterangan_produk": pinfo["keterangan"],
                 "harga_dasar": harga_dasar,
 
+                # MNJ Stock
                 "qty_baik": qty_baik,
                 "qty_bdp": qty_bdp,
                 "stok_mnj_qty": stok_mnj_qty,
-                "stok_mnj_value": stok_mnj_value,
-
-                "avg_sales_qty": avg_sales_qty,
-                "avg_sales_value": avg_sales_value,
+                "stok_mnj_value": round(stok_mnj_value, 2),
                 "doi_mnj_days": round(doi_mnj, 1),
-                "health_status_mnj": health_status
+                "health_status_mnj": get_status(doi_mnj),
+
+                # KX Stock
+                "stok_kx_qty": stok_kx_qty,
+                "stok_kx_value": round(stok_kx_value, 2),
+                "doi_kx_days": round(doi_kx, 1),
+                "health_status_kx": get_status(doi_kx),
+
+                # Total Combined Stock
+                "stok_total_qty": stok_total_qty,
+                "stok_total_value": round(stok_total_value, 2),
+                "doi_total_days": round(doi_total, 1),
+                "health_status_total": get_status(doi_total),
+
+                # Sales
+                "avg_sales_qty": avg_sales_qty,
+                "avg_sales_value": round(avg_sales_value, 2)
             })
 
         return report
 
     def get_gb_summary_report(self, period: Optional[str] = None, avg_months: int = 1, keterangan: Union[str, List[str]] = "All", unit: str = "qty") -> List[Dict[str, Any]]:
-        """Calculates aggregated DOI metrics grouped per GB and Total Consolidated with multi-select keterangan filtering."""
+        """Calculates aggregated DOI metrics grouped per GB and Total Consolidated with MNJ, KX, and Combined metrics."""
         report = self.get_doi_mnj_report(period=period, avg_months=avg_months)
         ket_set = parse_multi_param(keterangan)
 
@@ -292,6 +356,10 @@ class DataEngine:
                     "total_sku": 0,
                     "stok_mnj_qty": 0.0,
                     "stok_mnj_value": 0.0,
+                    "stok_kx_qty": 0.0,
+                    "stok_kx_value": 0.0,
+                    "stok_total_qty": 0.0,
+                    "stok_total_value": 0.0,
                     "avg_sales_qty": 0.0,
                     "avg_sales_value": 0.0,
                     "understock_count": 0,
@@ -302,6 +370,10 @@ class DataEngine:
             gb_map[gb_name]["total_sku"] += 1
             gb_map[gb_name]["stok_mnj_qty"] += r["stok_mnj_qty"]
             gb_map[gb_name]["stok_mnj_value"] += r["stok_mnj_value"]
+            gb_map[gb_name]["stok_kx_qty"] += r["stok_kx_qty"]
+            gb_map[gb_name]["stok_kx_value"] += r["stok_kx_value"]
+            gb_map[gb_name]["stok_total_qty"] += r["stok_total_qty"]
+            gb_map[gb_name]["stok_total_value"] += r["stok_total_value"]
             gb_map[gb_name]["avg_sales_qty"] += r["avg_sales_qty"]
             gb_map[gb_name]["avg_sales_value"] += r["avg_sales_value"]
 
@@ -318,31 +390,45 @@ class DataEngine:
 
         for gb_name, d in sorted(gb_map.items()):
             if is_value_mode:
-                stok = d["stok_mnj_value"]
+                stok_m = d["stok_mnj_value"]
+                stok_k = d["stok_kx_value"]
+                stok_t = d["stok_total_value"]
                 sales = d["avg_sales_value"]
             else:
-                stok = d["stok_mnj_qty"]
+                stok_m = d["stok_mnj_qty"]
+                stok_k = d["stok_kx_qty"]
+                stok_t = d["stok_total_qty"]
                 sales = d["avg_sales_qty"]
 
-            doi = (stok / sales * 30.0) if sales > 0 else (999.0 if stok > 0 else 0.0)
+            doi_m = (stok_m / sales * 30.0) if sales > 0 else (999.0 if stok_m > 0 else 0.0)
+            doi_k = (stok_k / sales * 30.0) if sales > 0 else (999.0 if stok_k > 0 else 0.0)
+            doi_t = (stok_t / sales * 30.0) if sales > 0 else (999.0 if stok_t > 0 else 0.0)
             
-            if doi < 30.0:
-                h_status = "Understock"
-            elif doi <= 90.0:
-                h_status = "Normal"
-            else:
-                h_status = "Overstock"
+            def get_status(days: float) -> str:
+                if days < 30.0:
+                    return "Understock"
+                elif days <= 90.0:
+                    return "Normal"
+                else:
+                    return "Overstock"
 
-            d["doi_mnj_days"] = round(doi, 1)
-            d["health_status_mnj"] = h_status
+            d["doi_mnj_days"] = round(doi_m, 1)
+            d["doi_kx_days"] = round(doi_k, 1)
+            d["doi_total_days"] = round(doi_t, 1)
+            d["health_status_mnj"] = get_status(doi_m)
+            d["health_status_kx"] = get_status(doi_k)
+            d["health_status_total"] = get_status(doi_t)
+
             d["stok_mnj_value"] = round(d["stok_mnj_value"], 2)
+            d["stok_kx_value"] = round(d["stok_kx_value"], 2)
+            d["stok_total_value"] = round(d["stok_total_value"], 2)
             d["avg_sales_value"] = round(d["avg_sales_value"], 2)
             summary_list.append(d)
 
         return summary_list
 
     def get_historical_doi_trend(self, gb: Union[str, List[str]] = "All", keterangan: Union[str, List[str]] = "All", avg_months: int = 1, unit: str = "qty") -> List[Dict[str, Any]]:
-        """Calculates DOI trend over all available periods with multi-select GB & Keterangan filtering."""
+        """Calculates DOI trend for MNJ, KX, and Total Combined over all available periods."""
         periods = sorted(self.get_available_periods())
         month_names = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
         
@@ -354,8 +440,12 @@ class DataEngine:
         for p in periods:
             report = self.get_doi_mnj_report(period=p, avg_months=avg_months)
             
-            tot_stok_qty = 0.0
-            tot_stok_val = 0.0
+            tot_mnj_qty = 0.0
+            tot_mnj_val = 0.0
+            tot_kx_qty = 0.0
+            tot_kx_val = 0.0
+            tot_total_qty = 0.0
+            tot_total_val = 0.0
             tot_sales_qty = 0.0
             tot_sales_val = 0.0
             sku_cnt = 0
@@ -367,19 +457,29 @@ class DataEngine:
                     continue
 
                 sku_cnt += 1
-                tot_stok_qty += r["stok_mnj_qty"]
-                tot_stok_val += r["stok_mnj_value"]
+                tot_mnj_qty += r["stok_mnj_qty"]
+                tot_mnj_val += r["stok_mnj_value"]
+                tot_kx_qty += r["stok_kx_qty"]
+                tot_kx_val += r["stok_kx_value"]
+                tot_total_qty += r["stok_total_qty"]
+                tot_total_val += r["stok_total_value"]
                 tot_sales_qty += r["avg_sales_qty"]
                 tot_sales_val += r["avg_sales_value"]
 
             if is_value_mode:
-                stok = tot_stok_val
+                stok_m = tot_mnj_val
+                stok_k = tot_kx_val
+                stok_t = tot_total_val
                 sales = tot_sales_val
             else:
-                stok = tot_stok_qty
+                stok_m = tot_mnj_qty
+                stok_k = tot_kx_qty
+                stok_t = tot_total_qty
                 sales = tot_sales_qty
 
-            doi = (stok / sales * 30.0) if sales > 0 else (999.0 if stok > 0 else 0.0)
+            doi_m = (stok_m / sales * 30.0) if sales > 0 else (999.0 if stok_m > 0 else 0.0)
+            doi_k = (stok_k / sales * 30.0) if sales > 0 else (999.0 if stok_k > 0 else 0.0)
+            doi_t = (stok_t / sales * 30.0) if sales > 0 else (999.0 if stok_t > 0 else 0.0)
 
             parts = p.split("-")
             month_idx = int(parts[1]) - 1
@@ -390,11 +490,21 @@ class DataEngine:
                 "period": p,
                 "period_label": p_label,
                 "total_sku": sku_cnt,
-                "stok_mnj_qty": tot_stok_qty,
-                "stok_mnj_value": round(tot_stok_val, 2),
+
+                "stok_mnj_qty": tot_mnj_qty,
+                "stok_mnj_value": round(tot_mnj_val, 2),
+                "doi_mnj_days": round(doi_m, 1),
+
+                "stok_kx_qty": tot_kx_qty,
+                "stok_kx_value": round(tot_kx_val, 2),
+                "doi_kx_days": round(doi_k, 1),
+
+                "stok_total_qty": tot_total_qty,
+                "stok_total_value": round(tot_total_val, 2),
+                "doi_total_days": round(doi_t, 1),
+
                 "avg_sales_qty": tot_sales_qty,
-                "avg_sales_value": round(tot_sales_val, 2),
-                "doi_mnj_days": round(doi, 1)
+                "avg_sales_value": round(tot_sales_val, 2)
             })
 
         return trend

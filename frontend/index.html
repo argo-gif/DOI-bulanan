@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Monitoring DOI Bulanan (MNJ)</title>
+  <title>Dashboard Monitoring DOI Bulanan (MNJ & KX Principal)</title>
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,8 +20,8 @@
     <div class="brand-title">
       <div class="brand-logo">📊</div>
       <div class="brand-text">
-        <h1>Dashboard Monitoring DOI Bulanan</h1>
-        <p>Distributor MNJ Inventory Analytics — Days of Inventory (DOI), GB Summary & Trend</p>
+        <h1>Dashboard Monitoring DOI Bulanan (MNJ & Principal KX)</h1>
+        <p>Distributor MNJ & Principal Konimex Inventory Analytics — DOI MNJ, DOI KX & DOI Combined</p>
       </div>
     </div>
 
@@ -33,8 +33,8 @@
     </div>
   </header>
 
-  <!-- Metric Summary Cards Grid -->
-  <section class="metrics-grid">
+  <!-- Metric Summary Cards Grid (7 Cards) -->
+  <section class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
     <!-- Total SKU -->
     <div class="metric-card glass-panel" style="--card-accent: linear-gradient(135deg, #3b82f6, #60a5fa);">
       <div class="metric-header">
@@ -52,7 +52,7 @@
         <span class="metric-icon">🚨</span>
       </div>
       <div class="metric-value" id="metricUnderstock" style="color: #f87171;">0</div>
-      <div class="metric-subtitle">Perlu Reorder Segera</div>
+      <div class="metric-subtitle">Berdasar DOI Combined Total</div>
     </div>
 
     <!-- Normal -->
@@ -62,7 +62,7 @@
         <span class="metric-icon">✅</span>
       </div>
       <div class="metric-value" id="metricNormal" style="color: #34d399;">0</div>
-      <div class="metric-subtitle">Level Stok Optimal</div>
+      <div class="metric-subtitle">Level Stok Combined Optimal</div>
     </div>
 
     <!-- Overstock -->
@@ -75,24 +75,34 @@
       <div class="metric-subtitle">Potensi Holding Cost Tinggi</div>
     </div>
 
-    <!-- Dynamic Dual-Unit Total Stok MNJ -->
+    <!-- Total Stok MNJ -->
     <div class="metric-card glass-panel" style="--card-accent: linear-gradient(135deg, #8b5cf6, #c084fc);">
       <div class="metric-header">
-        <span class="metric-title" id="metricTotalStokTitle">Total Stok MNJ (Qty)</span>
-        <span class="metric-icon">💰</span>
+        <span class="metric-title" id="metricTotalStokMNJTitle">Stok MNJ (Distributor)</span>
+        <span class="metric-icon">🏢</span>
       </div>
-      <div class="metric-value" id="metricTotalStokVal" style="font-size: 20px;">0</div>
-      <div class="metric-subtitle" id="metricTotalStokSub">Persediaan MNJ (Berdasar Satuan View)</div>
+      <div class="metric-value" id="metricTotalStokMNJVal" style="font-size: 19px;">0</div>
+      <div class="metric-subtitle" id="metricDOIMNJSubtitle">DOI MNJ: 0.0 Hari</div>
     </div>
 
-    <!-- Dynamic Dual-Unit Total Avg Sales -->
+    <!-- Total Stok KX -->
+    <div class="metric-card glass-panel" style="--card-accent: linear-gradient(135deg, #ec4899, #f472b6);">
+      <div class="metric-header">
+        <span class="metric-title" id="metricTotalStokKXTitle">Stok KX (Principal)</span>
+        <span class="metric-icon">🏭</span>
+      </div>
+      <div class="metric-value" id="metricTotalStokKXVal" style="font-size: 19px;">0</div>
+      <div class="metric-subtitle" id="metricDOIKXSubtitle">DOI KX: 0.0 Hari</div>
+    </div>
+
+    <!-- Total Combined Stok (MNJ + KX) -->
     <div class="metric-card glass-panel" style="--card-accent: linear-gradient(135deg, #06b6d4, #38bdf8);">
       <div class="metric-header">
-        <span class="metric-title" id="metricAvgSalesTitle">Avg Sales Bulanan (Qty)</span>
-        <span class="metric-icon">📈</span>
+        <span class="metric-title" id="metricTotalStokCombTitle">Total Stok Combined</span>
+        <span class="metric-icon">🔗</span>
       </div>
-      <div class="metric-value" id="metricAvgSalesVal" style="font-size: 20px;">0</div>
-      <div class="metric-subtitle" id="metricAvgSalesSub">Penjualan Bulanan (Berdasar Satuan View)</div>
+      <div class="metric-value" id="metricTotalStokCombVal" style="font-size: 19px; color: var(--accent-cyan);">0</div>
+      <div class="metric-subtitle" id="metricDOICombSubtitle">DOI Total: 0.0 Hari</div>
     </div>
   </section>
 
@@ -120,7 +130,7 @@
       <!-- Export CSV -->
       <button class="btn-export" id="btnExport">
         <span>📥</span>
-        <span>Ekspor Data MNJ (CSV)</span>
+        <span>Ekspor Data MNJ & KX (CSV)</span>
       </button>
     </div>
 
@@ -188,7 +198,7 @@
     <!-- Health Status Quick Filters -->
     <div class="filter-row" style="margin-top: 4px;">
       <div class="filter-group">
-        <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">Filter Status DOI:</span>
+        <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">Filter Status DOI Total:</span>
         <button class="toggle-btn active" data-health="All">Semua Status</button>
         <button class="toggle-btn" data-health="Understock" style="color: #f87171;">🔴 Understock (<30 Hari)</button>
         <button class="toggle-btn" data-health="Normal" style="color: #34d399;">🟢 Normal (30-90 Hari)</button>
@@ -199,12 +209,19 @@
 
   <!-- Historical DOI Trend Chart Section -->
   <section class="glass-panel" style="padding: 24px; margin-bottom: 24px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
       <div>
         <h2 style="font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
           <span>📈</span> Trend Pergerakan DOI Historis (Januari 2026 – Juli 2026)
         </h2>
-        <p style="font-size: 13px; color: var(--text-secondary);">Perubahan ketahanan stok DOI (Hari) per periode berdasar filter aktif. Klik titik grafik untuk beralih bulan.</p>
+        <p style="font-size: 13px; color: var(--text-secondary);">Visualisasi perbandingan pergerakan DOI MNJ, DOI KX, dan DOI Combined Total.</p>
+      </div>
+
+      <!-- Trend View Mode Selector -->
+      <div class="toggle-container">
+        <button class="toggle-btn active" data-trend-mode="total">DOI Combined Total</button>
+        <button class="toggle-btn" data-trend-mode="mnj">DOI MNJ</button>
+        <button class="toggle-btn" data-trend-mode="kx">DOI KX</button>
       </div>
     </div>
     
@@ -219,7 +236,7 @@
       <h2 style="font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
         <span>🏢</span> Ringkasan DOI Per Group Business (GB) & Total Konsolidasi
       </h2>
-      <p style="font-size: 13px; color: var(--text-secondary);">Klik baris GB untuk menyaring tabel detail produk di bawah secara otomatis.</p>
+      <p style="font-size: 13px; color: var(--text-secondary);">Perbandingan stok persediaan MNJ, KX Principal, Total Combined, dan DOI (Hari) per GB.</p>
     </div>
 
     <table class="data-table">
@@ -227,11 +244,14 @@
         <tr>
           <th>Group Bisnis (GB)</th>
           <th style="text-align: right;">Total SKU</th>
-          <th style="text-align: right;">Total Stok MNJ</th>
+          <th style="text-align: right;">Stok MNJ</th>
+          <th style="text-align: right;">Stok KX</th>
+          <th style="text-align: right;">Stok Combined</th>
           <th style="text-align: right;">Avg Sales / Bln</th>
-          <th style="text-align: right;">DOI Weighted (Hari)</th>
-          <th>Status Kesehatan GB</th>
-          <th>Sebaran Health SKU</th>
+          <th style="text-align: right;">DOI MNJ</th>
+          <th style="text-align: right;">DOI KX</th>
+          <th style="text-align: right; color: var(--accent-cyan);">DOI Total</th>
+          <th>Health Status</th>
         </tr>
       </thead>
       <tbody id="gbTableBody">
@@ -244,7 +264,7 @@
   <section class="glass-panel" style="overflow: hidden;">
     <div style="padding: 20px 24px 10px 24px;">
       <h2 style="font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
-        <span>📋</span> Detail Produk & Status Health DOI
+        <span>📋</span> Detail Produk & Perhitungan DOI (MNJ, KX, & Combined)
       </h2>
     </div>
 
@@ -256,11 +276,13 @@
             <th>Nama Produk</th>
             <th>GB</th>
             <th>Keterangan</th>
-            <th style="text-align: right;">Stok Baik</th>
-            <th style="text-align: right;">Stok BDP</th>
-            <th style="text-align: right;">Total Stok MNJ</th>
+            <th style="text-align: right;">Stok MNJ</th>
+            <th style="text-align: right;">Stok KX</th>
+            <th style="text-align: right;">Total Combined</th>
             <th style="text-align: right;">Avg Sales / Bln</th>
-            <th style="text-align: right;">DOI MNJ (Hari)</th>
+            <th style="text-align: right;">DOI MNJ</th>
+            <th style="text-align: right;">DOI KX</th>
+            <th style="text-align: right; color: var(--accent-cyan);">DOI Total</th>
             <th>Status Health</th>
           </tr>
         </thead>

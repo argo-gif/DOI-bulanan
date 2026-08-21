@@ -1,4 +1,4 @@
-// Combined Standalone Frontend Script for Dashboard Monitoring DOI MNJ (Guaranteed Immediate Data Loading & Period Fallbacks)
+// Combined Standalone Frontend Script for Dashboard Monitoring DOI (MNJ Distributor & KX Principal)
 (function() {
   const API_BASE = '/api/v1';
 
@@ -95,6 +95,7 @@
         period: '2026-07',
         unit: 'qty',
         scale: 'compact', // 'compact' or 'full'
+        trendMode: 'total', // 'total', 'mnj', 'kx'
         selectedGBs: [],  // [] means All
         selectedKets: [], // [] means All
         health_status: 'All',
@@ -283,6 +284,16 @@
         });
       });
 
+      document.querySelectorAll('[data-trend-mode]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const mode = e.currentTarget.getAttribute('data-trend-mode');
+          this.filters.trendMode = mode;
+          document.querySelectorAll('[data-trend-mode]').forEach(b => b.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          this.renderTrendChart();
+        });
+      });
+
       const scaleSelect = document.getElementById('scaleSelect');
       if (scaleSelect) {
         scaleSelect.addEventListener('change', (e) => {
@@ -452,16 +463,29 @@
       document.getElementById('metricNormal').innerText = formatNum(this.summary.normal_count);
       document.getElementById('metricOverstock').innerText = formatNum(this.summary.overstock_count);
 
-      const titleStok = document.getElementById('metricTotalStokTitle');
-      const titleSales = document.getElementById('metricAvgSalesTitle');
-      if (titleStok) titleStok.innerText = isVal ? 'Total Stok MNJ (Value)' : 'Total Stok MNJ (Qty)';
-      if (titleSales) titleSales.innerText = isVal ? 'Valuasi Avg Sales Bulanan' : 'Avg Sales Bulanan (Qty)';
+      // Card Titles
+      document.getElementById('metricTotalStokMNJTitle').innerText = isVal ? 'Stok MNJ (Distributor)' : 'Stok MNJ (Qty)';
+      document.getElementById('metricTotalStokKXTitle').innerText = isVal ? 'Stok KX (Principal)' : 'Stok KX (Qty)';
+      document.getElementById('metricTotalStokCombTitle').innerText = isVal ? 'Total Stok Combined' : 'Total Combined (Qty)';
 
-      const stokVal = isVal ? this.summary.total_stok_value : (this.summary.total_stok_qty || 0);
+      // Values
+      const mnjVal = isVal ? this.summary.total_stok_mnj_value : (this.summary.total_stok_mnj_qty || 0);
+      const kxVal = isVal ? this.summary.total_stok_kx_value : (this.summary.total_stok_kx_qty || 0);
+      const combVal = isVal ? this.summary.total_stok_combined_value : (this.summary.total_stok_combined_qty || 0);
       const salesVal = isVal ? this.summary.total_avg_sales_value : (this.summary.total_avg_sales_qty || 0);
 
-      document.getElementById('metricTotalStokVal').innerText = this.formatDisplayValue(stokVal, isVal);
-      document.getElementById('metricAvgSalesVal').innerText = this.formatDisplayValue(salesVal, isVal);
+      document.getElementById('metricTotalStokMNJVal').innerText = this.formatDisplayValue(mnjVal, isVal);
+      document.getElementById('metricTotalStokKXVal').innerText = this.formatDisplayValue(kxVal, isVal);
+      document.getElementById('metricTotalStokCombVal').innerText = this.formatDisplayValue(combVal, isVal);
+
+      // Calculated Consolidated DOIs for subtitles
+      const doiMNJ = salesVal > 0 ? (mnjVal / salesVal * 30.0) : 0;
+      const doiKX = salesVal > 0 ? (kxVal / salesVal * 30.0) : 0;
+      const doiComb = salesVal > 0 ? (combVal / salesVal * 30.0) : 0;
+
+      document.getElementById('metricDOIMNJSubtitle').innerText = `DOI MNJ: ${doiMNJ.toFixed(1)} Hari`;
+      document.getElementById('metricDOIKXSubtitle').innerText = `DOI KX: ${doiKX.toFixed(1)} Hari`;
+      document.getElementById('metricDOICombSubtitle').innerText = `DOI Total: ${doiComb.toFixed(1)} Hari`;
     }
 
     renderTrendChart() {
@@ -469,7 +493,17 @@
       if (!chartContainer || !this.trendData || this.trendData.length === 0) return;
 
       const data = this.trendData;
-      const maxDOI = Math.max(...data.map(d => d.doi_mnj_days), 100);
+      const mode = this.filters.trendMode || 'total';
+
+      const getDOI = (d) => {
+        if (mode === 'mnj') return d.doi_mnj_days;
+        if (mode === 'kx') return d.doi_kx_days;
+        return d.doi_total_days;
+      };
+
+      const strokeColor = mode === 'mnj' ? '#06b6d4' : mode === 'kx' ? '#ec4899' : '#8b5cf6';
+
+      const maxDOI = Math.max(...data.map(d => getDOI(d)), 100);
       const minDOI = 0;
 
       const width = 800;
@@ -482,9 +516,10 @@
       const xStep = chartW / Math.max(1, data.length - 1);
 
       const points = data.map((d, i) => {
+        const doiVal = getDOI(d);
         const x = padding.left + i * xStep;
-        const y = padding.top + chartH - ((d.doi_mnj_days - minDOI) / (maxDOI - minDOI)) * chartH;
-        return { x, y, data: d };
+        const y = padding.top + chartH - ((doiVal - minDOI) / (maxDOI - minDOI)) * chartH;
+        return { x, y, doiVal, data: d };
       });
 
       const pathD = points.reduce((acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
@@ -497,8 +532,8 @@
         <svg viewBox="0 0 ${width} ${height}" style="width: 100%; height: 100%; overflow: visible;">
           <defs>
             <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.4"/>
-              <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.0"/>
+              <stop offset="0%" stop-color="${strokeColor}" stop-opacity="0.4"/>
+              <stop offset="100%" stop-color="${strokeColor}" stop-opacity="0.0"/>
             </linearGradient>
           </defs>
 
@@ -512,13 +547,13 @@
 
           <!-- Trend Area & Line -->
           <path d="${areaD}" fill="url(#trendGradient)" />
-          <path d="${pathD}" fill="none" stroke="#06b6d4" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
 
           <!-- Data Points & Labels -->
           ${points.map(p => `
             <g class="chart-point-group" data-period="${p.data.period}">
-              <circle cx="${p.x}" cy="${p.y}" r="6" fill="#090d16" stroke="#06b6d4" stroke-width="3" style="transition: r 0.2s ease; cursor: pointer;"/>
-              <text x="${p.x}" y="${p.y - 12}" fill="#ffffff" font-size="11" font-weight="700" text-anchor="middle">${p.data.doi_mnj_days} Hari</text>
+              <circle cx="${p.x}" cy="${p.y}" r="6" fill="#090d16" stroke="${strokeColor}" stroke-width="3" style="transition: r 0.2s ease; cursor: pointer;"/>
+              <text x="${p.x}" y="${p.y - 12}" fill="#ffffff" font-size="11" font-weight="700" text-anchor="middle">${p.doiVal} Hari</text>
               <text x="${p.x}" y="${height - padding.bottom + 18}" fill="#94a3b8" font-size="11" font-weight="600" text-anchor="middle">${p.data.period_label}</text>
             </g>
           `).join('')}
@@ -544,26 +579,28 @@
       const isVal = this.filters.unit === 'value';
 
       const totalSKU = this.gbSummary.reduce((a, b) => a + b.total_sku, 0);
-      const totalStokQty = this.gbSummary.reduce((a, b) => a + b.stok_mnj_qty, 0);
-      const totalStokVal = this.gbSummary.reduce((a, b) => a + b.stok_mnj_value, 0);
-      const totalSalesQty = this.gbSummary.reduce((a, b) => a + b.avg_sales_qty, 0);
-      const totalSalesVal = this.gbSummary.reduce((a, b) => a + b.avg_sales_value, 0);
+      const totalStokMNJ = this.gbSummary.reduce((a, b) => a + (isVal ? b.stok_mnj_value : b.stok_mnj_qty), 0);
+      const totalStokKX = this.gbSummary.reduce((a, b) => a + (isVal ? b.stok_kx_value : b.stok_kx_qty), 0);
+      const totalStokComb = this.gbSummary.reduce((a, b) => a + (isVal ? b.stok_total_value : b.stok_total_qty), 0);
+      const totalSales = this.gbSummary.reduce((a, b) => a + (isVal ? b.avg_sales_value : b.avg_sales_qty), 0);
 
-      const totalDOI = isVal
-        ? (totalSalesVal > 0 ? (totalStokVal / totalSalesVal * 30.0) : 0)
-        : (totalSalesQty > 0 ? (totalStokQty / totalSalesQty * 30.0) : 0);
+      const doiMNJ = totalSales > 0 ? (totalStokMNJ / totalSales * 30.0) : 0;
+      const doiKX = totalSales > 0 ? (totalStokKX / totalSales * 30.0) : 0;
+      const doiTotal = totalSales > 0 ? (totalStokComb / totalSales * 30.0) : 0;
 
       let totalBadge = 'badge-normal';
-      if (totalDOI < 30) totalBadge = 'badge-understock';
-      if (totalDOI > 90) totalBadge = 'badge-overstock';
+      if (doiTotal < 30) totalBadge = 'badge-understock';
+      if (doiTotal > 90) totalBadge = 'badge-overstock';
 
       let html = this.gbSummary.map(gb => {
-        const stokDisplay = isVal ? gb.stok_mnj_value : gb.stok_mnj_qty;
-        const salesDisplay = isVal ? gb.avg_sales_value : gb.avg_sales_qty;
+        const mnjDisp = isVal ? gb.stok_mnj_value : gb.stok_mnj_qty;
+        const kxDisp = isVal ? gb.stok_kx_value : gb.stok_kx_qty;
+        const combDisp = isVal ? gb.stok_total_value : gb.stok_total_qty;
+        const salesDisp = isVal ? gb.avg_sales_value : gb.avg_sales_qty;
 
         let badgeClass = 'badge-normal';
-        if (gb.health_status_mnj === 'Understock') badgeClass = 'badge-understock';
-        if (gb.health_status_mnj === 'Overstock') badgeClass = 'badge-overstock';
+        if (gb.health_status_total === 'Understock') badgeClass = 'badge-understock';
+        if (gb.health_status_total === 'Overstock') badgeClass = 'badge-overstock';
 
         const isActive = this.filters.selectedGBs.includes(gb.gb);
 
@@ -571,31 +608,30 @@
           <tr data-gb="${gb.gb}" style="${isActive ? 'background: rgba(6, 182, 212, 0.15); border-left: 4px solid var(--accent-cyan);' : ''}">
             <td style="font-weight: 700; color: #fff;">${gb.gb}</td>
             <td style="text-align: right; font-weight: 600;">${gb.total_sku}</td>
-            <td style="text-align: right; font-weight: 600; color: #fff;">${this.formatDisplayValue(stokDisplay, isVal)}</td>
-            <td style="text-align: right; font-weight: 500;">${this.formatDisplayValue(salesDisplay, isVal)}</td>
-            <td style="text-align: right; font-weight: 800; color: var(--accent-cyan); font-size: 14px;">${gb.doi_mnj_days.toFixed(1)} Hari</td>
-            <td><span class="badge ${badgeClass}">${gb.health_status_mnj}</span></td>
-            <td style="font-size: 12px;">
-              <span style="color: #f87171;">🔴 ${gb.understock_count}</span> | 
-              <span style="color: #34d399;">🟢 ${gb.normal_count}</span> | 
-              <span style="color: #fbbf24;">🟡 ${gb.overstock_count}</span>
-            </td>
+            <td style="text-align: right; font-weight: 500; color: #cbd5e1;">${this.formatDisplayValue(mnjDisp, isVal)}</td>
+            <td style="text-align: right; font-weight: 500; color: #f472b6;">${this.formatDisplayValue(kxDisp, isVal)}</td>
+            <td style="text-align: right; font-weight: 700; color: #fff;">${this.formatDisplayValue(combDisp, isVal)}</td>
+            <td style="text-align: right; font-weight: 500;">${this.formatDisplayValue(salesDisp, isVal)}</td>
+            <td style="text-align: right; font-weight: 600; color: #60a5fa;">${gb.doi_mnj_days.toFixed(1)} d</td>
+            <td style="text-align: right; font-weight: 600; color: #f472b6;">${gb.doi_kx_days.toFixed(1)} d</td>
+            <td style="text-align: right; font-weight: 800; color: var(--accent-cyan); font-size: 14px;">${gb.doi_total_days.toFixed(1)} Hari</td>
+            <td><span class="badge ${badgeClass}">${gb.health_status_total}</span></td>
           </tr>
         `;
       }).join('');
-
-      const totStokDisp = isVal ? totalStokVal : totalStokQty;
-      const totSalesDisp = isVal ? totalSalesVal : totalSalesQty;
 
       html += `
         <tr style="background: rgba(15, 23, 42, 0.9); font-weight: 700; border-top: 2px solid var(--border-color);">
           <td style="color: var(--accent-cyan); font-size: 14px;">TOTAL KONSOLIDASI</td>
           <td style="text-align: right; color: #fff;">${totalSKU}</td>
-          <td style="text-align: right; color: #fff;">${this.formatDisplayValue(totStokDisp, isVal)}</td>
-          <td style="text-align: right; color: #fff;">${this.formatDisplayValue(totSalesDisp, isVal)}</td>
-          <td style="text-align: right; color: var(--accent-cyan); font-size: 15px;">${totalDOI.toFixed(1)} Hari</td>
-          <td><span class="badge ${totalBadge}">${totalDOI < 30 ? 'Understock' : totalDOI > 90 ? 'Overstock' : 'Normal'}</span></td>
-          <td>-</td>
+          <td style="text-align: right; color: #cbd5e1;">${this.formatDisplayValue(totalStokMNJ, isVal)}</td>
+          <td style="text-align: right; color: #f472b6;">${this.formatDisplayValue(totalStokKX, isVal)}</td>
+          <td style="text-align: right; color: #fff;">${this.formatDisplayValue(totalStokComb, isVal)}</td>
+          <td style="text-align: right; color: #fff;">${this.formatDisplayValue(totalSales, isVal)}</td>
+          <td style="text-align: right; color: #60a5fa;">${doiMNJ.toFixed(1)} d</td>
+          <td style="text-align: right; color: #f472b6;">${doiKX.toFixed(1)} d</td>
+          <td style="text-align: right; color: var(--accent-cyan); font-size: 15px;">${doiTotal.toFixed(1)} Hari</td>
+          <td><span class="badge ${totalBadge}">${doiTotal < 30 ? 'Understock' : doiTotal > 90 ? 'Overstock' : 'Normal'}</span></td>
         </tr>
       `;
 
@@ -624,8 +660,8 @@
       if (this.doiData.data.length === 0) {
         tableBody.innerHTML = `
           <tr>
-            <td colspan="10" style="text-align: center; padding: 40px; color: var(--text-muted);">
-              Tidak ada produk yang memenuhi kriteria filter multi-select.
+            <td colspan="12" style="text-align: center; padding: 40px; color: var(--text-muted);">
+              Tidak ada produk yang memenuhi kriteria filter.
             </td>
           </tr>
         `;
@@ -636,9 +672,14 @@
 
       tableBody.innerHTML = this.doiData.data.map(item => {
         const stokMNJ = isVal ? item.stok_mnj_value : item.stok_mnj_qty;
+        const stokKX = isVal ? item.stok_kx_value : item.stok_kx_qty;
+        const stokTotal = isVal ? item.stok_total_value : item.stok_total_qty;
         const avgSales = isVal ? item.avg_sales_value : item.avg_sales_qty;
-        const targetDOI = item.doi_mnj_days;
-        const targetStatus = item.health_status_mnj;
+
+        const doiMNJ = item.doi_mnj_days;
+        const doiKX = item.doi_kx_days;
+        const doiTotal = item.doi_total_days;
+        const targetStatus = item.health_status_total;
 
         let badgeClass = 'badge-normal';
         if (targetStatus === 'Understock') badgeClass = 'badge-understock';
@@ -660,12 +701,14 @@
             <td style="font-weight: 600;">${item.product_name}</td>
             <td><span style="font-size: 12px; color: var(--text-secondary);">${item.gb}</span></td>
             <td><span class="badge" style="${ketBadgeStyle}">${item.keterangan_produk}</span></td>
-            <td style="text-align: right; font-weight: 500; color: #cbd5e1;">${this.formatDisplayValue(item.qty_baik * (isVal ? item.harga_dasar : 1), isVal)}</td>
-            <td style="text-align: right; font-weight: 500; color: #cbd5e1;">${this.formatDisplayValue(item.qty_bdp * (isVal ? item.harga_dasar : 1), isVal)}</td>
-            <td style="text-align: right; font-weight: 700; color: #fff;">${this.formatDisplayValue(stokMNJ, isVal)}</td>
+            <td style="text-align: right; font-weight: 500; color: #cbd5e1;">${this.formatDisplayValue(stokMNJ, isVal)}</td>
+            <td style="text-align: right; font-weight: 500; color: #f472b6;">${this.formatDisplayValue(stokKX, isVal)}</td>
+            <td style="text-align: right; font-weight: 700; color: #fff;">${this.formatDisplayValue(stokTotal, isVal)}</td>
             <td style="text-align: right; font-weight: 500;">${this.formatDisplayValue(avgSales, isVal)}</td>
+            <td style="text-align: right; font-weight: 600; color: #60a5fa;">${doiMNJ >= 999 ? '> 999' : doiMNJ.toFixed(1)} d</td>
+            <td style="text-align: right; font-weight: 600; color: #f472b6;">${doiKX >= 999 ? '> 999' : doiKX.toFixed(1)} d</td>
             <td style="text-align: right; font-weight: 800; font-size: 14px; color: var(--accent-cyan);">
-              ${targetDOI >= 999 ? '> 999' : targetDOI.toFixed(1)} Hari
+              ${doiTotal >= 999 ? '> 999' : doiTotal.toFixed(1)} Hari
             </td>
             <td>
               <span class="badge ${badgeClass}">${targetStatus}</span>
@@ -697,7 +740,7 @@
       if (tableBody) {
         tableBody.innerHTML = `
           <tr>
-            <td colspan="10" style="text-align: center; padding: 40px; color: var(--status-understock);">
+            <td colspan="12" style="text-align: center; padding: 40px; color: var(--status-understock);">
               ❌ ${msg}
             </td>
           </tr>
