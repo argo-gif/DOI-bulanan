@@ -1,6 +1,6 @@
 """
 ETL Pipeline & Metric Calculator Engine for DOI Monitoring Dashboard (MNJ & KX Principal)
-Supports MNJ Stock, KX Principal Stock, Combined DOI Calculations, Multi-Select Filters, and Historical Trends.
+Fixed column mapping for Master produk.xlsx (Harga Dasar at index 6).
 """
 
 import os
@@ -50,7 +50,7 @@ class DataEngine:
         self._sales_cache: Dict[str, Dict[str, float]] = {}          # {month: {pcode: qty}}
 
     def load_master_data(self) -> Dict[str, Dict[str, Any]]:
-        """Reads Master produk.xlsx and builds lookup tables."""
+        """Reads Master produk.xlsx and builds lookup tables with exact column mapping."""
         if self.master_products:
             return self.master_products
 
@@ -60,26 +60,34 @@ class DataEngine:
         wb = openpyxl.load_workbook(self.master_file, read_only=True, data_only=True)
         sheet = wb.active
 
+        # Master Headers:
+        # 0: Principal_product_code, 1: Principal_product_code_lama, 2: Product_code,
+        # 3: Product_code_lama, 4: Product_name, 5: GB, 6: Harga Dasar,
+        # 7: KATEGORI, 8: Keterangan produk
         for row in sheet.iter_rows(min_row=2, values_only=True):
-            if not row or len(row) < 8 or not row[1]:
+            if not row or len(row) < 7 or not row[2]:
                 continue
 
             principal_code = str(row[0]).strip() if row[0] is not None else ""
-            product_code = str(row[1]).strip()
-            old_code = str(row[2]).strip() if row[2] is not None else ""
-            product_name = str(row[3]).strip() if row[3] is not None else ""
-            gb = str(row[4]).strip() if row[4] is not None else ""
+            principal_code_old = str(row[1]).strip() if row[1] is not None else ""
+            product_code = str(row[2]).strip()
+            old_code = str(row[3]).strip() if row[3] is not None else ""
+            product_name = str(row[4]).strip() if row[4] is not None else ""
+            gb = str(row[5]).strip() if row[5] is not None else ""
+            
             try:
-                harga_dasar = float(row[5]) if row[5] is not None else 0.0
+                harga_dasar = float(row[6]) if row[6] is not None else 0.0
             except (ValueError, TypeError):
                 harga_dasar = 0.0
-            kategori = str(row[6]).strip() if row[6] is not None else ""
-            keterangan = str(row[7]).strip() if row[7] is not None else "Regular"
+
+            kategori = str(row[7]).strip() if len(row) > 7 and row[7] is not None else ""
+            keterangan = str(row[8]).strip() if len(row) > 8 and row[8] is not None else "Regular"
             if not keterangan:
                 keterangan = "Regular"
 
             product_info = {
                 "principal_code": principal_code,
+                "principal_code_old": principal_code_old,
                 "product_code": product_code,
                 "old_code": old_code,
                 "product_name": product_name,
@@ -95,6 +103,8 @@ class DataEngine:
                 self.old_code_map[old_code] = product_code
             if principal_code:
                 self.principal_code_map[principal_code] = product_code
+            if principal_code_old:
+                self.principal_code_map[principal_code_old] = product_code
 
         wb.close()
         return self.master_products
