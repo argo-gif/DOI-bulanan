@@ -1,6 +1,6 @@
 """
 Backend REST API Server for DOI MNJ Monitoring Dashboard
-Includes Multi-Select GB, Multi-Select Keterangan Produk, and Dual-Unit Summary metrics.
+Guarantees 100% complete synchronous preloading before listening on HTTP port 8000.
 """
 
 import sys
@@ -9,7 +9,6 @@ import json
 import csv
 import io
 import mimetypes
-import threading
 from urllib.parse import parse_qs, urlparse
 from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 
@@ -287,12 +286,12 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(csv_content.encode("utf-8"))
 
 def run_server(port=8000):
+    print("[SERVER] Preloading datasets into memory...")
+    data_engine.preload_all_data()
+
     server_address = ("", port)
     httpd = ThreadingHTTPServer(server_address, DOIRequestHandler)
     print(f"[SERVER] DOI MNJ Monitoring API Server running on http://localhost:{port}")
-
-    preload_thread = threading.Thread(target=data_engine.preload_all_data, daemon=True)
-    preload_thread.start()
 
     try:
         httpd.serve_forever()

@@ -1,4 +1,4 @@
-// Combined Standalone Frontend Script for Dashboard Monitoring DOI MNJ (Multi-Select & Dynamic Dual-Unit Summary Cards)
+// Combined Standalone Frontend Script for Dashboard Monitoring DOI MNJ (Guaranteed Immediate Data Loading & Period Fallbacks)
 (function() {
   const API_BASE = '/api/v1';
 
@@ -179,6 +179,9 @@
 
         if (this.filters.period) {
           periodSelect.value = this.filters.period;
+        } else {
+          this.filters.period = periods[0];
+          periodSelect.value = periods[0];
         }
       }
 
