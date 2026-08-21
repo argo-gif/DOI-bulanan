@@ -1,6 +1,6 @@
 """
 ETL Pipeline & Metric Calculator Engine for DOI Monitoring Dashboard (MNJ & KX Principal)
-Updated Health Status evaluation based on Min Qty and Max Qty from Master produk.xlsx.
+Updated to include Target DOI (Days) calculated from Max Qty / Max Value in Master data.
 """
 
 import os
@@ -269,7 +269,7 @@ class DataEngine:
         return avg_sales
 
     def get_doi_mnj_report(self, period: Optional[str] = None, avg_months: int = 1) -> List[Dict[str, Any]]:
-        """Generates comprehensive report containing MNJ stock, KX principal stock, combined stock, and Health Status based on Min/Max Qty."""
+        """Generates comprehensive report containing MNJ stock, KX principal stock, combined stock, DOI Total, and Target DOI based on Max Qty."""
         if not self._is_preloaded:
             self.preload_all_data()
 
@@ -320,6 +320,12 @@ class DataEngine:
             min_qty = pinfo["min_qty"]
             max_qty = pinfo["max_qty"]
 
+            # Target DOI (Hari) based on Max Qty in Master data: (Max Qty / Avg Sales Qty) * 30.0
+            if avg_sales_qty > 0:
+                target_doi = (max_qty / avg_sales_qty) * 30.0
+            else:
+                target_doi = 999.0 if max_qty > 0 else 0.0
+
             # Health status based on Min Qty and Max Qty from Master data
             def get_health_status(stok_qty: float) -> str:
                 if stok_qty < min_qty:
@@ -342,6 +348,9 @@ class DataEngine:
                 "max_qty": max_qty,
                 "min_value": pinfo["min_value"],
                 "max_value": pinfo["max_value"],
+
+                # Target DOI (Days)
+                "target_doi_days": round(target_doi, 1),
 
                 # MNJ Stock
                 "qty_baik": qty_baik,
@@ -371,7 +380,7 @@ class DataEngine:
         return report
 
     def get_gb_summary_report(self, period: Optional[str] = None, avg_months: int = 1, keterangan: Union[str, List[str]] = "All", unit: str = "qty") -> List[Dict[str, Any]]:
-        """Calculates aggregated DOI metrics grouped per GB and Total Consolidated with MNJ, KX, and Combined metrics."""
+        """Calculates aggregated DOI metrics grouped per GB and Total Consolidated with Target DOI (Max)."""
         report = self.get_doi_mnj_report(period=period, avg_months=avg_months)
         ket_set = parse_multi_param(keterangan)
 
@@ -447,6 +456,7 @@ class DataEngine:
             doi_m = (stok_m / sales * 30.0) if sales > 0 else (999.0 if stok_m > 0 else 0.0)
             doi_k = (stok_k / sales * 30.0) if sales > 0 else (999.0 if stok_k > 0 else 0.0)
             doi_t = (stok_t / sales * 30.0) if sales > 0 else (999.0 if stok_t > 0 else 0.0)
+            target_doi_gb = (max_thresh / sales * 30.0) if sales > 0 else 0.0
             
             def get_gb_status(stok_val: float) -> str:
                 if stok_val < min_thresh:
@@ -459,6 +469,7 @@ class DataEngine:
             d["doi_mnj_days"] = round(doi_m, 1)
             d["doi_kx_days"] = round(doi_k, 1)
             d["doi_total_days"] = round(doi_t, 1)
+            d["target_doi_days"] = round(target_doi_gb, 1)
             d["health_status_mnj"] = get_gb_status(stok_m)
             d["health_status_kx"] = get_gb_status(stok_k)
             d["health_status_total"] = get_gb_status(stok_t)

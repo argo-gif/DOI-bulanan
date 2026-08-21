@@ -571,11 +571,13 @@
       const totalStokMNJ = this.gbSummary.reduce((a, b) => a + (isVal ? b.stok_mnj_value : b.stok_mnj_qty), 0);
       const totalStokKX = this.gbSummary.reduce((a, b) => a + (isVal ? b.stok_kx_value : b.stok_kx_qty), 0);
       const totalStokComb = this.gbSummary.reduce((a, b) => a + (isVal ? b.stok_total_value : b.stok_total_qty), 0);
+      const totalMaxThresh = this.gbSummary.reduce((a, b) => a + (isVal ? b.max_value_total : b.max_qty_total), 0);
       const totalSales = this.gbSummary.reduce((a, b) => a + (isVal ? b.avg_sales_value : b.avg_sales_qty), 0);
 
       const doiMNJ = totalSales > 0 ? (totalStokMNJ / totalSales * 30.0) : 0;
       const doiKX = totalSales > 0 ? (totalStokKX / totalSales * 30.0) : 0;
       const doiTotal = totalSales > 0 ? (totalStokComb / totalSales * 30.0) : 0;
+      const doiTargetCons = totalSales > 0 ? (totalMaxThresh / totalSales * 30.0) : 0;
 
       let html = this.gbSummary.map(gb => {
         const mnjDisp = isVal ? gb.stok_mnj_value : gb.stok_mnj_qty;
@@ -600,6 +602,7 @@
             <td style="text-align: right; font-weight: 600; color: #60a5fa;">${gb.doi_mnj_days.toFixed(1)} d</td>
             <td style="text-align: right; font-weight: 600; color: #f472b6;">${gb.doi_kx_days.toFixed(1)} d</td>
             <td style="text-align: right; font-weight: 800; color: var(--accent-cyan); font-size: 14px;">${gb.doi_total_days.toFixed(1)} Hari</td>
+            <td style="text-align: right; font-weight: 700; color: #a7f3d0; font-size: 14px;">${gb.target_doi_days ? gb.target_doi_days.toFixed(1) : '0.0'} Hari</td>
             <td><span class="badge ${badgeClass}">${gb.health_status_total}</span></td>
           </tr>
         `;
@@ -616,6 +619,7 @@
           <td style="text-align: right; color: #60a5fa;">${doiMNJ.toFixed(1)} d</td>
           <td style="text-align: right; color: #f472b6;">${doiKX.toFixed(1)} d</td>
           <td style="text-align: right; color: var(--accent-cyan); font-size: 15px;">${doiTotal.toFixed(1)} Hari</td>
+          <td style="text-align: right; color: #a7f3d0; font-size: 15px;">${doiTargetCons.toFixed(1)} Hari</td>
           <td><span class="badge badge-normal">Evaluasi Master</span></td>
         </tr>
       `;
@@ -645,7 +649,7 @@
       if (this.doiData.data.length === 0) {
         tableBody.innerHTML = `
           <tr>
-            <td colspan="11" style="text-align: center; padding: 40px; color: var(--text-muted);">
+            <td colspan="12" style="text-align: center; padding: 40px; color: var(--text-muted);">
               Tidak ada produk yang memenuhi kriteria filter.
             </td>
           </tr>
@@ -664,6 +668,7 @@
         const stokTotal = isVal ? item.stok_total_value : item.stok_total_qty;
 
         const doiTotal = item.doi_total_days;
+        const targetDOISKU = item.target_doi_days;
         const targetStatus = item.health_status_total;
 
         let badgeClass = 'badge-normal';
@@ -693,6 +698,9 @@
             <td style="text-align: right; font-weight: 700; color: #fff;">${this.formatDisplayValue(stokTotal, isVal)}</td>
             <td style="text-align: right; font-weight: 800; font-size: 14px; color: var(--accent-cyan);">
               ${doiTotal >= 999 ? '> 999' : doiTotal.toFixed(1)} Hari
+            </td>
+            <td style="text-align: right; font-weight: 700; font-size: 14px; color: #a7f3d0;">
+              ${targetDOISKU >= 999 ? '> 999' : targetDOISKU ? targetDOISKU.toFixed(1) : '0.0'} Hari
             </td>
             <td>
               <span class="badge ${badgeClass}">${targetStatus}</span>
@@ -724,7 +732,7 @@
       if (tableBody) {
         tableBody.innerHTML = `
           <tr>
-            <td colspan="11" style="text-align: center; padding: 40px; color: var(--status-understock);">
+            <td colspan="12" style="text-align: center; padding: 40px; color: var(--status-understock);">
               ❌ ${msg}
             </td>
           </tr>
