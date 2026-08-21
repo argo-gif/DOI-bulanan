@@ -535,7 +535,7 @@
           </defs>
 
           <!-- Trend Area & Line -->
-          <path d="${areaD}" fill="url(#trendGradient)" />
+          <path d="${areaD}" fill="url(#trendGradient)" opacity="0.6"/>
           <path d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
 
           <!-- Data Points & Labels -->
@@ -602,7 +602,7 @@
             <td style="text-align: right; font-weight: 600; color: #60a5fa;">${gb.doi_mnj_days.toFixed(1)} d</td>
             <td style="text-align: right; font-weight: 600; color: #f472b6;">${gb.doi_kx_days.toFixed(1)} d</td>
             <td style="text-align: right; font-weight: 800; color: var(--accent-cyan); font-size: 14px;">${gb.doi_total_days.toFixed(1)} Hari</td>
-            <td style="text-align: right; font-weight: 700; color: #a7f3d0; font-size: 14px;">${gb.target_doi_days ? gb.target_doi_days.toFixed(1) : '0.0'} Hari</td>
+            <td style="text-align: right; font-weight: 700; color: #a7f3d0; font-size: 14px;">${gb.doi_max_days ? gb.doi_max_days.toFixed(1) : (gb.target_doi_days ? gb.target_doi_days.toFixed(1) : '0.0')} Hari</td>
             <td><span class="badge ${badgeClass}">${gb.health_status_total}</span></td>
           </tr>
         `;
@@ -649,7 +649,7 @@
       if (this.doiData.data.length === 0) {
         tableBody.innerHTML = `
           <tr>
-            <td colspan="12" style="text-align: center; padding: 40px; color: var(--text-muted);">
+            <td colspan="13" style="text-align: center; padding: 40px; color: var(--text-muted);">
               Tidak ada produk yang memenuhi kriteria filter.
             </td>
           </tr>
@@ -660,15 +660,15 @@
       const isVal = this.filters.unit === 'value';
 
       tableBody.innerHTML = this.doiData.data.map(item => {
-        const minThresh = isVal ? item.min_value : item.min_qty;
-        const maxThresh = isVal ? item.max_value : item.max_qty;
-
         const stokMNJ = isVal ? item.stok_mnj_value : item.stok_mnj_qty;
         const stokKX = isVal ? item.stok_kx_value : item.stok_kx_qty;
         const stokTotal = isVal ? item.stok_total_value : item.stok_total_qty;
+        const avgSales = isVal ? item.avg_sales_value : item.avg_sales_qty;
 
+        const doiMNJ = item.doi_mnj_days;
+        const doiKX = item.doi_kx_days;
         const doiTotal = item.doi_total_days;
-        const targetDOISKU = item.target_doi_days;
+        const doiMax = item.doi_max_days || item.target_doi_days;
         const targetStatus = item.health_status_total;
 
         let badgeClass = 'badge-normal';
@@ -691,16 +691,17 @@
             <td style="font-weight: 600;">${item.product_name}</td>
             <td><span style="font-size: 12px; color: var(--text-secondary);">${item.gb}</span></td>
             <td><span class="badge" style="${ketBadgeStyle}">${item.keterangan_produk}</span></td>
-            <td style="text-align: right; font-weight: 500; color: #f87171;">${this.formatDisplayValue(minThresh, isVal)}</td>
-            <td style="text-align: right; font-weight: 500; color: #fbbf24;">${this.formatDisplayValue(maxThresh, isVal)}</td>
             <td style="text-align: right; font-weight: 500; color: #cbd5e1;">${this.formatDisplayValue(stokMNJ, isVal)}</td>
             <td style="text-align: right; font-weight: 500; color: #f472b6;">${this.formatDisplayValue(stokKX, isVal)}</td>
             <td style="text-align: right; font-weight: 700; color: #fff;">${this.formatDisplayValue(stokTotal, isVal)}</td>
+            <td style="text-align: right; font-weight: 500;">${this.formatDisplayValue(avgSales, isVal)}</td>
+            <td style="text-align: right; font-weight: 600; color: #60a5fa;">${doiMNJ >= 999 ? '> 999' : doiMNJ.toFixed(1)} d</td>
+            <td style="text-align: right; font-weight: 600; color: #f472b6;">${doiKX >= 999 ? '> 999' : doiKX.toFixed(1)} d</td>
             <td style="text-align: right; font-weight: 800; font-size: 14px; color: var(--accent-cyan);">
               ${doiTotal >= 999 ? '> 999' : doiTotal.toFixed(1)} Hari
             </td>
             <td style="text-align: right; font-weight: 700; font-size: 14px; color: #a7f3d0;">
-              ${targetDOISKU >= 999 ? '> 999' : targetDOISKU ? targetDOISKU.toFixed(1) : '0.0'} Hari
+              ${doiMax >= 999 ? '> 999' : doiMax ? doiMax.toFixed(1) : '0.0'} Hari
             </td>
             <td>
               <span class="badge ${badgeClass}">${targetStatus}</span>
@@ -732,7 +733,7 @@
       if (tableBody) {
         tableBody.innerHTML = `
           <tr>
-            <td colspan="12" style="text-align: center; padding: 40px; color: var(--status-understock);">
+            <td colspan="13" style="text-align: center; padding: 40px; color: var(--status-understock);">
               ❌ ${msg}
             </td>
           </tr>
