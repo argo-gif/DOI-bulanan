@@ -1,6 +1,6 @@
 """
 ETL Pipeline & Metric Calculator Engine for DOI Monitoring Dashboard (MNJ & KX Principal)
-Fixed column mapping for Master produk.xlsx (Harga Dasar at index 6).
+Updated Health Status evaluation based on Min Qty and Max Qty from Master produk.xlsx.
 """
 
 import os
@@ -63,7 +63,8 @@ class DataEngine:
         # Master Headers:
         # 0: Principal_product_code, 1: Principal_product_code_lama, 2: Product_code,
         # 3: Product_code_lama, 4: Product_name, 5: GB, 6: Harga Dasar,
-        # 7: KATEGORI, 8: Keterangan produk
+        # 7: KATEGORI, 8: Keterangan produk, 9: Batch Yield, 10: Line Produksi,
+        # 11: Min Qty, 12: Max Qty
         for row in sheet.iter_rows(min_row=2, values_only=True):
             if not row or len(row) < 7 or not row[2]:
                 continue
@@ -85,6 +86,16 @@ class DataEngine:
             if not keterangan:
                 keterangan = "Regular"
 
+            try:
+                min_qty = float(row[11]) if len(row) > 11 and row[11] is not None else 0.0
+            except (ValueError, TypeError):
+                min_qty = 0.0
+
+            try:
+                max_qty = float(row[12]) if len(row) > 12 and row[12] is not None else 0.0
+            except (ValueError, TypeError):
+                max_qty = 0.0
+
             product_info = {
                 "principal_code": principal_code,
                 "principal_code_old": principal_code_old,
@@ -94,7 +105,11 @@ class DataEngine:
                 "gb": gb if gb else "Unassigned",
                 "harga_dasar": harga_dasar,
                 "kategori": kategori,
-                "keterangan": keterangan
+                "keterangan": keterangan,
+                "min_qty": min_qty,
+                "max_qty": max_qty,
+                "min_value": round(min_qty * harga_dasar, 2),
+                "max_value": round(max_qty * harga_dasar, 2)
             }
 
             self.master_products[product_code] = product_info
@@ -254,7 +269,7 @@ class DataEngine:
         return avg_sales
 
     def get_doi_mnj_report(self, period: Optional[str] = None, avg_months: int = 1) -> List[Dict[str, Any]]:
-        """Generates comprehensive report containing MNJ stock, KX principal stock, combined stock, and DOI metrics."""
+        """Generates comprehensive report containing MNJ stock, KX principal stock, combined stock, and Health Status based on Min/Max Qty."""
         if not self._is_preloaded:
             self.preload_all_data()
 
@@ -302,11 +317,14 @@ class DataEngine:
             else:
                 doi_total = 999.0 if stok_total_qty > 0 else 0.0
 
-            # Health status helper
-            def get_status(doi_days: float) -> str:
-                if doi_days < 30.0:
+            min_qty = pinfo["min_qty"]
+            max_qty = pinfo["max_qty"]
+
+            # Health status based on Min Qty and Max Qty from Master data
+            def get_health_status(stok_qty: float) -> str:
+                if stok_qty < min_qty:
                     return "Understock"
-                elif doi_days <= 90.0:
+                elif stok_qty <= max_qty:
                     return "Normal"
                 else:
                     return "Overstock"
@@ -320,6 +338,10 @@ class DataEngine:
                 "category": pinfo["kategori"],
                 "keterangan_produk": pinfo["keterangan"],
                 "harga_dasar": harga_dasar,
+                "min_qty": min_qty,
+                "max_qty": max_qty,
+                "min_value": pinfo["min_value"],
+                "max_value": pinfo["max_value"],
 
                 # MNJ Stock
                 "qty_baik": qty_baik,
@@ -327,19 +349,19 @@ class DataEngine:
                 "stok_mnj_qty": stok_mnj_qty,
                 "stok_mnj_value": round(stok_mnj_value, 2),
                 "doi_mnj_days": round(doi_mnj, 1),
-                "health_status_mnj": get_status(doi_mnj),
+                "health_status_mnj": get_health_status(stok_mnj_qty),
 
                 # KX Stock
                 "stok_kx_qty": stok_kx_qty,
                 "stok_kx_value": round(stok_kx_value, 2),
                 "doi_kx_days": round(doi_kx, 1),
-                "health_status_kx": get_status(doi_kx),
+                "health_status_kx": get_health_status(stok_kx_qty),
 
                 # Total Combined Stock
                 "stok_total_qty": stok_total_qty,
                 "stok_total_value": round(stok_total_value, 2),
                 "doi_total_days": round(doi_total, 1),
-                "health_status_total": get_status(doi_total),
+                "health_status_total": get_health_status(stok_total_qty),
 
                 # Sales
                 "avg_sales_qty": avg_sales_qty,
@@ -370,6 +392,10 @@ class DataEngine:
                     "stok_kx_value": 0.0,
                     "stok_total_qty": 0.0,
                     "stok_total_value": 0.0,
+                    "min_qty_total": 0.0,
+                    "max_qty_total": 0.0,
+                    "min_value_total": 0.0,
+                    "max_value_total": 0.0,
                     "avg_sales_qty": 0.0,
                     "avg_sales_value": 0.0,
                     "understock_count": 0,
@@ -384,10 +410,14 @@ class DataEngine:
             gb_map[gb_name]["stok_kx_value"] += r["stok_kx_value"]
             gb_map[gb_name]["stok_total_qty"] += r["stok_total_qty"]
             gb_map[gb_name]["stok_total_value"] += r["stok_total_value"]
+            gb_map[gb_name]["min_qty_total"] += r["min_qty"]
+            gb_map[gb_name]["max_qty_total"] += r["max_qty"]
+            gb_map[gb_name]["min_value_total"] += r["min_value"]
+            gb_map[gb_name]["max_value_total"] += r["max_value"]
             gb_map[gb_name]["avg_sales_qty"] += r["avg_sales_qty"]
             gb_map[gb_name]["avg_sales_value"] += r["avg_sales_value"]
 
-            status = r["health_status_mnj"]
+            status = r["health_status_total"]
             if status == "Understock":
                 gb_map[gb_name]["understock_count"] += 1
             elif status == "Normal":
@@ -403,21 +433,25 @@ class DataEngine:
                 stok_m = d["stok_mnj_value"]
                 stok_k = d["stok_kx_value"]
                 stok_t = d["stok_total_value"]
+                min_thresh = d["min_value_total"]
+                max_thresh = d["max_value_total"]
                 sales = d["avg_sales_value"]
             else:
                 stok_m = d["stok_mnj_qty"]
                 stok_k = d["stok_kx_qty"]
                 stok_t = d["stok_total_qty"]
+                min_thresh = d["min_qty_total"]
+                max_thresh = d["max_qty_total"]
                 sales = d["avg_sales_qty"]
 
             doi_m = (stok_m / sales * 30.0) if sales > 0 else (999.0 if stok_m > 0 else 0.0)
             doi_k = (stok_k / sales * 30.0) if sales > 0 else (999.0 if stok_k > 0 else 0.0)
             doi_t = (stok_t / sales * 30.0) if sales > 0 else (999.0 if stok_t > 0 else 0.0)
             
-            def get_status(days: float) -> str:
-                if days < 30.0:
+            def get_gb_status(stok_val: float) -> str:
+                if stok_val < min_thresh:
                     return "Understock"
-                elif days <= 90.0:
+                elif stok_val <= max_thresh:
                     return "Normal"
                 else:
                     return "Overstock"
@@ -425,9 +459,9 @@ class DataEngine:
             d["doi_mnj_days"] = round(doi_m, 1)
             d["doi_kx_days"] = round(doi_k, 1)
             d["doi_total_days"] = round(doi_t, 1)
-            d["health_status_mnj"] = get_status(doi_m)
-            d["health_status_kx"] = get_status(doi_k)
-            d["health_status_total"] = get_status(doi_t)
+            d["health_status_mnj"] = get_gb_status(stok_m)
+            d["health_status_kx"] = get_gb_status(stok_k)
+            d["health_status_total"] = get_gb_status(stok_t)
 
             d["stok_mnj_value"] = round(d["stok_mnj_value"], 2)
             d["stok_kx_value"] = round(d["stok_kx_value"], 2)

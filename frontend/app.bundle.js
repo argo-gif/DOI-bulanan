@@ -525,9 +525,6 @@
       const pathD = points.reduce((acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
       const areaD = `${pathD} L ${points[points.length - 1].x} ${height - padding.bottom} L ${points[0].x} ${height - padding.bottom} Z`;
 
-      const y30 = padding.top + chartH - ((30 - minDOI) / (maxDOI - minDOI)) * chartH;
-      const y90 = padding.top + chartH - ((90 - minDOI) / (maxDOI - minDOI)) * chartH;
-
       chartContainer.innerHTML = `
         <svg viewBox="0 0 ${width} ${height}" style="width: 100%; height: 100%; overflow: visible;">
           <defs>
@@ -536,14 +533,6 @@
               <stop offset="100%" stop-color="${strokeColor}" stop-opacity="0.0"/>
             </linearGradient>
           </defs>
-
-          <!-- Understock 30 Day Reference Line -->
-          <line x1="${padding.left}" y1="${y30}" x2="${width - padding.right}" y2="${y30}" stroke="#ef4444" stroke-dasharray="4 4" stroke-opacity="0.6" stroke-width="1.5"/>
-          <text x="${width - padding.right - 10}" y="${y30 - 5}" fill="#ef4444" font-size="10" font-weight="700" text-anchor="end">Batas Understock (30 Hari)</text>
-
-          <!-- Overstock 90 Day Reference Line -->
-          <line x1="${padding.left}" y1="${y90}" x2="${width - padding.right}" y2="${y90}" stroke="#f59e0b" stroke-dasharray="4 4" stroke-opacity="0.6" stroke-width="1.5"/>
-          <text x="${width - padding.right - 10}" y="${y90 - 5}" fill="#f59e0b" font-size="10" font-weight="700" text-anchor="end">Batas Overstock (90 Hari)</text>
 
           <!-- Trend Area & Line -->
           <path d="${areaD}" fill="url(#trendGradient)" />
@@ -588,10 +577,6 @@
       const doiKX = totalSales > 0 ? (totalStokKX / totalSales * 30.0) : 0;
       const doiTotal = totalSales > 0 ? (totalStokComb / totalSales * 30.0) : 0;
 
-      let totalBadge = 'badge-normal';
-      if (doiTotal < 30) totalBadge = 'badge-understock';
-      if (doiTotal > 90) totalBadge = 'badge-overstock';
-
       let html = this.gbSummary.map(gb => {
         const mnjDisp = isVal ? gb.stok_mnj_value : gb.stok_mnj_qty;
         const kxDisp = isVal ? gb.stok_kx_value : gb.stok_kx_qty;
@@ -631,7 +616,7 @@
           <td style="text-align: right; color: #60a5fa;">${doiMNJ.toFixed(1)} d</td>
           <td style="text-align: right; color: #f472b6;">${doiKX.toFixed(1)} d</td>
           <td style="text-align: right; color: var(--accent-cyan); font-size: 15px;">${doiTotal.toFixed(1)} Hari</td>
-          <td><span class="badge ${totalBadge}">${doiTotal < 30 ? 'Understock' : doiTotal > 90 ? 'Overstock' : 'Normal'}</span></td>
+          <td><span class="badge badge-normal">Evaluasi Master</span></td>
         </tr>
       `;
 
@@ -660,7 +645,7 @@
       if (this.doiData.data.length === 0) {
         tableBody.innerHTML = `
           <tr>
-            <td colspan="12" style="text-align: center; padding: 40px; color: var(--text-muted);">
+            <td colspan="11" style="text-align: center; padding: 40px; color: var(--text-muted);">
               Tidak ada produk yang memenuhi kriteria filter.
             </td>
           </tr>
@@ -671,13 +656,13 @@
       const isVal = this.filters.unit === 'value';
 
       tableBody.innerHTML = this.doiData.data.map(item => {
+        const minThresh = isVal ? item.min_value : item.min_qty;
+        const maxThresh = isVal ? item.max_value : item.max_qty;
+
         const stokMNJ = isVal ? item.stok_mnj_value : item.stok_mnj_qty;
         const stokKX = isVal ? item.stok_kx_value : item.stok_kx_qty;
         const stokTotal = isVal ? item.stok_total_value : item.stok_total_qty;
-        const avgSales = isVal ? item.avg_sales_value : item.avg_sales_qty;
 
-        const doiMNJ = item.doi_mnj_days;
-        const doiKX = item.doi_kx_days;
         const doiTotal = item.doi_total_days;
         const targetStatus = item.health_status_total;
 
@@ -701,12 +686,11 @@
             <td style="font-weight: 600;">${item.product_name}</td>
             <td><span style="font-size: 12px; color: var(--text-secondary);">${item.gb}</span></td>
             <td><span class="badge" style="${ketBadgeStyle}">${item.keterangan_produk}</span></td>
+            <td style="text-align: right; font-weight: 500; color: #f87171;">${this.formatDisplayValue(minThresh, isVal)}</td>
+            <td style="text-align: right; font-weight: 500; color: #fbbf24;">${this.formatDisplayValue(maxThresh, isVal)}</td>
             <td style="text-align: right; font-weight: 500; color: #cbd5e1;">${this.formatDisplayValue(stokMNJ, isVal)}</td>
             <td style="text-align: right; font-weight: 500; color: #f472b6;">${this.formatDisplayValue(stokKX, isVal)}</td>
             <td style="text-align: right; font-weight: 700; color: #fff;">${this.formatDisplayValue(stokTotal, isVal)}</td>
-            <td style="text-align: right; font-weight: 500;">${this.formatDisplayValue(avgSales, isVal)}</td>
-            <td style="text-align: right; font-weight: 600; color: #60a5fa;">${doiMNJ >= 999 ? '> 999' : doiMNJ.toFixed(1)} d</td>
-            <td style="text-align: right; font-weight: 600; color: #f472b6;">${doiKX >= 999 ? '> 999' : doiKX.toFixed(1)} d</td>
             <td style="text-align: right; font-weight: 800; font-size: 14px; color: var(--accent-cyan);">
               ${doiTotal >= 999 ? '> 999' : doiTotal.toFixed(1)} Hari
             </td>
@@ -740,7 +724,7 @@
       if (tableBody) {
         tableBody.innerHTML = `
           <tr>
-            <td colspan="12" style="text-align: center; padding: 40px; color: var(--status-understock);">
+            <td colspan="11" style="text-align: center; padding: 40px; color: var(--status-understock);">
               ❌ ${msg}
             </td>
           </tr>
