@@ -1,4 +1,4 @@
-// Combined Standalone Frontend Script for Dashboard Monitoring DOI MNJ (Multi-Select GB & Keterangan Popovers)
+// Combined Standalone Frontend Script for Dashboard Monitoring DOI MNJ (Multi-Select & Dynamic Dual-Unit Summary Cards)
 (function() {
   const API_BASE = '/api/v1';
 
@@ -442,14 +442,23 @@
       if (!this.summary) return;
 
       const formatNum = (val) => new Intl.NumberFormat('id-ID').format(val);
+      const isVal = this.filters.unit === 'value';
 
       document.getElementById('metricTotalSKU').innerText = formatNum(this.summary.total_sku);
       document.getElementById('metricUnderstock').innerText = formatNum(this.summary.understock_count);
       document.getElementById('metricNormal').innerText = formatNum(this.summary.normal_count);
       document.getElementById('metricOverstock').innerText = formatNum(this.summary.overstock_count);
 
-      document.getElementById('metricTotalStokVal').innerText = this.formatDisplayValue(this.summary.total_stok_value, true);
-      document.getElementById('metricAvgSalesVal').innerText = this.formatDisplayValue(this.summary.total_avg_sales_value, true);
+      const titleStok = document.getElementById('metricTotalStokTitle');
+      const titleSales = document.getElementById('metricAvgSalesTitle');
+      if (titleStok) titleStok.innerText = isVal ? 'Total Stok MNJ (Value)' : 'Total Stok MNJ (Qty)';
+      if (titleSales) titleSales.innerText = isVal ? 'Valuasi Avg Sales Bulanan' : 'Avg Sales Bulanan (Qty)';
+
+      const stokVal = isVal ? this.summary.total_stok_value : (this.summary.total_stok_qty || 0);
+      const salesVal = isVal ? this.summary.total_avg_sales_value : (this.summary.total_avg_sales_qty || 0);
+
+      document.getElementById('metricTotalStokVal').innerText = this.formatDisplayValue(stokVal, isVal);
+      document.getElementById('metricAvgSalesVal').innerText = this.formatDisplayValue(salesVal, isVal);
     }
 
     renderTrendChart() {

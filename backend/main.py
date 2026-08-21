@@ -1,6 +1,6 @@
 """
 Backend REST API Server for DOI MNJ Monitoring Dashboard
-Includes Multi-Select GB and Multi-Select Keterangan Produk filters with instant port listening.
+Includes Multi-Select GB, Multi-Select Keterangan Produk, and Dual-Unit Summary metrics.
 """
 
 import sys
@@ -168,6 +168,8 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         over = 0
         total_stok_val = 0.0
         total_avg_sales_val = 0.0
+        total_stok_qty = 0.0
+        total_avg_sales_qty = 0.0
 
         for r in filtered:
             status = r["health_status_mnj"]
@@ -180,6 +182,8 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
 
             total_stok_val += r["stok_mnj_value"]
             total_avg_sales_val += r["avg_sales_value"]
+            total_stok_qty += r["stok_mnj_qty"]
+            total_avg_sales_qty += r["avg_sales_qty"]
 
         period_active = filtered[0]["period"] if filtered else get_param("period", "2026-07")
 
@@ -191,7 +195,9 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             "normal_count": normal,
             "overstock_count": over,
             "total_stok_value": round(total_stok_val, 2),
-            "total_avg_sales_value": round(total_avg_sales_val, 2)
+            "total_avg_sales_value": round(total_avg_sales_val, 2),
+            "total_stok_qty": round(total_stok_qty, 2),
+            "total_avg_sales_qty": round(total_avg_sales_qty, 2)
         }
         self._set_headers(200)
         self.wfile.write(json.dumps(res).encode("utf-8"))
