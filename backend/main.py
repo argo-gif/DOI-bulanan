@@ -112,10 +112,22 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         gbs = sorted(list({p["gb"] for p in master.values() if p["gb"]}))
         keterangan_opts = data_engine.get_keterangan_options()
 
+        product_options = [
+            {
+                "code": pcode,
+                "name": p["product_name"],
+                "gb": p.get("gb", "Unassigned"),
+                "keterangan": p.get("keterangan", "Regular"),
+                "label": f"{pcode} - {p['product_name']}"
+            }
+            for pcode, p in sorted(master.items(), key=lambda x: x[0])
+        ]
+
         res = {
             "periods": periods,
             "gb_options": gbs,
             "keterangan_options": keterangan_opts,
+            "product_options": product_options,
             "avg_months_options": [1, 3, 6, 12],
             "total_products": len(master)
         }
@@ -124,7 +136,7 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
 
     def get_filtered_data(self, get_param):
         period = get_param("period", "")
-        avg_months = int(get_param("avg_months", "1"))
+        avg_months = int(get_param("avg_months", "6"))
         
         report = data_engine.get_doi_mnj_report(period=period if period else None, avg_months=avg_months)
 
@@ -133,6 +145,9 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
 
         ket_raw = get_param("keterangan", "All")
         ket_set = parse_multi_param(ket_raw)
+
+        prod_raw = get_param("products", get_param("product", "All"))
+        prod_set = parse_multi_param(prod_raw)
 
         health_status = get_param("health_status", "All")
         search = get_param("search", "").strip().lower()
@@ -143,6 +158,12 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
                 continue
 
             if ket_set and r["keterangan_produk"] not in ket_set:
+                continue
+
+            p_code = r.get("product_code", "")
+            p_pcode = r.get("principal_product_code", "")
+            p_old = r.get("old_code", "")
+            if prod_set and p_code not in prod_set and p_pcode not in prod_set and p_old not in prod_set:
                 continue
 
             if health_status != "All" and r["health_status_total"] != health_status and r["health_status_mnj"] != health_status:
@@ -228,15 +249,17 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
 
     def handle_gb_summary(self, get_param):
         period = get_param("period", "")
-        avg_months = int(get_param("avg_months", "1"))
+        avg_months = int(get_param("avg_months", "6"))
         keterangan = get_param("keterangan", "All")
-        unit = get_param("unit", "qty")
+        products = get_param("products", "All")
+        unit = get_param("unit", "value")
 
         gb_summary = data_engine.get_gb_summary_report(
             period=period if period else None,
             avg_months=avg_months,
             keterangan=keterangan,
-            unit=unit
+            unit=unit,
+            products=products
         )
 
         self._set_headers(200)
@@ -245,14 +268,18 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
     def handle_doi_trend(self, get_param):
         gb = get_param("gb", "All")
         keterangan = get_param("keterangan", "All")
-        avg_months = int(get_param("avg_months", "1"))
-        unit = get_param("unit", "qty")
+        products = get_param("products", "All")
+        health_status = get_param("health_status", "All")
+        avg_months = int(get_param("avg_months", "6"))
+        unit = get_param("unit", "value")
 
         trend_data = data_engine.get_historical_doi_trend(
             gb=gb,
             keterangan=keterangan,
             avg_months=avg_months,
-            unit=unit
+            unit=unit,
+            products=products,
+            health_status=health_status
         )
 
         self._set_headers(200)

@@ -5,12 +5,12 @@ class DashboardApp {
     this.filters = {
       period: '',
       view: 'total',
-      unit: 'qty',
+      unit: 'value',
       gb: 'All',
       category: 'All',
       health_status: 'All',
       search: '',
-      avg_months: 1,
+      avg_months: 6,
       page: 1,
       page_size: 15,
       sort_by: 'doi_total_days',
@@ -48,7 +48,6 @@ class DashboardApp {
     if (periodSelect && this.metadata.periods) {
       periodSelect.innerHTML = this.metadata.periods
         .map(p => {
-          // Format 2026-07 to Juli 2026
           const parts = p.split('-');
           const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
           const monthIdx = parseInt(parts[1], 10) - 1;
@@ -73,7 +72,7 @@ class DashboardApp {
     // Category Select
     const catSelect = document.getElementById('categorySelect');
     if (catSelect) {
-      catSelect.innerHTML = this.metadata.categories
+      catSelect.innerHTML = (this.metadata.categories || [])
         .map(cat => `<option value="${cat}">${cat === 'All' ? 'Semua Kategori' : cat}</option>`)
         .join('');
     }
@@ -227,8 +226,12 @@ class DashboardApp {
     document.getElementById('metricUnderstock').innerText = formatNum(this.summary.understock_count);
     document.getElementById('metricNormal').innerText = formatNum(this.summary.normal_count);
     document.getElementById('metricOverstock').innerText = formatNum(this.summary.overstock_count);
-    document.getElementById('metricTotalStokVal').innerText = formatCurrency(this.summary.total_stok_value);
-    document.getElementById('metricAvgSalesVal').innerText = formatCurrency(this.summary.total_avg_sales_value);
+    if (document.getElementById('metricTotalStokVal')) {
+      document.getElementById('metricTotalStokVal').innerText = formatCurrency(this.summary.total_stok_value);
+    }
+    if (document.getElementById('metricAvgSalesVal')) {
+      document.getElementById('metricAvgSalesVal').innerText = formatCurrency(this.summary.total_avg_sales_value);
+    }
   }
 
   renderTable() {
@@ -238,7 +241,7 @@ class DashboardApp {
     if (this.doiData.data.length === 0) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-muted);">
+          <td colspan="13" style="text-align: center; padding: 40px; color: var(--text-muted);">
             Tidak ada produk yang memenuhi kriteria filter.
           </td>
         </tr>
@@ -259,7 +262,7 @@ class DashboardApp {
     tableBody.innerHTML = this.doiData.data.map(item => {
       const stokMNJ = isVal ? item.stok_mnj_value : item.stok_mnj_qty;
       const stokKX = isVal ? item.stok_kx_value : item.stok_kx_qty;
-      const totalStok = isVal ? item.total_stok_value : item.total_stok_qty;
+      const totalStok = isVal ? item.stok_total_value : item.stok_total_qty;
       const avgSales = isVal ? item.avg_sales_value : item.avg_sales_qty;
 
       let targetDOI = item.doi_total_days;
@@ -274,8 +277,9 @@ class DashboardApp {
       }
 
       let badgeClass = 'badge-normal';
-      if (targetStatus === 'Understock') badgeClass = 'badge-understock';
-      if (targetStatus === 'Overstock') badgeClass = 'badge-overstock';
+      let dotColor = '#34d399';
+      if (targetStatus === 'Understock') { badgeClass = 'badge-understock'; dotColor = '#f87171'; }
+      if (targetStatus === 'Overstock') { badgeClass = 'badge-overstock'; dotColor = '#fbbf24'; }
 
       return `
         <tr data-pcode="${item.product_code}">
@@ -284,16 +288,22 @@ class DashboardApp {
             <div style="font-size: 11px; color: var(--text-muted);">${item.principal_product_code || '-'}</div>
           </td>
           <td style="font-weight: 600;">${item.product_name}</td>
-          <td><span style="font-size: 12px; color: var(--text-secondary);">${item.gb}</span></td>
+          <td><span style="font-size: 12px; color: var(--text-secondary); font-weight: 600;">${item.gb}</span></td>
+          <td><span class="badge" style="background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border: 1px solid rgba(100, 116, 139, 0.3);">${item.keterangan_produk}</span></td>
           <td style="text-align: right; font-weight: 500;">${formatVal(stokMNJ)}</td>
           <td style="text-align: right; font-weight: 500;">${formatVal(stokKX)}</td>
           <td style="text-align: right; font-weight: 700; color: #fff;">${formatVal(totalStok)}</td>
           <td style="text-align: right; font-weight: 500;">${formatVal(avgSales)}</td>
+          <td style="text-align: right; font-weight: 600; color: #60a5fa;">${item.doi_mnj_days.toFixed(1)} d</td>
+          <td style="text-align: right; font-weight: 600; color: #f472b6;">${item.doi_kx_days.toFixed(1)} d</td>
           <td style="text-align: right; font-weight: 800; font-size: 14px; color: var(--accent-cyan);">
             ${targetDOI >= 999 ? '> 999' : targetDOI.toFixed(1)} Hari
           </td>
+          <td style="text-align: right; font-weight: 700; font-size: 14px; color: #a7f3d0;">
+            ${(item.doi_max_days || item.target_doi_days || 90).toFixed(1)} Hari
+          </td>
           <td>
-            <span class="badge ${badgeClass}">${targetStatus}</span>
+            <span class="badge ${badgeClass}"><span class="badge-dot" style="background:${dotColor};"></span>${targetStatus}</span>
           </td>
         </tr>
       `;
@@ -335,6 +345,7 @@ class DashboardApp {
 
     const formatCurr = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val);
     const formatNum = (val) => new Intl.NumberFormat('id-ID').format(val);
+    const doiMax = item.doi_max_days || item.target_doi_days || 90;
 
     modalContent.innerHTML = `
       <div style="margin-bottom: 20px;">
@@ -358,7 +369,6 @@ class DashboardApp {
       <h3 style="font-size: 14px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 12px;">Komparasi DOI & Stok Entitas (${item.period})</h3>
 
       <div style="display: flex; flex-direction: column; gap: 12px;">
-        <!-- MNJ Row -->
         <div style="background: rgba(15, 23, 42, 0.6); padding: 14px 18px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
           <div>
             <div style="font-weight: 700; color: #fff;">Distributor (MNJ)</div>
@@ -370,7 +380,6 @@ class DashboardApp {
           </div>
         </div>
 
-        <!-- KX Row -->
         <div style="background: rgba(15, 23, 42, 0.6); padding: 14px 18px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
           <div>
             <div style="font-weight: 700; color: #fff;">Principal (KX)</div>
@@ -378,15 +387,14 @@ class DashboardApp {
           </div>
           <div style="text-align: right;">
             <div style="font-size: 18px; font-weight: 800; color: var(--accent-cyan);">${item.doi_kx_days.toFixed(1)} Hari</div>
-            <span class="badge ${item.health_status_kx === 'Understock' ? 'badge-understock' : item.health_status_kx === 'Overstock' ? 'badge-overstock' : 'badge-normal'}">${item.health_status_kx}</span>
+            <span class="badge ${item.health_status_kx === 'Understock' ? 'badge-understock' : item.health_status_kx === 'Overstock' ? 'badge-overstock' : 'badge-normal'}">${item.health_status_kx || 'Normal'}</span>
           </div>
         </div>
 
-        <!-- Total Row -->
-        <div style="background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.3); padding: 14px 18px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="background: rgba(0, 242, 254, 0.1); border: 1px solid rgba(0, 242, 254, 0.3); padding: 14px 18px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <div style="font-weight: 700; color: #fff;">Total Konsolidasi</div>
-            <div style="font-size: 12px; color: var(--text-secondary);">${formatNum(item.total_stok_qty)} Unit (${formatCurr(item.total_stok_value)})</div>
+            <div style="font-weight: 700; color: #fff;">Total Konsolidasi (Max: ${doiMax.toFixed(1)} Hari)</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">${formatNum(item.stok_total_qty)} Unit (${formatCurr(item.stok_total_value)})</div>
           </div>
           <div style="text-align: right;">
             <div style="font-size: 20px; font-weight: 800; color: #fff;">${item.doi_total_days.toFixed(1)} Hari</div>
@@ -404,7 +412,7 @@ class DashboardApp {
     if (tableBody) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="9" style="text-align: center; padding: 40px; color: var(--status-understock);">
+          <td colspan="13" style="text-align: center; padding: 40px; color: var(--status-understock);">
             ❌ ${msg}
           </td>
         </tr>

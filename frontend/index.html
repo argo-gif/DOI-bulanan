@@ -18,10 +18,22 @@
   <!-- App Header -->
   <header class="app-header glass-panel">
     <div class="brand-title">
-      <div class="brand-logo">📊</div>
+      <div class="brand-logos-container">
+        <div class="logo-box" title="PT Menara Nasional Jaya (MNJ)">
+          <img src="assets/MNJ.jpeg" alt="MNJ Logo" class="brand-logo-img" onerror="this.src='MNJ.jpeg'">
+        </div>
+        <span class="logo-separator">✕</span>
+        <div class="logo-box" title="PT Konimex (Principal)">
+          <img src="assets/Konimex.jpeg" alt="Konimex Logo" class="brand-logo-img" onerror="this.src='Konimex.jpeg'">
+        </div>
+      </div>
       <div class="brand-text">
-        <h1>Dashboard Monitoring DOI Bulanan (MNJ & Principal KX)</h1>
-        <p>Distributor MNJ & Principal Konimex Inventory Analytics — Evaluasi Realisasi DOI Total vs DOI Max Master</p>
+        <div class="brand-badge-group">
+          <span class="brand-badge mnj-badge">DISTRIBUTOR MNJ</span>
+          <span class="brand-badge kx-badge">PRINCIPAL KONIMEX</span>
+        </div>
+        <h1>Dashboard Monitoring DOI Bulanan</h1>
+        <p>Analytics Persediaan Inventory real-time — Evaluasi Realisasi DOI Combined Total vs DOI Max Master</p>
       </div>
     </div>
 
@@ -30,81 +42,13 @@
         <span class="pulse-dot"></span>
         <span>API Live Connected</span>
       </div>
+      <div class="time-pill">
+        <span>⚡ Monitoring 2026</span>
+      </div>
     </div>
   </header>
 
-  <!-- Metric Summary Cards Grid (7 Cards) -->
-  <section class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-    <!-- Total SKU -->
-    <div class="metric-card glass-panel" style="--card-accent: linear-gradient(135deg, #3b82f6, #60a5fa);">
-      <div class="metric-header">
-        <span class="metric-title">Total SKU Monitored</span>
-        <span class="metric-icon">📦</span>
-      </div>
-      <div class="metric-value" id="metricTotalSKU">0</div>
-      <div class="metric-subtitle">Item terdaftar di Master Data</div>
-    </div>
 
-    <!-- Understock -->
-    <div class="metric-card glass-panel" style="--card-accent: linear-gradient(135deg, #ef4444, #f87171);">
-      <div class="metric-header">
-        <span class="metric-title">Understock (< Min Qty)</span>
-        <span class="metric-icon">🚨</span>
-      </div>
-      <div class="metric-value" id="metricUnderstock" style="color: #f87171;">0</div>
-      <div class="metric-subtitle">Stok Combined < Min Qty Master</div>
-    </div>
-
-    <!-- Normal -->
-    <div class="metric-card glass-panel" style="--card-accent: linear-gradient(135deg, #10b981, #34d399);">
-      <div class="metric-header">
-        <span class="metric-title">Normal Stock (≤ DOI Max)</span>
-        <span class="metric-icon">✅</span>
-      </div>
-      <div class="metric-value" id="metricNormal" style="color: #34d399;">0</div>
-      <div class="metric-subtitle">Stok Combined ≤ DOI Max Master</div>
-    </div>
-
-    <!-- Overstock -->
-    <div class="metric-card glass-panel" style="--card-accent: linear-gradient(135deg, #f59e0b, #fbbf24);">
-      <div class="metric-header">
-        <span class="metric-title">Overstock (> DOI Max)</span>
-        <span class="metric-icon">⚠️</span>
-      </div>
-      <div class="metric-value" id="metricOverstock" style="color: #fbbf24;">0</div>
-      <div class="metric-subtitle">DOI Total > DOI Max Master</div>
-    </div>
-
-    <!-- Total Stok MNJ -->
-    <div class="metric-card glass-panel" style="--card-accent: linear-gradient(135deg, #8b5cf6, #c084fc);">
-      <div class="metric-header">
-        <span class="metric-title" id="metricTotalStokMNJTitle">Stok MNJ (Distributor)</span>
-        <span class="metric-icon">🏢</span>
-      </div>
-      <div class="metric-value" id="metricTotalStokMNJVal" style="font-size: 19px;">0</div>
-      <div class="metric-subtitle" id="metricDOIMNJSubtitle">DOI MNJ: 0.0 Hari</div>
-    </div>
-
-    <!-- Total Stok KX -->
-    <div class="metric-card glass-panel" style="--card-accent: linear-gradient(135deg, #ec4899, #f472b6);">
-      <div class="metric-header">
-        <span class="metric-title" id="metricTotalStokKXTitle">Stok KX (Principal)</span>
-        <span class="metric-icon">🏭</span>
-      </div>
-      <div class="metric-value" id="metricTotalStokKXVal" style="font-size: 19px;">0</div>
-      <div class="metric-subtitle" id="metricDOIKXSubtitle">DOI KX: 0.0 Hari</div>
-    </div>
-
-    <!-- Total Combined Stok (MNJ + KX) -->
-    <div class="metric-card glass-panel" style="--card-accent: linear-gradient(135deg, #06b6d4, #38bdf8);">
-      <div class="metric-header">
-        <span class="metric-title" id="metricTotalStokCombTitle">Total Stok Combined</span>
-        <span class="metric-icon">🔗</span>
-      </div>
-      <div class="metric-value" id="metricTotalStokCombVal" style="font-size: 19px; color: var(--accent-cyan);">0</div>
-      <div class="metric-subtitle" id="metricDOICombSubtitle">DOI Total: 0.0 Hari</div>
-    </div>
-  </section>
 
   <!-- Filter Bar -->
   <section class="filter-bar glass-panel">
@@ -113,8 +57,8 @@
       <div class="filter-group">
         <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">Satuan View:</span>
         <div class="toggle-container">
-          <button class="toggle-btn active" data-unit="qty">Quantity (Unit)</button>
-          <button class="toggle-btn" data-unit="value">Valuasi (Rupiah)</button>
+          <button class="toggle-btn" data-unit="qty">Quantity (Unit)</button>
+          <button class="toggle-btn active" data-unit="value">Valuasi (Rupiah)</button>
         </div>
       </div>
 
@@ -130,7 +74,7 @@
       <!-- Export CSV -->
       <button class="btn-export" id="btnExport">
         <span>📥</span>
-        <span>Ekspor Data MNJ & KX (CSV)</span>
+        <span>Ekspor Data MNJ &amp; KX (CSV)</span>
       </button>
     </div>
 
@@ -149,7 +93,7 @@
         <select class="select-control" id="avgMonthsSelect">
           <option value="1">1 Bulan Terakhir</option>
           <option value="3">3 Bulan Terakhir</option>
-          <option value="6">6 Bulan Terakhir</option>
+          <option value="6" selected>6 Bulan Terakhir</option>
           <option value="12">12 Bulan Terakhir</option>
         </select>
       </div>
@@ -165,6 +109,9 @@
             <div class="popover-actions">
               <button type="button" class="popover-act-btn" id="gbSelectAll">Pilih Semua</button>
               <button type="button" class="popover-act-btn" id="gbClearAll">Reset</button>
+            </div>
+            <div class="popover-search-container">
+              <input type="text" class="popover-search-input" id="gbSearchInput" placeholder="🔍 Cari Group Bisnis..." />
             </div>
             <div class="popover-options" id="gbOptionsContainer"></div>
           </div>
@@ -183,15 +130,32 @@
               <button type="button" class="popover-act-btn" id="ketSelectAll">Pilih Semua</button>
               <button type="button" class="popover-act-btn" id="ketClearAll">Reset</button>
             </div>
+            <div class="popover-search-container">
+              <input type="text" class="popover-search-input" id="ketSearchInput" placeholder="🔍 Cari Keterangan..." />
+            </div>
             <div class="popover-options" id="ketOptionsContainer"></div>
           </div>
         </div>
       </div>
 
-      <!-- Search Input -->
-      <div class="search-box">
-        <span class="search-icon">🔍</span>
-        <input type="text" class="search-input" id="searchInput" placeholder="Cari Kode Produk / Nama...">
+      <!-- Multi-Select Item / Produk -->
+      <div class="filter-group">
+        <div class="custom-multiselect" id="itemMultiDropdown">
+          <button class="multiselect-btn" id="itemMultiBtn" type="button" style="border-color: rgba(0, 242, 254, 0.4); min-width: 230px;">
+            <span class="btn-text" id="itemMultiLabel">Semua Item / Produk</span>
+            <span class="dropdown-arrow">▼</span>
+          </button>
+          <div class="multiselect-popover glass-panel" id="itemMultiPopover">
+            <div class="popover-actions">
+              <button type="button" class="popover-act-btn" id="itemSelectAll">Pilih Semua</button>
+              <button type="button" class="popover-act-btn" id="itemClearAll">Reset</button>
+            </div>
+            <div class="popover-search-container">
+              <input type="text" class="popover-search-input" id="itemSearchInput" placeholder="🔍 Cari kode / nama item..." />
+            </div>
+            <div class="popover-options" id="itemOptionsContainer"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -200,9 +164,9 @@
       <div class="filter-group">
         <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">Filter Evaluasi Stok Master:</span>
         <button class="toggle-btn active" data-health="All">Semua Status</button>
-        <button class="toggle-btn" data-health="Understock" style="color: #f87171;">🔴 Understock (< Min Qty)</button>
+        <button class="toggle-btn" data-health="Understock" style="color: #f87171;">🔴 Understock (&lt; Min Qty)</button>
         <button class="toggle-btn" data-health="Normal" style="color: #34d399;">🟢 Normal (≤ DOI Max)</button>
-        <button class="toggle-btn" data-health="Overstock" style="color: #fbbf24;">🟡 Overstock (> DOI Max)</button>
+        <button class="toggle-btn" data-health="Overstock" style="color: #fbbf24;">🟡 Overstock (&gt; DOI Max)</button>
       </div>
     </div>
   </section>
@@ -214,7 +178,7 @@
         <h2 style="font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
           <span>📈</span> Trend Pergerakan DOI Historis (Januari 2026 – Juli 2026)
         </h2>
-        <p style="font-size: 13px; color: var(--text-secondary);">Visualisasi perbandingan pergerakan DOI MNJ, DOI KX, dan DOI Combined Total.</p>
+        <p id="trendSubtitle" style="font-size: 13px; color: var(--text-secondary);">Visualisasi perbandingan pergerakan DOI MNJ, DOI KX, dan DOI Combined Total.</p>
       </div>
 
       <!-- Trend View Mode Selector -->
@@ -234,7 +198,7 @@
   <section class="glass-panel" style="padding: 24px; margin-bottom: 24px; overflow-x: auto;">
     <div style="margin-bottom: 16px;">
       <h2 style="font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
-        <span>🏢</span> Ringkasan DOI Per Group Business (GB) & Total Konsolidasi
+        <span>🏢</span> Ringkasan DOI Per Group Business (GB) &amp; Total Konsolidasi
       </h2>
       <p style="font-size: 13px; color: var(--text-secondary);">Perbandingan stok persediaan MNJ, KX Principal, Total Combined, DOI Total, dan DOI Max Master per GB.</p>
     </div>
@@ -265,7 +229,7 @@
   <section class="glass-panel" style="overflow: hidden;">
     <div style="padding: 20px 24px 10px 24px;">
       <h2 style="font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
-        <span>📋</span> Detail Produk & Evaluasi Realisasi DOI vs DOI Max Master
+        <span>📋</span> Detail Produk &amp; Evaluasi Realisasi DOI vs DOI Max Master
       </h2>
     </div>
 
@@ -303,6 +267,16 @@
       </div>
     </div>
   </section>
+
+  <!-- Product Detail Modal Overlay -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-card glass-panel">
+      <button class="modal-close" id="btnCloseModal">✕</button>
+      <div id="modalContent">
+        <!-- Modal details rendered dynamically -->
+      </div>
+    </div>
+  </div>
 
   <script src="app.bundle.js"></script>
 </body>

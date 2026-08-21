@@ -382,15 +382,21 @@ class DataEngine:
 
         return report
 
-    def get_gb_summary_report(self, period: Optional[str] = None, avg_months: int = 1, keterangan: Union[str, List[str]] = "All", unit: str = "qty") -> List[Dict[str, Any]]:
+    def get_gb_summary_report(self, period: Optional[str] = None, avg_months: int = 6, keterangan: Union[str, List[str]] = "All", unit: str = "value", products: Union[str, List[str]] = "All") -> List[Dict[str, Any]]:
         """Calculates aggregated DOI metrics grouped per GB and Total Consolidated with weighted DOI Max (Days)."""
         report = self.get_doi_mnj_report(period=period, avg_months=avg_months)
         ket_set = parse_multi_param(keterangan)
+        prod_set = parse_multi_param(products)
 
         gb_map: Dict[str, Dict[str, Any]] = {}
 
         for r in report:
             if ket_set and r["keterangan_produk"] not in ket_set:
+                continue
+            p_code = r.get("product_code", "")
+            p_pcode = r.get("principal_product_code", "")
+            p_old = r.get("old_code", "")
+            if prod_set and p_code not in prod_set and p_pcode not in prod_set and p_old not in prod_set:
                 continue
 
             gb_name = r["gb"] or "Unassigned"
@@ -489,13 +495,14 @@ class DataEngine:
 
         return summary_list
 
-    def get_historical_doi_trend(self, gb: Union[str, List[str]] = "All", keterangan: Union[str, List[str]] = "All", avg_months: int = 1, unit: str = "qty") -> List[Dict[str, Any]]:
+    def get_historical_doi_trend(self, gb: Union[str, List[str]] = "All", keterangan: Union[str, List[str]] = "All", avg_months: int = 6, unit: str = "value", products: Union[str, List[str]] = "All", health_status: str = "All") -> List[Dict[str, Any]]:
         """Calculates DOI trend for MNJ, KX, and Total Combined over all available periods."""
         periods = sorted(self.get_available_periods())
         month_names = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
         
         gb_set = parse_multi_param(gb)
         ket_set = parse_multi_param(keterangan)
+        prod_set = parse_multi_param(products)
         is_value_mode = (unit.lower() == "value")
 
         trend = []
@@ -516,6 +523,13 @@ class DataEngine:
                 if gb_set and r["gb"] not in gb_set:
                     continue
                 if ket_set and r["keterangan_produk"] not in ket_set:
+                    continue
+                p_code = r.get("product_code", "")
+                p_pcode = r.get("principal_product_code", "")
+                p_old = r.get("old_code", "")
+                if prod_set and p_code not in prod_set and p_pcode not in prod_set and p_old not in prod_set:
+                    continue
+                if health_status != "All" and r.get("health_status_total") != health_status and r.get("health_status_mnj") != health_status:
                     continue
 
                 sku_cnt += 1
