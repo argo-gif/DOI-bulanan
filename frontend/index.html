@@ -144,18 +144,38 @@
         </select>
       </div>
 
-      <!-- Group Bisnis Select -->
+      <!-- Multi-Select Group Bisnis (GB) -->
       <div class="filter-group">
-        <select class="select-control" id="gbSelect">
-          <option value="All">Semua Group Bisnis (GB)</option>
-        </select>
+        <div class="custom-multiselect" id="gbMultiDropdown">
+          <button class="multiselect-btn" id="gbMultiBtn" type="button">
+            <span class="btn-text" id="gbMultiLabel">Semua Group Bisnis (GB)</span>
+            <span class="dropdown-arrow">▼</span>
+          </button>
+          <div class="multiselect-popover glass-panel" id="gbMultiPopover">
+            <div class="popover-actions">
+              <button type="button" class="popover-act-btn" id="gbSelectAll">Pilih Semua</button>
+              <button type="button" class="popover-act-btn" id="gbClearAll">Reset</button>
+            </div>
+            <div class="popover-options" id="gbOptionsContainer"></div>
+          </div>
+        </div>
       </div>
 
-      <!-- Keterangan Produk Select -->
+      <!-- Multi-Select Keterangan Produk -->
       <div class="filter-group">
-        <select class="select-control" id="ketSelect" style="border-color: rgba(139, 92, 246, 0.4);">
-          <option value="All">Semua Keterangan Produk</option>
-        </select>
+        <div class="custom-multiselect" id="ketMultiDropdown">
+          <button class="multiselect-btn" id="ketMultiBtn" type="button" style="border-color: rgba(139, 92, 246, 0.4);">
+            <span class="btn-text" id="ketMultiLabel">Semua Keterangan Produk</span>
+            <span class="dropdown-arrow">▼</span>
+          </button>
+          <div class="multiselect-popover glass-panel" id="ketMultiPopover">
+            <div class="popover-actions">
+              <button type="button" class="popover-act-btn" id="ketSelectAll">Pilih Semua</button>
+              <button type="button" class="popover-act-btn" id="ketClearAll">Reset</button>
+            </div>
+            <div class="popover-options" id="ketOptionsContainer"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Search Input -->

@@ -1,12 +1,12 @@
 """
-ETL Pipeline & Metric Calculator Engine for DOI MNJ Dashboard (Group Business & Trend Analytics)
-Supports period selection, GB aggregation summary, lookback sales window, and historical DOI trends.
+ETL Pipeline & Metric Calculator Engine for DOI MNJ Dashboard
+Supports Period Scanning, Multi-Select GB, Multi-Select Keterangan Produk, Lookback Sales Window, and Historical DOI Trends.
 """
 
 import os
 import openpyxl
 import datetime
-from typing import Dict, List, Any, Optional, Set
+from typing import Dict, List, Any, Optional, Set, Union
 
 def parse_year_month(val: Any) -> Optional[str]:
     """Converts datetime or date string into YYYY-MM string."""
@@ -18,6 +18,18 @@ def parse_year_month(val: Any) -> Optional[str]:
     if len(val_str) >= 7 and val_str[0:4].isdigit() and val_str[5:7].isdigit():
         return val_str[0:7]
     return None
+
+def parse_multi_param(val: Any) -> Set[str]:
+    """Parses multi-select parameter into a set of normalized strings."""
+    if not val:
+        return set()
+    if isinstance(val, (list, tuple, set)):
+        items = {str(x).strip() for x in val if str(x).strip() and str(x).strip().lower() != "all"}
+        return items
+    val_str = str(val).strip()
+    if not val_str or val_str.lower() == "all":
+        return set()
+    return {x.strip() for x in val_str.split(",") if x.strip() and x.strip().lower() != "all"}
 
 class DataEngine:
     def __init__(self, base_dir: str):
@@ -262,14 +274,15 @@ class DataEngine:
 
         return report
 
-    def get_gb_summary_report(self, period: Optional[str] = None, avg_months: int = 1, keterangan: str = "All", unit: str = "qty") -> List[Dict[str, Any]]:
-        """Calculates aggregated DOI metrics grouped per GB and Total Consolidated with exact unit precision."""
+    def get_gb_summary_report(self, period: Optional[str] = None, avg_months: int = 1, keterangan: Union[str, List[str]] = "All", unit: str = "qty") -> List[Dict[str, Any]]:
+        """Calculates aggregated DOI metrics grouped per GB and Total Consolidated with multi-select keterangan filtering."""
         report = self.get_doi_mnj_report(period=period, avg_months=avg_months)
-        
+        ket_set = parse_multi_param(keterangan)
+
         gb_map: Dict[str, Dict[str, Any]] = {}
 
         for r in report:
-            if keterangan != "All" and r["keterangan_produk"] != keterangan:
+            if ket_set and r["keterangan_produk"] not in ket_set:
                 continue
 
             gb_name = r["gb"] or "Unassigned"
@@ -328,10 +341,13 @@ class DataEngine:
 
         return summary_list
 
-    def get_historical_doi_trend(self, gb: str = "All", keterangan: str = "All", avg_months: int = 1, unit: str = "qty") -> List[Dict[str, Any]]:
-        """Calculates DOI trend over all available periods for selected filters and unit mode."""
+    def get_historical_doi_trend(self, gb: Union[str, List[str]] = "All", keterangan: Union[str, List[str]] = "All", avg_months: int = 1, unit: str = "qty") -> List[Dict[str, Any]]:
+        """Calculates DOI trend over all available periods with multi-select GB & Keterangan filtering."""
         periods = sorted(self.get_available_periods())
         month_names = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
+        
+        gb_set = parse_multi_param(gb)
+        ket_set = parse_multi_param(keterangan)
         is_value_mode = (unit.lower() == "value")
 
         trend = []
@@ -345,9 +361,9 @@ class DataEngine:
             sku_cnt = 0
 
             for r in report:
-                if gb != "All" and r["gb"] != gb:
+                if gb_set and r["gb"] not in gb_set:
                     continue
-                if keterangan != "All" and r["keterangan_produk"] != keterangan:
+                if ket_set and r["keterangan_produk"] not in ket_set:
                     continue
 
                 sku_cnt += 1

@@ -1,4 +1,4 @@
-// Combined Standalone Frontend Script for Dashboard Monitoring DOI MNJ (Guaranteed Data Loading & Robust Error Fallbacks)
+// Combined Standalone Frontend Script for Dashboard Monitoring DOI MNJ (Multi-Select GB & Keterangan Popovers)
 (function() {
   const API_BASE = '/api/v1';
 
@@ -9,11 +9,14 @@
   }
 
   async function fetchSummary(filters) {
+    const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0) ? filters.selectedGBs.join(',') : 'All';
+    const ketVal = (filters.selectedKets && filters.selectedKets.length > 0) ? filters.selectedKets.join(',') : 'All';
+
     const params = new URLSearchParams({
       period: filters.period || '2026-07',
       unit: filters.unit,
-      gb: filters.gb,
-      keterangan: filters.keterangan,
+      gb: gbVal,
+      keterangan: ketVal,
       avg_months: filters.avg_months.toString()
     });
     const res = await fetch(`${API_BASE}/summary?${params.toString()}`);
@@ -22,10 +25,12 @@
   }
 
   async function fetchGBSummary(filters) {
+    const ketVal = (filters.selectedKets && filters.selectedKets.length > 0) ? filters.selectedKets.join(',') : 'All';
+
     const params = new URLSearchParams({
       period: filters.period || '2026-07',
       avg_months: filters.avg_months.toString(),
-      keterangan: filters.keterangan,
+      keterangan: ketVal,
       unit: filters.unit
     });
     const res = await fetch(`${API_BASE}/gb-summary?${params.toString()}`);
@@ -34,9 +39,12 @@
   }
 
   async function fetchDOITrend(filters) {
+    const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0) ? filters.selectedGBs.join(',') : 'All';
+    const ketVal = (filters.selectedKets && filters.selectedKets.length > 0) ? filters.selectedKets.join(',') : 'All';
+
     const params = new URLSearchParams({
-      gb: filters.gb,
-      keterangan: filters.keterangan,
+      gb: gbVal,
+      keterangan: ketVal,
       avg_months: filters.avg_months.toString(),
       unit: filters.unit
     });
@@ -46,11 +54,14 @@
   }
 
   async function fetchDOIData(filters) {
+    const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0) ? filters.selectedGBs.join(',') : 'All';
+    const ketVal = (filters.selectedKets && filters.selectedKets.length > 0) ? filters.selectedKets.join(',') : 'All';
+
     const params = new URLSearchParams({
       period: filters.period || '2026-07',
       unit: filters.unit,
-      gb: filters.gb,
-      keterangan: filters.keterangan,
+      gb: gbVal,
+      keterangan: ketVal,
       health_status: filters.health_status,
       search: filters.search,
       avg_months: filters.avg_months.toString(),
@@ -63,11 +74,14 @@
   }
 
   function getExportUrl(filters) {
+    const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0) ? filters.selectedGBs.join(',') : 'All';
+    const ketVal = (filters.selectedKets && filters.selectedKets.length > 0) ? filters.selectedKets.join(',') : 'All';
+
     const params = new URLSearchParams({
       period: filters.period || '2026-07',
       unit: filters.unit,
-      gb: filters.gb,
-      keterangan: filters.keterangan,
+      gb: gbVal,
+      keterangan: ketVal,
       health_status: filters.health_status,
       search: filters.search,
       avg_months: filters.avg_months.toString()
@@ -81,8 +95,8 @@
         period: '2026-07',
         unit: 'qty',
         scale: 'compact', // 'compact' or 'full'
-        gb: 'All',
-        keterangan: 'All',
+        selectedGBs: [],  // [] means All
+        selectedKets: [], // [] means All
         health_status: 'All',
         search: '',
         avg_months: 1,
@@ -168,29 +182,85 @@
         }
       }
 
-      const gbSelect = document.getElementById('gbSelect');
-      if (gbSelect) {
-        const gbOpts = (this.metadata && this.metadata.gb_options)
-          ? this.metadata.gb_options
-          : ['All', 'GB 1', 'GB 2', 'GB 3', 'GB 4', 'GB 5', 'GB 6', 'GB ET'];
+      // Populate GB Multi-Select Options
+      const gbOptions = (this.metadata && this.metadata.gb_options)
+        ? this.metadata.gb_options
+        : ['GB 1', 'GB 2', 'GB 3', 'GB 4', 'GB 5', 'GB 6', 'GB 7', 'GB ET', 'Unassigned'];
 
-        gbSelect.innerHTML = gbOpts
-          .map(gb => `<option value="${gb}">${gb === 'All' ? 'Semua Group Bisnis (GB)' : gb}</option>`)
-          .join('');
-        gbSelect.value = this.filters.gb;
-      }
+      this.renderMultiSelectOptions(
+        'gbOptionsContainer',
+        gbOptions,
+        this.filters.selectedGBs,
+        'gbMultiLabel',
+        'Semua Group Bisnis (GB)',
+        'GB',
+        (updatedList) => {
+          this.filters.selectedGBs = updatedList;
+          this.setFilter({ page: 1 });
+        }
+      );
 
-      const ketSelect = document.getElementById('ketSelect');
-      if (ketSelect) {
-        const ketOpts = (this.metadata && this.metadata.keterangan_options)
-          ? this.metadata.keterangan_options
-          : ['All', 'Festive', 'Produk Baru', 'Regular'];
+      // Populate Keterangan Multi-Select Options
+      const ketOptions = (this.metadata && this.metadata.keterangan_options)
+        ? this.metadata.keterangan_options
+        : ['Festive', 'Produk Baru', 'Regular'];
 
-        ketSelect.innerHTML = ketOpts
-          .map(k => `<option value="${k}">${k === 'All' ? 'Semua Keterangan Produk' : k}</option>`)
-          .join('');
-        ketSelect.value = this.filters.keterangan;
-      }
+      this.renderMultiSelectOptions(
+        'ketOptionsContainer',
+        ketOptions,
+        this.filters.selectedKets,
+        'ketMultiLabel',
+        'Semua Keterangan Produk',
+        'Keterangan',
+        (updatedList) => {
+          this.filters.selectedKets = updatedList;
+          this.setFilter({ page: 1 });
+        }
+      );
+    }
+
+    renderMultiSelectOptions(containerId, options, selectedList, labelId, defaultText, unitLabel, onChangeCallback) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      container.innerHTML = options.map(opt => {
+        const isChecked = selectedList.includes(opt);
+        return `
+          <label class="multiselect-option-label">
+            <input type="checkbox" value="${opt}" ${isChecked ? 'checked' : ''} />
+            <span>${opt}</span>
+          </label>
+        `;
+      }).join('');
+
+      const updateLabelText = () => {
+        const labelEl = document.getElementById(labelId);
+        if (!labelEl) return;
+
+        if (selectedList.length === 0 || selectedList.length === options.length) {
+          labelEl.innerText = defaultText;
+        } else if (selectedList.length === 1) {
+          labelEl.innerText = selectedList[0];
+        } else {
+          labelEl.innerText = `${selectedList.slice(0, 2).join(', ')} (${selectedList.length} ${unitLabel})`;
+        }
+      };
+
+      updateLabelText();
+
+      container.querySelectorAll('input[type="checkbox"]').forEach(chk => {
+        chk.addEventListener('change', (e) => {
+          const val = e.target.value;
+          if (e.target.checked) {
+            if (!selectedList.includes(val)) selectedList.push(val);
+          } else {
+            const idx = selectedList.indexOf(val);
+            if (idx > -1) selectedList.splice(idx, 1);
+          }
+          updateLabelText();
+          onChangeCallback(selectedList);
+        });
+      });
     }
 
     bindEvents() {
@@ -227,19 +297,72 @@
         });
       }
 
-      const gbSelect = document.getElementById('gbSelect');
-      if (gbSelect) {
-        gbSelect.addEventListener('change', (e) => {
-          this.setFilter({ gb: e.target.value, page: 1 });
+      // GB Multi-Select Toggle & Actions
+      const gbBtn = document.getElementById('gbMultiBtn');
+      const gbDropdown = document.getElementById('gbMultiDropdown');
+      if (gbBtn && gbDropdown) {
+        gbBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          gbDropdown.classList.toggle('open');
+          const ketDropdown = document.getElementById('ketMultiDropdown');
+          if (ketDropdown) ketDropdown.classList.remove('open');
         });
       }
 
-      const ketSelect = document.getElementById('ketSelect');
-      if (ketSelect) {
-        ketSelect.addEventListener('change', (e) => {
-          this.setFilter({ keterangan: e.target.value, page: 1 });
+      const gbSelectAll = document.getElementById('gbSelectAll');
+      if (gbSelectAll) {
+        gbSelectAll.addEventListener('click', () => {
+          const gbOptions = (this.metadata && this.metadata.gb_options) ? this.metadata.gb_options : ['GB 1', 'GB 2', 'GB 3', 'GB 4', 'GB 5', 'GB 6', 'GB 7', 'GB ET', 'Unassigned'];
+          this.filters.selectedGBs = [...gbOptions];
+          this.populateFilterDropdowns();
+          this.setFilter({ page: 1 });
         });
       }
+
+      const gbClearAll = document.getElementById('gbClearAll');
+      if (gbClearAll) {
+        gbClearAll.addEventListener('click', () => {
+          this.filters.selectedGBs = [];
+          this.populateFilterDropdowns();
+          this.setFilter({ page: 1 });
+        });
+      }
+
+      // Keterangan Multi-Select Toggle & Actions
+      const ketBtn = document.getElementById('ketMultiBtn');
+      const ketDropdown = document.getElementById('ketMultiDropdown');
+      if (ketBtn && ketDropdown) {
+        ketBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          ketDropdown.classList.toggle('open');
+          if (gbDropdown) gbDropdown.classList.remove('open');
+        });
+      }
+
+      const ketSelectAll = document.getElementById('ketSelectAll');
+      if (ketSelectAll) {
+        ketSelectAll.addEventListener('click', () => {
+          const ketOptions = (this.metadata && this.metadata.keterangan_options) ? this.metadata.keterangan_options : ['Festive', 'Produk Baru', 'Regular'];
+          this.filters.selectedKets = [...ketOptions];
+          this.populateFilterDropdowns();
+          this.setFilter({ page: 1 });
+        });
+      }
+
+      const ketClearAll = document.getElementById('ketClearAll');
+      if (ketClearAll) {
+        ketClearAll.addEventListener('click', () => {
+          this.filters.selectedKets = [];
+          this.populateFilterDropdowns();
+          this.setFilter({ page: 1 });
+        });
+      }
+
+      // Close popovers on click outside
+      document.addEventListener('click', (e) => {
+        if (gbDropdown && !gbDropdown.contains(e.target)) gbDropdown.classList.remove('open');
+        if (ketDropdown && !ketDropdown.contains(e.target)) ketDropdown.classList.remove('open');
+      });
 
       document.querySelectorAll('[data-health]').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -430,7 +553,7 @@
         if (gb.health_status_mnj === 'Understock') badgeClass = 'badge-understock';
         if (gb.health_status_mnj === 'Overstock') badgeClass = 'badge-overstock';
 
-        const isActive = this.filters.gb === gb.gb;
+        const isActive = this.filters.selectedGBs.includes(gb.gb);
 
         return `
           <tr data-gb="${gb.gb}" style="${isActive ? 'background: rgba(6, 182, 212, 0.15); border-left: 4px solid var(--accent-cyan);' : ''}">
@@ -470,10 +593,13 @@
         row.addEventListener('click', () => {
           const selectedGB = row.getAttribute('data-gb');
           if (selectedGB) {
-            const newGB = this.filters.gb === selectedGB ? 'All' : selectedGB;
-            this.setFilter({ gb: newGB, page: 1 });
-            const gbSelect = document.getElementById('gbSelect');
-            if (gbSelect) gbSelect.value = newGB;
+            if (this.filters.selectedGBs.includes(selectedGB)) {
+              this.filters.selectedGBs = this.filters.selectedGBs.filter(g => g !== selectedGB);
+            } else {
+              this.filters.selectedGBs.push(selectedGB);
+            }
+            this.populateFilterDropdowns();
+            this.setFilter({ page: 1 });
           }
         });
       });
@@ -487,7 +613,7 @@
         tableBody.innerHTML = `
           <tr>
             <td colspan="10" style="text-align: center; padding: 40px; color: var(--text-muted);">
-              Tidak ada produk yang memenuhi kriteria filter.
+              Tidak ada produk yang memenuhi kriteria filter multi-select.
             </td>
           </tr>
         `;

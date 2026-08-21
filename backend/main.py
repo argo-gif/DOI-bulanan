@@ -1,6 +1,6 @@
 """
 Backend REST API Server for DOI MNJ Monitoring Dashboard
-Synchronous data preloading on startup guarantees 100% immediate data availability for all requests.
+Includes Multi-Select GB and Multi-Select Keterangan Produk filters with instant port listening.
 """
 
 import sys
@@ -9,11 +9,12 @@ import json
 import csv
 import io
 import mimetypes
+import threading
 from urllib.parse import parse_qs, urlparse
 from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from etl import DataEngine
+from etl import DataEngine, parse_multi_param
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
@@ -113,8 +114,8 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
 
         res = {
             "periods": periods,
-            "gb_options": ["All"] + gbs,
-            "keterangan_options": ["All"] + keterangan_opts,
+            "gb_options": gbs,
+            "keterangan_options": keterangan_opts,
             "avg_months_options": [1, 3, 6, 12],
             "total_products": len(master)
         }
@@ -127,17 +128,21 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         
         report = data_engine.get_doi_mnj_report(period=period if period else None, avg_months=avg_months)
 
-        gb = get_param("gb", "All")
-        keterangan = get_param("keterangan", "All")
+        gb_raw = get_param("gb", "All")
+        gb_set = parse_multi_param(gb_raw)
+
+        ket_raw = get_param("keterangan", "All")
+        ket_set = parse_multi_param(ket_raw)
+
         health_status = get_param("health_status", "All")
         search = get_param("search", "").strip().lower()
 
         filtered = []
         for r in report:
-            if gb != "All" and r["gb"] != gb:
+            if gb_set and r["gb"] not in gb_set:
                 continue
 
-            if keterangan != "All" and r["keterangan_produk"] != keterangan:
+            if ket_set and r["keterangan_produk"] not in ket_set:
                 continue
 
             if health_status != "All" and r["health_status_mnj"] != health_status:
@@ -276,13 +281,12 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(csv_content.encode("utf-8"))
 
 def run_server(port=8000):
-    # Preload ALL data synchronously BEFORE opening port
-    print("[SERVER] Preloading datasets into memory...")
-    data_engine.preload_all_data()
-
     server_address = ("", port)
     httpd = ThreadingHTTPServer(server_address, DOIRequestHandler)
     print(f"[SERVER] DOI MNJ Monitoring API Server running on http://localhost:{port}")
+
+    preload_thread = threading.Thread(target=data_engine.preload_all_data, daemon=True)
+    preload_thread.start()
 
     try:
         httpd.serve_forever()
