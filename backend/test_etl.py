@@ -17,20 +17,18 @@ def test_data_engine():
     print(f"[OK] Master products loaded: {len(master)} items")
     assert len(master) > 0, "Master data should not be empty!"
 
-    # 2. Stok MNJ
-    mnj = engine.load_stok_mnj()
-    print(f"[OK] Stok MNJ loaded: {len(mnj)} products mapped")
-    
-    # 3. Stok KX
-    kx = engine.load_stok_kx()
-    print(f"[OK] Stok KX loaded: {len(kx)} products mapped")
+    # 2. Preload all datasets (uses disk cache if available)
+    engine.preload_all_data()
+    periods = engine.get_available_periods()
+    print(f"[OK] Preload completed: {len(periods)} periods available ({periods})")
+    assert len(periods) > 0, "Available periods should not be empty!"
 
-    # 4. Sales Data
-    sales = engine.load_sales(months_count=1)
+    # 3. Sales Data
+    sales = engine.load_sales(target_period=periods[0], avg_months=1)
     print(f"[OK] Sales data loaded: {len(sales)} products mapped")
 
-    # 5. DOI Consolidated Report
-    report = engine.get_doi_report(avg_months=1)
+    # 4. DOI Consolidated Report
+    report = engine.get_doi_mnj_report(period=periods[0], avg_months=1)
     print(f"[OK] Full DOI report generated: {len(report)} records")
     
     # Display sample records

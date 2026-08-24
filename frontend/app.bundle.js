@@ -789,6 +789,7 @@
       const totalStokMNJ = this.gbSummary.reduce((a, b) => a + (isVal ? b.stok_mnj_value : b.stok_mnj_qty), 0);
       const totalStokKX = this.gbSummary.reduce((a, b) => a + (isVal ? b.stok_kx_value : b.stok_kx_qty), 0);
       const totalStokComb = this.gbSummary.reduce((a, b) => a + (isVal ? b.stok_total_value : b.stok_total_qty), 0);
+      const totalMinThresh = this.gbSummary.reduce((a, b) => a + (isVal ? b.min_value_total : b.min_qty_total), 0);
       const totalMaxThresh = this.gbSummary.reduce((a, b) => a + (isVal ? b.max_value_total : b.max_qty_total), 0);
       const totalSales = this.gbSummary.reduce((a, b) => a + (isVal ? b.avg_sales_value : b.avg_sales_qty), 0);
 
@@ -796,6 +797,27 @@
       const doiKX = totalSales > 0 ? (totalStokKX / totalSales * 30.0) : 0;
       const doiTotal = totalSales > 0 ? (totalStokComb / totalSales * 30.0) : 0;
       const doiTargetCons = totalSales > 0 ? (totalMaxThresh / totalSales * 30.0) : 0;
+
+      let totalHealthStatus = 'Normal';
+      if (totalStokComb < totalMinThresh) {
+        totalHealthStatus = 'Understock';
+      } else if (totalStokComb > totalMaxThresh) {
+        totalHealthStatus = 'Overstock';
+      }
+
+      const totalSelisihStok = this.gbSummary.reduce((a, b) => a + (isVal ? (b.selisih_value || 0) : (b.selisih_qty || 0)), 0);
+      const totalSelisihDoi = totalSales > 0 ? (totalSelisihStok / totalSales * 30.0) : 0;
+      const totalDoiAfterSelisih = doiTotal - totalSelisihDoi;
+
+      let totalDoiVarHtml = '<span style="color: #94a3b8;">0.0 d</span>';
+      let totalValVarHtml = `<span style="color: #94a3b8;">${this.formatDisplayValue(0, isVal)}</span>`;
+      if (totalSelisihStok > 0) {
+        totalDoiVarHtml = `<span style="color: #fbbf24; font-weight: 700;">+${totalSelisihDoi.toFixed(1)} d</span>`;
+        totalValVarHtml = `<span style="color: #fbbf24; font-weight: 700;">+${this.formatDisplayValue(totalSelisihStok, isVal)}</span>`;
+      } else if (totalSelisihStok < 0) {
+        totalDoiVarHtml = `<span style="color: #f87171; font-weight: 700;">${totalSelisihDoi.toFixed(1)} d</span>`;
+        totalValVarHtml = `<span style="color: #f87171; font-weight: 700;">${this.formatDisplayValue(totalSelisihStok, isVal)}</span>`;
+      }
 
       let html = this.gbSummary.map(gb => {
         const mnjDisp = isVal ? gb.stok_mnj_value : gb.stok_mnj_qty;
@@ -805,6 +827,20 @@
 
         const maxDoi = gb.doi_max_days || gb.target_doi_days || 90;
         const isActive = this.filters.selectedGBs.includes(gb.gb);
+
+        const selDoi = gb.selisih_doi_days || 0.0;
+        const selVal = isVal ? (gb.selisih_value || 0.0) : (gb.selisih_qty || 0.0);
+        const doiAfterSelisih = gb.doi_after_selisih !== undefined ? gb.doi_after_selisih : (gb.doi_total_days - selDoi);
+
+        let selDoiHtml = '<span style="color: #94a3b8;">0.0 d</span>';
+        let selValHtml = `<span style="color: #94a3b8;">${this.formatDisplayValue(0, isVal)}</span>`;
+        if (selVal > 0 || selDoi > 0) {
+          selDoiHtml = `<span style="color: #fbbf24; font-weight: 700;">+${selDoi.toFixed(1)} d</span>`;
+          selValHtml = `<span style="color: #fbbf24; font-weight: 700;">+${this.formatDisplayValue(selVal, isVal)}</span>`;
+        } else if (selVal < 0 || selDoi < 0) {
+          selDoiHtml = `<span style="color: #f87171; font-weight: 700;">${selDoi.toFixed(1)} d</span>`;
+          selValHtml = `<span style="color: #f87171; font-weight: 700;">${this.formatDisplayValue(selVal, isVal)}</span>`;
+        }
 
         return `
           <tr data-gb="${gb.gb}" style="${isActive ? 'background: rgba(0, 242, 254, 0.12); border-left: 4px solid var(--accent-cyan);' : ''}">
@@ -816,11 +852,11 @@
             <td style="text-align: right; font-weight: 500;">${this.formatDisplayValue(salesDisp, isVal)}</td>
             <td style="text-align: right; font-weight: 600; color: #60a5fa;">${gb.doi_mnj_days.toFixed(1)} d</td>
             <td style="text-align: right; font-weight: 600; color: #f472b6;">${gb.doi_kx_days.toFixed(1)} d</td>
-            <td style="text-align: right; font-weight: 800; color: var(--accent-cyan); font-size: 14px;">
-              ${gb.doi_total_days.toFixed(1)} Hari
-              ${renderDOIProgress(gb.doi_total_days, maxDoi)}
-            </td>
+            <td style="text-align: right; font-weight: 800; color: var(--accent-cyan); font-size: 14px;">${gb.doi_total_days.toFixed(1)} Hari</td>
             <td style="text-align: right; font-weight: 700; color: #a7f3d0; font-size: 14px;">${maxDoi.toFixed(1)} Hari</td>
+            <td style="text-align: right; font-size: 13px;">${selDoiHtml}</td>
+            <td style="text-align: right; font-size: 13px;">${selValHtml}</td>
+            <td style="text-align: right; font-weight: 700; color: #a7f3d0; font-size: 14px;">${doiAfterSelisih.toFixed(1)} Hari</td>
             <td>${renderHealthBadge(gb.health_status_total)}</td>
           </tr>
         `;
@@ -836,12 +872,12 @@
           <td style="text-align: right; color: #fff;">${this.formatDisplayValue(totalSales, isVal)}</td>
           <td style="text-align: right; color: #60a5fa;">${doiMNJ.toFixed(1)} d</td>
           <td style="text-align: right; color: #f472b6;">${doiKX.toFixed(1)} d</td>
-          <td style="text-align: right; color: var(--accent-cyan); font-size: 15px; font-weight: 800;">
-            ${doiTotal.toFixed(1)} Hari
-            ${renderDOIProgress(doiTotal, doiTargetCons)}
-          </td>
+          <td style="text-align: right; color: var(--accent-cyan); font-size: 15px; font-weight: 800;">${doiTotal.toFixed(1)} Hari</td>
           <td style="text-align: right; color: #a7f3d0; font-size: 15px;">${doiTargetCons.toFixed(1)} Hari</td>
-          <td>${renderHealthBadge('Normal')}</td>
+          <td style="text-align: right; font-size: 14px;">${totalDoiVarHtml}</td>
+          <td style="text-align: right; font-size: 14px;">${totalValVarHtml}</td>
+          <td style="text-align: right; font-weight: 800; color: #a7f3d0; font-size: 15px;">${totalDoiAfterSelisih.toFixed(1)} Hari</td>
+          <td>${renderHealthBadge(totalHealthStatus)}</td>
         </tr>
       `;
 
@@ -870,7 +906,7 @@
       if (this.doiData.data.length === 0) {
         tableBody.innerHTML = `
           <tr>
-            <td colspan="13" style="text-align: center; padding: 40px; color: var(--text-muted);">
+            <td colspan="16" style="text-align: center; padding: 40px; color: var(--text-muted);">
               Tidak ada produk yang memenuhi kriteria filter.
             </td>
           </tr>
@@ -892,6 +928,20 @@
         const doiMax = item.doi_max_days || item.target_doi_days || 90;
         const targetStatus = item.health_status_total;
 
+        const selDoi = item.selisih_doi_days || 0.0;
+        const selStok = isVal ? (item.selisih_value || 0.0) : (item.selisih_qty || 0.0);
+        const doiAfterSelisih = item.doi_after_selisih !== undefined ? item.doi_after_selisih : (doiTotal - selDoi);
+
+        let selDoiHtml = '<span style="color: #94a3b8;">0.0 d</span>';
+        let selStokHtml = `<span style="color: #94a3b8;">${this.formatDisplayValue(0, isVal)}</span>`;
+        if (targetStatus === 'Overstock') {
+          selDoiHtml = `<span style="color: #fbbf24; font-weight: 700;">+${selDoi.toFixed(1)} d</span>`;
+          selStokHtml = `<span style="color: #fbbf24; font-weight: 700;">+${this.formatDisplayValue(selStok, isVal)}</span>`;
+        } else if (targetStatus === 'Understock') {
+          selDoiHtml = `<span style="color: #f87171; font-weight: 700;">${selDoi.toFixed(1)} d</span>`;
+          selStokHtml = `<span style="color: #f87171; font-weight: 700;">${this.formatDisplayValue(selStok, isVal)}</span>`;
+        }
+
         let ketBadgeStyle = 'background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border: 1px solid rgba(100, 116, 139, 0.3);';
         if (item.keterangan_produk === 'Festive') {
           ketBadgeStyle = 'background: rgba(236, 72, 153, 0.2); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.4);';
@@ -904,7 +954,7 @@
         }
 
         return `
-          <tr data-pcode="${item.product_code}">
+          <tr data-pcode="${item.product_code}" style="cursor: pointer;">
             <td>
               <div style="font-weight: 700; color: #fff;">${item.product_code}</div>
               <div style="font-size: 11px; color: var(--text-muted);">${item.principal_product_code || '-'}</div>
@@ -920,10 +970,14 @@
             <td style="text-align: right; font-weight: 600; color: #f472b6;">${doiKX >= 999 ? '> 999' : doiKX.toFixed(1)} d</td>
             <td style="text-align: right; font-weight: 800; font-size: 14px; color: var(--accent-cyan);">
               ${doiTotal >= 999 ? '> 999' : doiTotal.toFixed(1)} Hari
-              ${renderDOIProgress(doiTotal, doiMax)}
             </td>
             <td style="text-align: right; font-weight: 700; font-size: 14px; color: #a7f3d0;">
               ${doiMax >= 999 ? '> 999' : doiMax ? doiMax.toFixed(1) : '0.0'} Hari
+            </td>
+            <td style="text-align: right; font-size: 13px;">${selDoiHtml}</td>
+            <td style="text-align: right; font-size: 13px;">${selStokHtml}</td>
+            <td style="text-align: right; font-weight: 700; font-size: 14px; color: #a7f3d0;">
+              ${doiAfterSelisih >= 999 ? '> 999' : doiAfterSelisih.toFixed(1)} Hari
             </td>
             <td>
               ${renderHealthBadge(targetStatus)}
@@ -1022,7 +1076,9 @@
             <div>
               <div style="font-weight: 800; color: #fff; font-size: 15px;">🔗 Total Combined (MNJ + KX)</div>
               <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">${formatNum(item.stok_total_qty)} Unit (${formatCurr(item.stok_total_value)})</div>
-              <div style="font-size: 11px; color: #a7f3d0; margin-top: 4px;">Master Max DOI: ${doiMax.toFixed(1)} Hari</div>
+              <div style="font-size: 11px; color: #a7f3d0; margin-top: 4px;">Master Min/Max DOI: ${item.doi_min_days ? item.doi_min_days.toFixed(1) : '30.0'} - ${doiMax.toFixed(1)} Hari</div>
+              ${item.health_status_total === 'Overstock' ? `<div style="font-size: 12px; color: #fbbf24; margin-top: 6px; font-weight: 700;">🟡 Kelebihan Overstock: +${(item.selisih_doi_days || 0).toFixed(1)} Hari (+${formatCurr(item.value_overstock || 0)})</div>` : ''}
+              ${item.health_status_total === 'Understock' ? `<div style="font-size: 12px; color: #f87171; margin-top: 6px; font-weight: 700;">🔴 Kekurangan Understock: ${(item.selisih_doi_days || 0).toFixed(1)} Hari (-${formatCurr(item.value_understock || 0)})</div>` : ''}
             </div>
             <div style="text-align: right;">
               <div style="font-size: 22px; font-weight: 800; color: var(--accent-cyan);">${item.doi_total_days.toFixed(1)} Hari</div>

@@ -57,6 +57,9 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self._set_headers(200)
 
+    def do_HEAD(self):
+        self._set_headers(200)
+
     def do_GET(self):
         parsed_url = urlparse(self.path)
         path = parsed_url.path
@@ -317,7 +320,8 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             "Periode", "Product Code", "Principal Product Code", "Product Name", "GB", "Keterangan Produk",
             "Harga Dasar (IDR)", "Qty Baik MNJ", "Qty BDP MNJ", "Stok MNJ Qty", "Stok MNJ Value (IDR)", "DOI MNJ (Hari)",
             "Stok KX Qty", "Stok KX Value (IDR)", "DOI KX (Hari)",
-            "Total Combined Stok Qty", "Total Combined Stok Value (IDR)", "DOI Total (Hari)",
+            "Total Combined Stok Qty", "Total Combined Stok Value (IDR)", "DOI Total (Hari)", "DOI Min (Hari)", "DOI Max (Hari)",
+            "Selisih DOI (Hari)", "Selisih Valuasi (IDR)", "DOI setelah Selisih (Hari)", "Kelebihan Overstock (IDR)", "Defisit Understock (IDR)",
             "Avg Sales Qty", "Avg Sales Value (IDR)", "Status Health Total"
         ])
 
@@ -327,7 +331,8 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
                 r["gb"], r["keterangan_produk"], r["harga_dasar"],
                 r["qty_baik"], r["qty_bdp"], r["stok_mnj_qty"], r["stok_mnj_value"], r["doi_mnj_days"],
                 r["stok_kx_qty"], r["stok_kx_value"], r["doi_kx_days"],
-                r["stok_total_qty"], r["stok_total_value"], r["doi_total_days"],
+                r["stok_total_qty"], r["stok_total_value"], r["doi_total_days"], r["doi_min_days"], r["doi_max_days"],
+                r.get("selisih_doi_days", 0.0), r.get("selisih_value", 0.0), r.get("doi_after_selisih", 0.0), r.get("value_overstock", 0.0), r.get("value_understock", 0.0),
                 r["avg_sales_qty"], r["avg_sales_value"], r["health_status_total"]
             ])
 
@@ -341,17 +346,17 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(csv_content.encode("utf-8"))
 
 def run_server(port=8000):
-    print("[SERVER] Preloading datasets into memory...")
+    print("[SERVER] Preloading datasets into memory...", flush=True)
     data_engine.preload_all_data()
 
-    server_address = ("", port)
+    server_address = ("0.0.0.0", port)
     httpd = ThreadingHTTPServer(server_address, DOIRequestHandler)
-    print(f"[SERVER] DOI MNJ & KX Monitoring API Server running on http://localhost:{port}")
+    print(f"[SERVER] DOI MNJ & KX Monitoring API Server running on http://localhost:{port} and http://127.0.0.1:{port}", flush=True)
 
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\nStopping server...")
+        print("\nStopping server...", flush=True)
         httpd.server_close()
 
 if __name__ == "__main__":

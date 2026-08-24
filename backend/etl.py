@@ -6,6 +6,8 @@ Calculates Stok Max (Qty & Value) dynamically as (DOI Max Master / 30.0) * Avg S
 import os
 import openpyxl
 import datetime
+import pickle
+import hashlib
 from typing import Dict, List, Any, Optional, Set, Union
 
 def parse_year_month(val: Any) -> Optional[str]:
@@ -33,8 +35,8 @@ def parse_multi_param(val: Any) -> Set[str]:
 
 class DataEngine:
     def __init__(self, base_dir: str):
-        self.base_dir = base_dir
-        self.master_file = os.path.join(base_dir, "Master produk.xlsx")
+        self.base_dir = os.path.abspath(base_dir)
+        self.master_file = os.path.join(self.base_dir, "Master produk.xlsx")
         self.mnj_file = os.path.join(base_dir, "Stok Akhir bulan MNJ.xlsx")
         self.kx_file = os.path.join(base_dir, "Stok Akhir bulan KX dan Produksi.xlsx")
         self.sales_file = os.path.join(base_dir, "Data sales.xlsx")
@@ -134,12 +136,43 @@ class DataEngine:
             return self.principal_code_map[code]
         return None
 
+    def _get_cache_checksum(self) -> str:
+        h = hashlib.md5()
+        for fp in [self.master_file, self.mnj_file, self.kx_file, self.sales_file]:
+            abs_fp = os.path.abspath(fp)
+            if os.path.exists(abs_fp):
+                stat = os.stat(abs_fp)
+                h.update(f"{abs_fp}:{stat.st_mtime}:{stat.st_size}".encode("utf-8"))
+        return h.hexdigest()
+
     def preload_all_data(self):
-        """Preloads MNJ stock, KX stock, and Sales datasets into memory."""
+        """Preloads MNJ stock, KX stock, and Sales datasets into memory (with disk caching)."""
         if self._is_preloaded:
             return
 
-        print("[ENGINE] Preloading datasets into memory...")
+        cache_file = os.path.join(self.base_dir, "backend", ".data_cache.pkl")
+        current_checksum = self._get_cache_checksum()
+
+        if os.path.exists(cache_file):
+            try:
+                with open(cache_file, "rb") as f:
+                    cache_data = pickle.load(f)
+                if cache_data.get("checksum") == current_checksum:
+                    print(f"[ENGINE] Loading cached dataset from {cache_file}...", flush=True)
+                    self.master_products = cache_data["master_products"]
+                    self.old_code_map = cache_data["old_code_map"]
+                    self.principal_code_map = cache_data["principal_code_map"]
+                    self.available_periods = cache_data["available_periods"]
+                    self._mnj_cache = cache_data["_mnj_cache"]
+                    self._kx_cache = cache_data["_kx_cache"]
+                    self._sales_cache = cache_data["_sales_cache"]
+                    self._is_preloaded = True
+                    print(f"[ENGINE] Fast cache load complete! {len(self.master_products)} products, {len(self.available_periods)} periods.", flush=True)
+                    return
+            except Exception as e:
+                print(f"[ENGINE] Cache load failed ({e}), re-parsing Excel files...", flush=True)
+
+        print("[ENGINE] Preloading Excel datasets into memory...", flush=True)
         self.load_master_data()
 
         # 1. Preload MNJ Stock
@@ -217,7 +250,25 @@ class DataEngine:
 
         self.available_periods = combined_periods
         self._is_preloaded = True
-        print(f"[ENGINE] Preload complete! {len(self.master_products)} products, {len(self.available_periods)} periods.")
+        print(f"[ENGINE] Preload complete! {len(self.master_products)} products, {len(self.available_periods)} periods.", flush=True)
+
+        # Save to disk cache for instantaneous future server startups
+        try:
+            cache_data = {
+                "checksum": current_checksum,
+                "master_products": self.master_products,
+                "old_code_map": self.old_code_map,
+                "principal_code_map": self.principal_code_map,
+                "available_periods": self.available_periods,
+                "_mnj_cache": self._mnj_cache,
+                "_kx_cache": self._kx_cache,
+                "_sales_cache": self._sales_cache
+            }
+            with open(cache_file, "wb") as f:
+                pickle.dump(cache_data, f)
+            print(f"[ENGINE] Saved cache to {cache_file}", flush=True)
+        except Exception as e:
+            print(f"[ENGINE] Failed to save cache: {e}", flush=True)
 
     def get_available_periods(self) -> List[str]:
         if not self._is_preloaded:
@@ -334,6 +385,30 @@ class DataEngine:
                 else:
                     return "Overstock"
 
+            # Overstock & Understock Variances
+            doi_over_days = round(max(0.0, doi_total - doi_max_days), 1) if doi_total > doi_max_days else 0.0
+            val_over = round(max(0.0, stok_total_value - stok_max_value), 2) if doi_total > doi_max_days else 0.0
+            qty_over = round(max(0.0, stok_total_qty - stok_max_qty), 2) if doi_total > doi_max_days else 0.0
+
+            doi_under_days = round(max(0.0, doi_min_days - doi_total), 1) if doi_total < doi_min_days else 0.0
+            val_under = round(max(0.0, stok_min_value - stok_total_value), 2) if doi_total < doi_min_days else 0.0
+            qty_under = round(max(0.0, stok_min_qty - stok_total_qty), 2) if doi_total < doi_min_days else 0.0
+
+            if doi_total > doi_max_days:
+                selisih_doi = round(doi_total - doi_max_days, 1)
+                selisih_val = round(stok_total_value - stok_max_value, 2)
+                selisih_qty = round(stok_total_qty - stok_max_qty, 2)
+            elif doi_total < doi_min_days:
+                selisih_doi = round(doi_total - doi_min_days, 1)
+                selisih_val = round(stok_total_value - stok_min_value, 2)
+                selisih_qty = round(stok_total_qty - stok_min_qty, 2)
+            else:
+                selisih_doi = 0.0
+                selisih_val = 0.0
+                selisih_qty = 0.0
+
+            doi_after_selisih = round(doi_total - selisih_doi, 1)
+
             report.append({
                 "period": selected_period,
                 "product_code": pcode,
@@ -375,6 +450,20 @@ class DataEngine:
                 "doi_total_days": round(doi_total, 1),
                 "health_status_total": get_health_status(doi_total),
 
+                # Overstock & Understock Variances
+                "doi_overstock_days": doi_over_days,
+                "value_overstock": val_over,
+                "qty_overstock": qty_over,
+
+                "doi_understock_days": doi_under_days,
+                "value_understock": val_under,
+                "qty_understock": qty_under,
+
+                "selisih_doi_days": selisih_doi,
+                "selisih_value": selisih_val,
+                "selisih_qty": selisih_qty,
+                "doi_after_selisih": doi_after_selisih,
+
                 # Sales
                 "avg_sales_qty": avg_sales_qty,
                 "avg_sales_value": round(avg_sales_value, 2)
@@ -414,6 +503,12 @@ class DataEngine:
                     "max_qty_total": 0.0,
                     "min_value_total": 0.0,
                     "max_value_total": 0.0,
+                    "value_overstock_total": 0.0,
+                    "qty_overstock_total": 0.0,
+                    "value_understock_total": 0.0,
+                    "qty_understock_total": 0.0,
+                    "selisih_value_sum": 0.0,
+                    "selisih_qty_sum": 0.0,
                     "avg_sales_qty": 0.0,
                     "avg_sales_value": 0.0,
                     "understock_count": 0,
@@ -432,6 +527,15 @@ class DataEngine:
             gb_map[gb_name]["max_qty_total"] += r["max_qty"]
             gb_map[gb_name]["min_value_total"] += r["min_value"]
             gb_map[gb_name]["max_value_total"] += r["max_value"]
+
+            gb_map[gb_name]["value_overstock_total"] += r["value_overstock"]
+            gb_map[gb_name]["qty_overstock_total"] += r["qty_overstock"]
+            gb_map[gb_name]["value_understock_total"] += r["value_understock"]
+            gb_map[gb_name]["qty_understock_total"] += r["qty_understock"]
+
+            gb_map[gb_name]["selisih_value_sum"] += r["selisih_value"]
+            gb_map[gb_name]["selisih_qty_sum"] += r["selisih_qty"]
+
             gb_map[gb_name]["avg_sales_qty"] += r["avg_sales_qty"]
             gb_map[gb_name]["avg_sales_value"] += r["avg_sales_value"]
 
@@ -453,6 +557,7 @@ class DataEngine:
                 stok_t = d["stok_total_value"]
                 min_thresh = d["min_value_total"]
                 max_thresh = d["max_value_total"]
+                selisih_sum = d["selisih_value_sum"]
                 sales = d["avg_sales_value"]
             else:
                 stok_m = d["stok_mnj_qty"]
@@ -460,6 +565,7 @@ class DataEngine:
                 stok_t = d["stok_total_qty"]
                 min_thresh = d["min_qty_total"]
                 max_thresh = d["max_qty_total"]
+                selisih_sum = d["selisih_qty_sum"]
                 sales = d["avg_sales_qty"]
 
             doi_m = (stok_m / sales * 30.0) if sales > 0 else (999.0 if stok_m > 0 else 0.0)
@@ -468,6 +574,10 @@ class DataEngine:
             doi_min_gb = (min_thresh / sales * 30.0) if sales > 0 else 0.0
             doi_max_gb = (max_thresh / sales * 30.0) if sales > 0 else 0.0
             
+            # Calculate Selisih DOI = (Jumlah Selisih Stok / Avg Sales) * 30.0
+            selisih_doi_gb = (selisih_sum / sales * 30.0) if sales > 0 else 0.0
+            doi_after_selisih_gb = doi_t - selisih_doi_gb
+
             def get_gb_status(stok_val: float) -> str:
                 if stok_val < min_thresh:
                     return "Understock"
@@ -476,6 +586,8 @@ class DataEngine:
                 else:
                     return "Overstock"
 
+            status_gb = get_gb_status(stok_t)
+
             d["doi_mnj_days"] = round(doi_m, 1)
             d["doi_kx_days"] = round(doi_k, 1)
             d["doi_total_days"] = round(doi_t, 1)
@@ -483,9 +595,17 @@ class DataEngine:
             d["doi_max_days"] = round(doi_max_gb, 1)
             d["target_doi_days"] = round(doi_max_gb, 1)
 
+            d["selisih_doi_days"] = round(selisih_doi_gb, 1)
+            d["selisih_value"] = round(d["selisih_value_sum"], 2)
+            d["selisih_qty"] = round(d["selisih_qty_sum"], 2)
+            d["doi_after_selisih"] = round(doi_after_selisih_gb, 1)
+
+            d["value_overstock_total"] = round(d["value_overstock_total"], 2)
+            d["value_understock_total"] = round(d["value_understock_total"], 2)
+
             d["health_status_mnj"] = get_gb_status(stok_m)
             d["health_status_kx"] = get_gb_status(stok_k)
-            d["health_status_total"] = get_gb_status(stok_t)
+            d["health_status_total"] = status_gb
 
             d["stok_mnj_value"] = round(d["stok_mnj_value"], 2)
             d["stok_kx_value"] = round(d["stok_kx_value"], 2)
