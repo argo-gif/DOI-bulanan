@@ -390,18 +390,18 @@ class DataEngine:
             val_over = round(max(0.0, stok_total_value - stok_max_value), 2) if doi_total > doi_max_days else 0.0
             qty_over = round(max(0.0, stok_total_qty - stok_max_qty), 2) if doi_total > doi_max_days else 0.0
 
-            doi_under_days = round(max(0.0, doi_min_days - doi_total), 1) if doi_total < doi_min_days else 0.0
-            val_under = round(max(0.0, stok_min_value - stok_total_value), 2) if doi_total < doi_min_days else 0.0
-            qty_under = round(max(0.0, stok_min_qty - stok_total_qty), 2) if doi_total < doi_min_days else 0.0
+            doi_under_days = round(max(0.0, doi_max_days - doi_total), 1) if doi_total < doi_min_days else 0.0
+            val_under = round(max(0.0, stok_max_value - stok_total_value), 2) if doi_total < doi_min_days else 0.0
+            qty_under = round(max(0.0, stok_max_qty - stok_total_qty), 2) if doi_total < doi_min_days else 0.0
 
             if doi_total > doi_max_days:
                 selisih_doi = round(doi_total - doi_max_days, 1)
                 selisih_val = round(stok_total_value - stok_max_value, 2)
                 selisih_qty = round(stok_total_qty - stok_max_qty, 2)
             elif doi_total < doi_min_days:
-                selisih_doi = round(doi_total - doi_min_days, 1)
-                selisih_val = round(stok_total_value - stok_min_value, 2)
-                selisih_qty = round(stok_total_qty - stok_min_qty, 2)
+                selisih_doi = round(doi_total - doi_max_days, 1)
+                selisih_val = round(stok_total_value - stok_max_value, 2)
+                selisih_qty = round(stok_total_qty - stok_max_qty, 2)
             else:
                 selisih_doi = 0.0
                 selisih_val = 0.0
