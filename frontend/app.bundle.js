@@ -843,7 +843,7 @@
         }
 
         return `
-          <tr data-gb="${gb.gb}" style="${isActive ? 'background: rgba(0, 242, 254, 0.12); border-left: 4px solid var(--accent-cyan);' : ''}">
+          <tr data-gb="${gb.gb}" style="${isActive ? 'background: rgba(0, 242, 254, 0.12); border-left: 3px solid var(--accent-cyan);' : ''}">
             <td style="font-weight: 700; color: #fff;">${gb.gb}</td>
             <td style="text-align: right; font-weight: 600;">${gb.total_sku}</td>
             <td style="text-align: right; font-weight: 500; color: #cbd5e1;">${this.formatDisplayValue(mnjDisp, isVal)}</td>
@@ -852,11 +852,11 @@
             <td style="text-align: right; font-weight: 500;">${this.formatDisplayValue(salesDisp, isVal)}</td>
             <td style="text-align: right; font-weight: 600; color: #60a5fa;">${gb.doi_mnj_days.toFixed(1)} d</td>
             <td style="text-align: right; font-weight: 600; color: #f472b6;">${gb.doi_kx_days.toFixed(1)} d</td>
-            <td style="text-align: right; font-weight: 800; color: var(--accent-cyan); font-size: 14px;">${gb.doi_total_days.toFixed(1)} Hari</td>
-            <td style="text-align: right; font-weight: 700; color: #a7f3d0; font-size: 14px;">${maxDoi.toFixed(1)} Hari</td>
-            <td style="text-align: right; font-size: 13px;">${selDoiHtml}</td>
-            <td style="text-align: right; font-size: 13px;">${selValHtml}</td>
-            <td style="text-align: right; font-weight: 700; color: #a7f3d0; font-size: 14px;">${doiAfterSelisih.toFixed(1)} Hari</td>
+            <td style="text-align: right; font-weight: 800; color: var(--accent-cyan);">${gb.doi_total_days.toFixed(1)} d</td>
+            <td style="text-align: right; font-weight: 700; color: #a7f3d0;">${maxDoi.toFixed(1)} d</td>
+            <td style="text-align: right;">${selDoiHtml}</td>
+            <td style="text-align: right;">${selValHtml}</td>
+            <td style="text-align: right; font-weight: 700; color: #a7f3d0;">${doiAfterSelisih.toFixed(1)} d</td>
             <td>${renderHealthBadge(gb.health_status_total)}</td>
           </tr>
         `;
@@ -864,7 +864,7 @@
 
       html += `
         <tr style="background: rgba(11, 17, 32, 0.95); font-weight: 700; border-top: 2px solid var(--border-color);">
-          <td style="color: var(--accent-cyan); font-size: 14px; font-weight: 800;">TOTAL KONSOLIDASI</td>
+          <td style="color: var(--accent-cyan); font-weight: 800;">TOTAL KONSOLIDASI</td>
           <td style="text-align: right; color: #fff;">${totalSKU}</td>
           <td style="text-align: right; color: #cbd5e1;">${this.formatDisplayValue(totalStokMNJ, isVal)}</td>
           <td style="text-align: right; color: #f472b6;">${this.formatDisplayValue(totalStokKX, isVal)}</td>
@@ -872,11 +872,11 @@
           <td style="text-align: right; color: #fff;">${this.formatDisplayValue(totalSales, isVal)}</td>
           <td style="text-align: right; color: #60a5fa;">${doiMNJ.toFixed(1)} d</td>
           <td style="text-align: right; color: #f472b6;">${doiKX.toFixed(1)} d</td>
-          <td style="text-align: right; color: var(--accent-cyan); font-size: 15px; font-weight: 800;">${doiTotal.toFixed(1)} Hari</td>
-          <td style="text-align: right; color: #a7f3d0; font-size: 15px;">${doiTargetCons.toFixed(1)} Hari</td>
-          <td style="text-align: right; font-size: 14px;">${totalDoiVarHtml}</td>
-          <td style="text-align: right; font-size: 14px;">${totalValVarHtml}</td>
-          <td style="text-align: right; font-weight: 800; color: #a7f3d0; font-size: 15px;">${totalDoiAfterSelisih.toFixed(1)} Hari</td>
+          <td style="text-align: right; color: var(--accent-cyan); font-weight: 800;">${doiTotal.toFixed(1)} d</td>
+          <td style="text-align: right; color: #a7f3d0;">${doiTargetCons.toFixed(1)} d</td>
+          <td style="text-align: right;">${totalDoiVarHtml}</td>
+          <td style="text-align: right;">${totalValVarHtml}</td>
+          <td style="text-align: right; font-weight: 800; color: #a7f3d0;">${totalDoiAfterSelisih.toFixed(1)} d</td>
           <td>${renderHealthBadge(totalHealthStatus)}</td>
         </tr>
       `;
@@ -906,7 +906,7 @@
       if (this.doiData.data.length === 0) {
         tableBody.innerHTML = `
           <tr>
-            <td colspan="16" style="text-align: center; padding: 40px; color: var(--text-muted);">
+            <td colspan="16" style="text-align: center; padding: 30px; color: var(--text-muted);">
               Tidak ada produk yang memenuhi kriteria filter.
             </td>
           </tr>
@@ -957,27 +957,27 @@
           <tr data-pcode="${item.product_code}" style="cursor: pointer;">
             <td>
               <div style="font-weight: 700; color: #fff;">${item.product_code}</div>
-              <div style="font-size: 11px; color: var(--text-muted);">${item.principal_product_code || '-'}</div>
+              <div style="font-size: 10px; color: var(--text-muted);">${item.principal_product_code || '-'}</div>
             </td>
             <td style="font-weight: 600;">${item.product_name}</td>
-            <td><span style="font-size: 12px; color: var(--text-secondary); font-weight: 600;">${item.gb}</span></td>
+            <td><span style="font-size: 11px; color: var(--text-secondary); font-weight: 600;">${item.gb}</span></td>
             <td><span class="badge" style="${ketBadgeStyle}">${item.keterangan_produk}</span></td>
             <td style="text-align: right; font-weight: 500; color: #cbd5e1;">${this.formatDisplayValue(stokMNJ, isVal)}</td>
             <td style="text-align: right; font-weight: 500; color: #f472b6;">${this.formatDisplayValue(stokKX, isVal)}</td>
             <td style="text-align: right; font-weight: 700; color: #fff;">${this.formatDisplayValue(stokTotal, isVal)}</td>
             <td style="text-align: right; font-weight: 500;">${this.formatDisplayValue(avgSales, isVal)}</td>
-            <td style="text-align: right; font-weight: 600; color: #60a5fa;">${doiMNJ >= 999 ? '> 999' : doiMNJ.toFixed(1)} d</td>
-            <td style="text-align: right; font-weight: 600; color: #f472b6;">${doiKX >= 999 ? '> 999' : doiKX.toFixed(1)} d</td>
-            <td style="text-align: right; font-weight: 800; font-size: 14px; color: var(--accent-cyan);">
-              ${doiTotal >= 999 ? '> 999' : doiTotal.toFixed(1)} Hari
+            <td style="text-align: right; font-weight: 600; color: #60a5fa;">${doiMNJ >= 999 ? '>999' : doiMNJ.toFixed(1)} d</td>
+            <td style="text-align: right; font-weight: 600; color: #f472b6;">${doiKX >= 999 ? '>999' : doiKX.toFixed(1)} d</td>
+            <td style="text-align: right; font-weight: 800; color: var(--accent-cyan);">
+              ${doiTotal >= 999 ? '>999' : doiTotal.toFixed(1)} d
             </td>
-            <td style="text-align: right; font-weight: 700; font-size: 14px; color: #a7f3d0;">
-              ${doiMax >= 999 ? '> 999' : doiMax ? doiMax.toFixed(1) : '0.0'} Hari
+            <td style="text-align: right; font-weight: 700; color: #a7f3d0;">
+              ${doiMax >= 999 ? '>999' : doiMax ? doiMax.toFixed(1) : '0.0'} d
             </td>
-            <td style="text-align: right; font-size: 13px;">${selDoiHtml}</td>
-            <td style="text-align: right; font-size: 13px;">${selStokHtml}</td>
-            <td style="text-align: right; font-weight: 700; font-size: 14px; color: #a7f3d0;">
-              ${doiAfterSelisih >= 999 ? '> 999' : doiAfterSelisih.toFixed(1)} Hari
+            <td style="text-align: right;">${selDoiHtml}</td>
+            <td style="text-align: right;">${selStokHtml}</td>
+            <td style="text-align: right; font-weight: 700; color: #a7f3d0;">
+              ${doiAfterSelisih >= 999 ? '>999' : doiAfterSelisih.toFixed(1)} d
             </td>
             <td>
               ${renderHealthBadge(targetStatus)}
