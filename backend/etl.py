@@ -625,9 +625,14 @@ class DataEngine:
 
         return summary_list
 
-    def get_historical_doi_trend(self, gb: Union[str, List[str]] = "All", keterangan: Union[str, List[str]] = "All", avg_months: int = 6, unit: str = "value", products: Union[str, List[str]] = "All", health_status: str = "All") -> List[Dict[str, Any]]:
-        """Calculates DOI trend for MNJ, KX, and Total Combined over all available periods."""
-        periods = sorted(self.get_available_periods())
+    def get_historical_doi_trend(self, gb: Union[str, List[str]] = "All", keterangan: Union[str, List[str]] = "All", avg_months: int = 6, unit: str = "value", products: Union[str, List[str]] = "All", health_status: str = "All", until_period: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Calculates DOI trend for MNJ, KX, and Total Combined over available periods up to until_period."""
+        all_periods = sorted(self.get_available_periods())
+        if until_period:
+            periods = [p for p in all_periods if p <= until_period]
+        else:
+            periods = all_periods
+
         month_names = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
         
         gb_set = parse_multi_param(gb)

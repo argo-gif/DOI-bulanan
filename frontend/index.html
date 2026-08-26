@@ -212,7 +212,7 @@
   <section class="glass-panel" style="padding: 24px; margin-bottom: 24px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
       <div>
-        <h2 style="font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
+        <h2 id="trendChartTitle" style="font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
           <span>📈</span> Trend Pergerakan DOI Historis (Januari 2026 – Juli 2026)
         </h2>
         <p id="trendSubtitle" style="font-size: 13px; color: var(--text-secondary);">Visualisasi perbandingan pergerakan DOI MNJ, DOI KX, dan DOI Combined Total.</p>
@@ -234,8 +234,9 @@
   <!-- DOI Per Group Business (GB) Summary Table Section -->
   <section class="glass-panel" style="padding: 24px; margin-bottom: 24px; overflow-x: auto;">
     <div style="margin-bottom: 16px;">
-      <h2 style="font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
+      <h2 style="font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
         <span>🏢</span> Ringkasan DOI Per Group Business (GB) &amp; Total Konsolidasi
+        <span id="gbPeriodBadge" style="font-size: 12px; font-weight: 600; color: var(--accent-cyan); background: rgba(0, 242, 254, 0.12); padding: 2px 10px; border-radius: 12px; border: 1px solid rgba(0, 242, 254, 0.3); margin-left: 4px;">Periode: Juli 2026</span>
       </h2>
       <p style="font-size: 13px; color: var(--text-secondary);">Perbandingan stok persediaan MNJ, KX Principal, Total Combined, DOI Total, dan DOI Max Master per GB.</p>
     </div>
@@ -268,8 +269,9 @@
   <!-- Interactive SKU Detail Table Container -->
   <section class="glass-panel" style="overflow: hidden;">
     <div style="padding: 16px 20px 8px 20px;">
-      <h2 style="font-size: 16px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
+      <h2 style="font-size: 16px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
         <span>📋</span> Detail Produk &amp; Evaluasi Realisasi DOI vs DOI Max Master
+        <span id="detailPeriodBadge" style="font-size: 12px; font-weight: 600; color: var(--accent-cyan); background: rgba(0, 242, 254, 0.12); padding: 2px 10px; border-radius: 12px; border: 1px solid rgba(0, 242, 254, 0.3); margin-left: 4px;">Periode: Juli 2026</span>
       </h2>
     </div>
 

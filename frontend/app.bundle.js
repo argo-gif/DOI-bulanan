@@ -43,6 +43,19 @@
     return res.json();
   }
 
+  function formatPeriodFullLabel(periodStr) {
+    if (!periodStr) return '';
+    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const parts = periodStr.split('-');
+    if (parts.length === 2) {
+      const mIdx = parseInt(parts[1], 10) - 1;
+      if (mIdx >= 0 && mIdx < 12) {
+        return `${months[mIdx]} ${parts[0]}`;
+      }
+    }
+    return periodStr;
+  }
+
   async function fetchDOITrend(filters) {
     const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0) ? filters.selectedGBs.join(',') : 'All';
     const ketVal = (filters.selectedKets && filters.selectedKets.length > 0) ? filters.selectedKets.join(',') : 'All';
@@ -53,6 +66,7 @@
       keterangan: ketVal,
       products: prodVal,
       health_status: filters.health_status || 'All',
+      period: filters.period || '2026-07',
       avg_months: (filters.avg_months || 6).toString(),
       unit: filters.unit || 'value'
     });
@@ -700,6 +714,14 @@
       const chartContainer = document.getElementById('trendChartContainer');
       const subtitleEl = document.getElementById('trendSubtitle');
 
+      const titleEl = document.getElementById('trendChartTitle');
+      if (titleEl && this.trendData && this.trendData.length > 0) {
+        const startLabel = formatPeriodFullLabel(this.trendData[0].period);
+        const endLabel = formatPeriodFullLabel(this.trendData[this.trendData.length - 1].period);
+        const rangeText = (this.trendData.length > 1) ? `(${startLabel} – ${endLabel})` : `(${endLabel})`;
+        titleEl.innerHTML = `<span>📈</span> Trend Pergerakan DOI Historis ${rangeText}`;
+      }
+
       if (subtitleEl) {
         let filterLabel = 'Konsolidasi Seluruh SKU';
         if (this.filters.selectedProducts && this.filters.selectedProducts.length === 1) {
@@ -796,6 +818,11 @@
     renderGBTable() {
       const tableBody = document.getElementById('gbTableBody');
       if (!tableBody || !this.gbSummary) return;
+
+      const gbBadge = document.getElementById('gbPeriodBadge');
+      if (gbBadge) {
+        gbBadge.innerText = `Periode: ${formatPeriodFullLabel(this.filters.period)}`;
+      }
 
       const isVal = (this.filters.unit === 'value');
 
@@ -916,6 +943,11 @@
     renderTable() {
       const tableBody = document.getElementById('tableBody');
       if (!tableBody || !this.doiData) return;
+
+      const detailBadge = document.getElementById('detailPeriodBadge');
+      if (detailBadge) {
+        detailBadge.innerText = `Periode: ${formatPeriodFullLabel(this.filters.period)}`;
+      }
 
       if (this.doiData.data.length === 0) {
         tableBody.innerHTML = `

@@ -277,6 +277,7 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         health_status = get_param("health_status", "All")
         avg_months = int(get_param("avg_months", "6"))
         unit = get_param("unit", "value")
+        period = get_param("period", get_param("until_period", ""))
 
         trend_data = data_engine.get_historical_doi_trend(
             gb=gb,
@@ -284,7 +285,8 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             avg_months=avg_months,
             unit=unit,
             products=products,
-            health_status=health_status
+            health_status=health_status,
+            until_period=period if period else None
         )
 
         self._set_headers(200)
