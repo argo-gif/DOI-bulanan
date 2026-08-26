@@ -35,6 +35,7 @@
       avg_months: (filters.avg_months || 6).toString(),
       keterangan: ketVal,
       products: prodVal,
+      health_status: filters.health_status || 'All',
       unit: filters.unit || 'value'
     });
     const res = await fetch(`${API_BASE}/gb-summary?${params.toString()}`);

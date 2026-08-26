@@ -471,11 +471,12 @@ class DataEngine:
 
         return report
 
-    def get_gb_summary_report(self, period: Optional[str] = None, avg_months: int = 6, keterangan: Union[str, List[str]] = "All", unit: str = "value", products: Union[str, List[str]] = "All") -> List[Dict[str, Any]]:
+    def get_gb_summary_report(self, period: Optional[str] = None, avg_months: int = 6, keterangan: Union[str, List[str]] = "All", unit: str = "value", products: Union[str, List[str]] = "All", health_status: Union[str, List[str]] = "All") -> List[Dict[str, Any]]:
         """Calculates aggregated DOI metrics grouped per GB and Total Consolidated with weighted DOI Max (Days)."""
         report = self.get_doi_mnj_report(period=period, avg_months=avg_months)
         ket_set = parse_multi_param(keterangan)
         prod_set = parse_multi_param(products)
+        health_set = parse_multi_param(health_status)
 
         gb_map: Dict[str, Dict[str, Any]] = {}
 
@@ -486,6 +487,9 @@ class DataEngine:
             p_pcode = r.get("principal_product_code", "")
             p_old = r.get("old_code", "")
             if prod_set and p_code not in prod_set and p_pcode not in prod_set and p_old not in prod_set:
+                continue
+
+            if health_set and r["health_status_total"] not in health_set and r["health_status_mnj"] not in health_set:
                 continue
 
             gb_name = r["gb"] or "Unassigned"

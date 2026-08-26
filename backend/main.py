@@ -255,6 +255,7 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         avg_months = int(get_param("avg_months", "6"))
         keterangan = get_param("keterangan", "All")
         products = get_param("products", "All")
+        health_status = get_param("health_status", "All")
         unit = get_param("unit", "value")
 
         gb_summary = data_engine.get_gb_summary_report(
@@ -262,7 +263,8 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             avg_months=avg_months,
             keterangan=keterangan,
             unit=unit,
-            products=products
+            products=products,
+            health_status=health_status
         )
 
         self._set_headers(200)
