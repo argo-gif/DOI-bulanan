@@ -489,7 +489,7 @@ class DataEngine:
             if prod_set and p_code not in prod_set and p_pcode not in prod_set and p_old not in prod_set:
                 continue
 
-            if health_set and r["health_status_total"] not in health_set and r["health_status_mnj"] not in health_set:
+            if health_set and r["health_status_total"] not in health_set:
                 continue
 
             gb_name = r["gb"] or "Unassigned"

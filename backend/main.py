@@ -169,7 +169,7 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             if prod_set and p_code not in prod_set and p_pcode not in prod_set and p_old not in prod_set:
                 continue
 
-            if health_status != "All" and r["health_status_total"] != health_status and r["health_status_mnj"] != health_status:
+            if health_status != "All" and r["health_status_total"] != health_status:
                 continue
 
             if search:
