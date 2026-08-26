@@ -159,14 +159,51 @@
       </div>
     </div>
 
-    <!-- Health Status Quick Filters -->
-    <div class="filter-row" style="margin-top: 4px;">
-      <div class="filter-group">
-        <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">Filter Evaluasi Stok Master:</span>
-        <button class="toggle-btn active" data-health="All">Semua Status</button>
-        <button class="toggle-btn" data-health="Understock" style="color: #f87171;">🔴 Understock (&lt; Min Qty)</button>
-        <button class="toggle-btn" data-health="Normal" style="color: #34d399;">🟢 Normal (≤ DOI Max)</button>
-        <button class="toggle-btn" data-health="Overstock" style="color: #fbbf24;">🟡 Overstock (&gt; DOI Max)</button>
+    <!-- Health Status Interactive Filter Cards -->
+    <div style="margin-top: 10px; width: 100%;">
+      <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+        <span>🎯</span> Filter Evaluasi Stok Master (Klik Kotak Status):
+      </div>
+      <div class="status-cards-grid">
+        <!-- All Status Card -->
+        <div class="status-filter-card active" data-health="All">
+          <div class="status-card-header">
+            <span class="status-card-icon">📊</span>
+            <span class="status-card-title">Semua Status</span>
+          </div>
+          <div class="status-card-count" id="countAllSku">0 SKU</div>
+          <div class="status-card-desc">Total SKU Terdaftar</div>
+        </div>
+
+        <!-- Understock Card -->
+        <div class="status-filter-card status-card-understock" data-health="Understock">
+          <div class="status-card-header">
+            <span class="status-card-icon">🔴</span>
+            <span class="status-card-title">Understock</span>
+          </div>
+          <div class="status-card-count" id="countUnderstockSku" style="color: #f87171;">0 SKU</div>
+          <div class="status-card-desc">&lt; Min Stok / DOI</div>
+        </div>
+
+        <!-- Normal Card -->
+        <div class="status-filter-card status-card-normal" data-health="Normal">
+          <div class="status-card-header">
+            <span class="status-card-icon">🟢</span>
+            <span class="status-card-title">Normal</span>
+          </div>
+          <div class="status-card-count" id="countNormalSku" style="color: #34d399;">0 SKU</div>
+          <div class="status-card-desc">Persediaan Ideal Min–Max</div>
+        </div>
+
+        <!-- Overstock Card -->
+        <div class="status-filter-card status-card-overstock" data-health="Overstock">
+          <div class="status-card-header">
+            <span class="status-card-icon">🟡</span>
+            <span class="status-card-title">Overstock</span>
+          </div>
+          <div class="status-card-count" id="countOverstockSku" style="color: #fbbf24;">0 SKU</div>
+          <div class="status-card-desc">&gt; Max Stok / DOI</div>
+        </div>
       </div>
     </div>
   </section>

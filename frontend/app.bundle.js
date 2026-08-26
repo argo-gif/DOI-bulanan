@@ -642,6 +642,19 @@
       const elOver = document.getElementById('metricOverstock');
       if (elOver) elOver.innerText = formatNum(this.summary.overstock_count);
 
+      // Status Filter Cards SKU Counts
+      const cntAll = document.getElementById('countAllSku');
+      if (cntAll) cntAll.innerText = `${formatNum(this.summary.total_sku)} SKU`;
+
+      const cntUnder = document.getElementById('countUnderstockSku');
+      if (cntUnder) cntUnder.innerText = `${formatNum(this.summary.understock_count)} SKU`;
+
+      const cntNorm = document.getElementById('countNormalSku');
+      if (cntNorm) cntNorm.innerText = `${formatNum(this.summary.normal_count)} SKU`;
+
+      const cntOver = document.getElementById('countOverstockSku');
+      if (cntOver) cntOver.innerText = `${formatNum(this.summary.overstock_count)} SKU`;
+
       // Card Titles
       const elMNJTitle = document.getElementById('metricTotalStokMNJTitle');
       if (elMNJTitle) elMNJTitle.innerText = isVal ? 'Stok MNJ (Distributor)' : 'Stok MNJ (Qty)';

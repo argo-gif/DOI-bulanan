@@ -532,6 +532,124 @@ body {
   box-shadow: 0 2px 10px rgba(0, 242, 254, 0.4);
 }
 
+/* Status Filter Box Cards */
+.status-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .status-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.status-filter-card {
+  background: rgba(10, 16, 30, 0.75);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.status-filter-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.status-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.status-card-icon {
+  font-size: 14px;
+}
+
+.status-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.2px;
+}
+
+.status-card-count {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.status-card-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+/* Active Card Styles */
+.status-filter-card.active[data-health="All"] {
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.18) 0%, rgba(2, 132, 199, 0.25) 100%);
+  border: 1px solid var(--accent-cyan);
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.35);
+}
+
+.status-filter-card.active[data-health="All"] .status-card-title {
+  color: var(--accent-cyan);
+}
+
+.status-filter-card.status-card-understock.active {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(185, 28, 28, 0.25) 100%);
+  border: 1px solid #f87171;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.35);
+}
+
+.status-filter-card.status-card-understock.active .status-card-title {
+  color: #f87171;
+}
+
+.status-filter-card.status-card-normal.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(4, 120, 87, 0.25) 100%);
+  border: 1px solid #34d399;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.35);
+}
+
+.status-filter-card.status-card-normal.active .status-card-title {
+  color: #34d399;
+}
+
+.status-filter-card.status-card-overstock.active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(180, 83, 9, 0.25) 100%);
+  border: 1px solid #fbbf24;
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.35);
+}
+
+.status-filter-card.status-card-overstock.active .status-card-title {
+  color: #fbbf24;
+}
+
+/* Hover highlights for non-active cards */
+.status-filter-card.status-card-understock:hover:not(.active) {
+  border-color: rgba(248, 113, 113, 0.5);
+}
+
+.status-filter-card.status-card-normal:hover:not(.active) {
+  border-color: rgba(52, 211, 153, 0.5);
+}
+
+.status-filter-card.status-card-overstock:hover:not(.active) {
+  border-color: rgba(251, 191, 36, 0.5);
+}
+
 .search-box {
   position: relative;
   flex: 1;
