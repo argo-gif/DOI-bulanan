@@ -224,6 +224,12 @@ class DataEngine:
                 self._kx_cache[period][target_code] = self._kx_cache[period].get(target_code, 0.0) + saldo_akhir
             wb.close()
 
+            # Ensure any negative KX stock balances are reset to 0.0
+            for p in self._kx_cache:
+                for k in self._kx_cache[p]:
+                    if self._kx_cache[p][k] < 0.0:
+                        self._kx_cache[p][k] = 0.0
+
         # 3. Preload Sales Data
         if os.path.exists(self.sales_file):
             wb = openpyxl.load_workbook(self.sales_file, read_only=True, data_only=True)
@@ -338,7 +344,7 @@ class DataEngine:
             qty_bdp = stok_info["bdp"]
             stok_mnj_qty = stok_info["total"]
 
-            stok_kx_qty = kx_data.get(pcode, 0.0)
+            stok_kx_qty = max(0.0, kx_data.get(pcode, 0.0))
             stok_total_qty = stok_mnj_qty + stok_kx_qty
 
             harga_dasar = pinfo["harga_dasar"]
