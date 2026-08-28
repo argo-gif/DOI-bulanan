@@ -5,7 +5,6 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
-from pptx.enum.shapes import MSO_SHAPE
 
 def format_curr_or_qty(num: float, is_value: bool, is_compact: bool = True) -> str:
     if num is None or num != num:
@@ -54,6 +53,39 @@ def style_cell(cell, text: str, font_size: int = 10, bold: bool = False, color: 
         run.font.bold = bold
         run.font.color.rgb = color
 
+def set_slide_title(slide, title_text: str):
+    """Sets the title in the template's title placeholder if present, or creates one if missing."""
+    title_shape = None
+    for shape in slide.shapes:
+        if shape.is_placeholder and shape.placeholder_format.type in [1, 3]:  # TITLE or CENTER_TITLE
+            title_shape = shape
+            break
+        elif shape.name and "Title" in shape.name:
+            title_shape = shape
+            break
+            
+    if title_shape and title_shape.has_text_frame:
+        tf = title_shape.text_frame
+        tf.word_wrap = True
+        tf.text = ""
+        p = tf.paragraphs[0]
+        p.text = title_text
+        p.alignment = PP_ALIGN.LEFT
+        for run in p.runs:
+            run.font.name = "Segoe UI"
+            run.font.size = Pt(20)
+            run.font.bold = True
+            run.font.color.rgb = RGBColor(0, 242, 254)
+    else:
+        tbox = slide.shapes.add_textbox(Inches(0.8), Inches(0.4), Inches(11.5), Inches(0.8))
+        tf = tbox.text_frame
+        p = tf.paragraphs[0]
+        p.text = title_text
+        p.font.name = "Segoe UI"
+        p.font.size = Pt(20)
+        p.font.bold = True
+        p.font.color.rgb = RGBColor(0, 242, 254)
+
 def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = "Template PPT.pptx") -> io.BytesIO:
     """Generates a PowerPoint presentation using Template PPT.pptx based on active dashboard filters and data."""
     if not os.path.exists(template_path):
@@ -77,50 +109,69 @@ def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = 
     gb_summary = data_engine.get_gb_summary_report(period=period, avg_months=avg_months, keterangan=keterangan, unit=unit, products=products, health_status=health_status)
     doi_trend = data_engine.get_historical_doi_trend(gb=gb, keterangan=keterangan, avg_months=avg_months, unit=unit, products=products, health_status=health_status, until_period=period)
 
-    # Filtered full report for Top Overstock/Understock
+    # Filtered full report
     full_filtered = [r for r in summary if (gb == "All" or r["gb"] == gb) and (keterangan == "All" or r["keterangan_produk"] == keterangan)]
 
-    # --- SLIDE 1: COVER ---
+    # --- SLIDE 1: COVER (Populate Template Title & Subtitle Placeholders inside Red Box) ---
     slide_1 = prs.slides[0]
-    # Add title box if layout permits
-    title_box = slide_1.shapes.add_textbox(Inches(0.8), Inches(1.8), Inches(11.5), Inches(3.0))
-    tf = title_box.text_frame
-    tf.word_wrap = True
-    
-    p0 = tf.paragraphs[0]
-    p0.text = "LAPORAN MONITORING & EVALUASI DOI PERSEDIAAN"
-    p0.font.name = "Segoe UI"
-    p0.font.size = Pt(26)
-    p0.font.bold = True
-    p0.font.color.rgb = RGBColor(0, 242, 254)  # Accent Cyan
 
-    p1 = tf.add_paragraph()
-    p1.text = f"Distributor MNJ & Principal Konimex (KX) — Periode: {period_label}"
-    p1.font.name = "Segoe UI"
-    p1.font.size = Pt(18)
-    p1.font.bold = True
-    p1.font.color.rgb = RGBColor(255, 255, 255)
-    p1.space_before = Pt(10)
+    # Find placeholders
+    title_ph = None
+    sub_ph = None
+    for shape in slide_1.shapes:
+        if shape.is_placeholder:
+            if shape.placeholder_format.type == 3:  # CENTER_TITLE
+                title_ph = shape
+            elif shape.placeholder_format.type == 4:  # SUBTITLE
+                sub_ph = shape
 
-    p2 = tf.add_paragraph()
-    p2.text = f"Mode Evaluasi: {'Valuasi (Rupiah)' if is_value else 'Kuantitas (Unit)'} | Group Business: {gb} | Status Filter: {health_status}"
-    p2.font.name = "Segoe UI"
-    p2.font.size = Pt(13)
-    p2.font.color.rgb = RGBColor(148, 163, 184)
-    p2.space_before = Pt(8)
+    # If title placeholder exists, populate it inside the top red box
+    if title_ph and title_ph.has_text_frame:
+        tf1 = title_ph.text_frame
+        tf1.word_wrap = True
+        tf1.text = ""
+        p0 = tf1.paragraphs[0]
+        p0.text = "LAPORAN MONITORING & EVALUASI DOI PERSEDIAAN"
+        p0.alignment = PP_ALIGN.CENTER
+        for run in p0.runs:
+            run.font.name = "Segoe UI"
+            run.font.size = Pt(18)
+            run.font.bold = True
+            run.font.color.rgb = RGBColor(255, 255, 255)
+
+    # If subtitle placeholder exists, populate it inside the bottom red box
+    if sub_ph and sub_ph.has_text_frame:
+        # Reposition and expand subtitle box position for perfect padding inside red box container
+        sub_ph.left = Inches(5.2)
+        sub_ph.top = Inches(3.3)
+        sub_ph.width = Inches(4.3)
+        sub_ph.height = Inches(1.2)
+
+        tf_sub = sub_ph.text_frame
+        tf_sub.word_wrap = True
+        tf_sub.text = ""
+
+        p1 = tf_sub.paragraphs[0]
+        p1.text = f"Distributor MNJ & Principal Konimex (KX)\nPeriode: {period_label}"
+        p1.alignment = PP_ALIGN.CENTER
+        for run in p1.runs:
+            run.font.name = "Segoe UI"
+            run.font.size = Pt(12)
+            run.font.bold = True
+            run.font.color.rgb = RGBColor(255, 255, 255)
+
+        p2 = tf_sub.add_paragraph()
+        p2.text = f"Mode: {'Valuasi (IDR)' if is_value else 'Kuantitas (Unit)'} | GB: {gb} | Status: {health_status}"
+        p2.alignment = PP_ALIGN.CENTER
+        p2.space_before = Pt(4)
+        for run in p2.runs:
+            run.font.name = "Segoe UI"
+            run.font.size = Pt(10)
+            run.font.color.rgb = RGBColor(254, 243, 199)
 
     # --- SLIDE 2: RINGKASAN EXECUTIVE & METRIK KESEHATAN PERSEDIAAN ---
     slide_2 = prs.slides[1] if len(prs.slides) > 1 else prs.slides.add_slide(prs.slide_layouts[6])
-    
-    # Title
-    tbox2 = slide_2.shapes.add_textbox(Inches(0.8), Inches(0.5), Inches(11.5), Inches(0.8))
-    tf2 = tbox2.text_frame
-    p = tf2.paragraphs[0]
-    p.text = f"📊 Executive Summary & Metrik Utama (Periode {period_label})"
-    p.font.name = "Segoe UI"
-    p.font.size = Pt(20)
-    p.font.bold = True
-    p.font.color.rgb = RGBColor(0, 242, 254)
+    set_slide_title(slide_2, f"📊 Executive Summary & Metrik Utama ({period_label})")
 
     # Calculate summary metrics
     total_sku = len(full_filtered)
@@ -174,14 +225,7 @@ def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = 
 
     # --- SLIDE 3: RINGKASAN DOI PER GB ---
     slide_3 = prs.slides[2] if len(prs.slides) > 2 else prs.slides.add_slide(prs.slide_layouts[6])
-    tbox3 = slide_3.shapes.add_textbox(Inches(0.8), Inches(0.5), Inches(11.5), Inches(0.8))
-    tf3 = tbox3.text_frame
-    p3 = tf3.paragraphs[0]
-    p3.text = f"🏢 Ringkasan DOI Per Group Business (GB) & Total Konsolidasi ({period_label})"
-    p3.font.name = "Segoe UI"
-    p3.font.size = Pt(18)
-    p3.font.bold = True
-    p3.font.color.rgb = RGBColor(0, 242, 254)
+    set_slide_title(slide_3, f"🏢 Ringkasan DOI Per Group Business & Total Konsolidasi ({period_label})")
 
     # GB Summary Table
     num_rows = len(gb_summary) + 1  # header + data
@@ -257,14 +301,7 @@ def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = 
 
     # --- SLIDE 4: HISTORICAL DOI TREND ---
     slide_4 = prs.slides[3] if len(prs.slides) > 3 else prs.slides.add_slide(prs.slide_layouts[6])
-    tbox4 = slide_4.shapes.add_textbox(Inches(0.8), Inches(0.5), Inches(11.5), Inches(0.8))
-    tf4 = tbox4.text_frame
-    p4 = tf4.paragraphs[0]
-    p4.text = f"📈 Trend Pergerakan DOI Historis (Januari 2026 – {period_label})"
-    p4.font.name = "Segoe UI"
-    p4.font.size = Pt(18)
-    p4.font.bold = True
-    p4.font.color.rgb = RGBColor(0, 242, 254)
+    set_slide_title(slide_4, f"📈 Trend Pergerakan DOI Historis (Januari 2026 – {period_label})")
 
     # Trend Table
     t_rows = len(doi_trend) + 1
@@ -301,14 +338,3 @@ def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = 
     prs.save(buffer)
     buffer.seek(0)
     return buffer
-
-if __name__ == "__main__":
-    import sys
-    sys.path.append("backend")
-    from etl import DataEngine
-    e = DataEngine(".")
-    filters = {"period": "2026-07", "unit": "value", "gb": "All", "keterangan": "All", "health_status": "All", "avg_months": 6}
-    buf = generate_doi_ppt(e, filters)
-    with open("test_output.pptx", "wb") as f:
-        f.write(buf.getvalue())
-    print(f"Generated PPTX file successfully! Size: {len(buf.getvalue())} bytes")
