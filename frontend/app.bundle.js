@@ -113,6 +113,23 @@
     return `${API_BASE}/export?${params.toString()}`;
   }
 
+  function getExportPPTUrl(filters) {
+    const gbVal = Array.isArray(filters.selectedGBs) && filters.selectedGBs.length > 0 ? filters.selectedGBs.join(',') : 'All';
+    const ketVal = Array.isArray(filters.selectedKets) && filters.selectedKets.length > 0 ? filters.selectedKets.join(',') : 'All';
+    const prodVal = Array.isArray(filters.selectedItems) && filters.selectedItems.length > 0 ? filters.selectedItems.join(',') : 'All';
+
+    const params = new URLSearchParams({
+      period: filters.period || '2026-07',
+      unit: filters.unit || 'value',
+      gb: gbVal,
+      keterangan: ketVal,
+      products: prodVal,
+      health_status: filters.health_status,
+      avg_months: (filters.avg_months || 6).toString()
+    });
+    return `${API_BASE}/export-ppt?${params.toString()}`;
+  }
+
   function renderHealthBadge(status) {
     let badgeClass = 'badge-normal';
     let dotColor = '#34d399';
@@ -579,6 +596,13 @@
       if (btnExport) {
         btnExport.addEventListener('click', () => {
           window.open(getExportUrl(this.filters), '_blank');
+        });
+      }
+
+      const btnExportPPT = document.getElementById('btnExportPPT');
+      if (btnExportPPT) {
+        btnExportPPT.addEventListener('click', () => {
+          window.open(getExportPPTUrl(this.filters), '_blank');
         });
       }
 

@@ -71,11 +71,17 @@
         </select>
       </div>
 
-      <!-- Export CSV -->
-      <button class="btn-export" id="btnExport">
-        <span>📥</span>
-        <span>Ekspor Data MNJ &amp; KX (CSV)</span>
-      </button>
+      <!-- Export Buttons -->
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button class="btn-export" id="btnExport" type="button">
+          <span>📥</span>
+          <span>Ekspor CSV</span>
+        </button>
+        <button class="btn-export-ppt" id="btnExportPPT" type="button" style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: #fff; border: none; padding: 9px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.25s ease; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);">
+          <span>📊</span>
+          <span>Ekspor PPT</span>
+        </button>
+      </div>
     </div>
 
     <div class="filter-row">

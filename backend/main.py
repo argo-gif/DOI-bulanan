@@ -15,6 +15,7 @@ from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from etl import DataEngine, parse_multi_param
+from ppt_generator import generate_doi_ppt
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
@@ -91,6 +92,9 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
 
             elif path == "/api/v1/export":
                 self.handle_export(get_param)
+
+            elif path == "/api/v1/export-ppt":
+                self.handle_export_ppt(get_param)
 
             else:
                 rel_path = path.lstrip("/")
@@ -348,6 +352,29 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(csv_content.encode("utf-8"))
+
+    def handle_export_ppt(self, get_param):
+        filters = {
+            "period": get_param("period", "2026-07"),
+            "unit": get_param("unit", "value"),
+            "gb": get_param("gb", "All"),
+            "keterangan": get_param("keterangan", "All"),
+            "products": get_param("products", "All"),
+            "health_status": get_param("health_status", "All"),
+            "avg_months": int(get_param("avg_months", "6"))
+        }
+
+        template_file = os.path.join(BASE_DIR, "Template PPT.pptx")
+        ppt_buffer = generate_doi_ppt(data_engine, filters, template_path=template_file)
+        ppt_bytes = ppt_buffer.getvalue()
+
+        period_str = filters["period"]
+        self.send_response(200)
+        self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+        self.send_header("Content-Disposition", f"attachment; filename=Laporan_DOI_MNJ_KX_{period_str}.pptx")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(ppt_bytes)
 
 def run_server(port=8000):
     print("[SERVER] Preloading datasets into memory...", flush=True)
