@@ -662,7 +662,8 @@ class DataEngine:
                 p_old = r.get("old_code", "")
                 if prod_set and p_code not in prod_set and p_pcode not in prod_set and p_old not in prod_set:
                     continue
-                if health_status != "All" and r.get("health_status_total") != health_status and r.get("health_status_mnj") != health_status:
+                health_set = parse_multi_param(health_status)
+                if health_set and r.get("health_status_total") not in health_set:
                     continue
 
                 sku_cnt += 1
