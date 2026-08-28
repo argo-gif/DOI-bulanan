@@ -88,8 +88,16 @@ class DataEngine:
             if not keterangan:
                 keterangan = "Regular"
 
-            # Standard Minimum DOI threshold for Understock evaluation is 45.0 days (< 45 days is Understock)
-            doi_min = 45.0
+            try:
+                raw_doi_min = float(row[11]) if len(row) > 11 and row[11] is not None else 30.0
+            except (ValueError, TypeError):
+                raw_doi_min = 30.0
+
+            # Understock rule: if Master Min DOI is 0, use 0. If not 0, use 45.
+            if raw_doi_min == 0.0:
+                doi_min = 0.0
+            else:
+                doi_min = 45.0
 
             try:
                 doi_max = float(row[12]) if len(row) > 12 and row[12] is not None else 60.0
