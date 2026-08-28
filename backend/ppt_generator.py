@@ -43,7 +43,7 @@ def format_period_label(period_str: str) -> str:
             pass
     return period_str
 
-def style_cell(cell, text: str, font_size: int = 10, bold: bool = False, color: RGBColor = RGBColor(255, 255, 255), align: PP_ALIGN = PP_ALIGN.LEFT, bg_color: RGBColor = None):
+def style_cell(cell, text: str, font_size: int = 9, bold: bool = False, color: RGBColor = RGBColor(255, 255, 255), align: PP_ALIGN = PP_ALIGN.LEFT, bg_color: RGBColor = None):
     cell.text = str(text)
     if bg_color:
         cell.fill.solid()
@@ -57,7 +57,7 @@ def style_cell(cell, text: str, font_size: int = 10, bold: bool = False, color: 
         run.font.color.rgb = color
 
 def set_slide_title(slide, title_text: str):
-    """Sets the title in the template's title placeholder if present, or creates one if missing."""
+    """Sets the title in the template's title placeholder cleanly formatted without overlapping the logo on top right."""
     title_shape = None
     for shape in slide.shapes:
         if shape.is_placeholder and shape.placeholder_format.type in [1, 3]:  # TITLE or CENTER_TITLE
@@ -68,6 +68,11 @@ def set_slide_title(slide, title_text: str):
             break
             
     if title_shape and title_shape.has_text_frame:
+        title_shape.left = Inches(0.4)
+        title_shape.top = Inches(0.20)
+        title_shape.width = Inches(6.8)
+        title_shape.height = Inches(0.55)
+
         tf = title_shape.text_frame
         tf.word_wrap = True
         tf.text = ""
@@ -76,18 +81,19 @@ def set_slide_title(slide, title_text: str):
         p.alignment = PP_ALIGN.LEFT
         for run in p.runs:
             run.font.name = "Segoe UI"
-            run.font.size = Pt(18)
+            run.font.size = Pt(13)
             run.font.bold = True
-            run.font.color.rgb = RGBColor(0, 242, 254)
+            run.font.color.rgb = RGBColor(2, 132, 199)
     else:
-        tbox = slide.shapes.add_textbox(Inches(0.8), Inches(0.4), Inches(11.5), Inches(0.8))
+        tbox = slide.shapes.add_textbox(Inches(0.4), Inches(0.20), Inches(6.8), Inches(0.55))
         tf = tbox.text_frame
+        tf.word_wrap = True
         p = tf.paragraphs[0]
         p.text = title_text
         p.font.name = "Segoe UI"
-        p.font.size = Pt(18)
+        p.font.size = Pt(13)
         p.font.bold = True
-        p.font.color.rgb = RGBColor(0, 242, 254)
+        p.font.color.rgb = RGBColor(2, 132, 199)
 
 def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = "Template PPT.pptx") -> io.BytesIO:
     """Generates a PowerPoint presentation using Template PPT.pptx based on active dashboard filters and data."""
@@ -142,7 +148,7 @@ def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = 
         p0.alignment = PP_ALIGN.CENTER
         for run in p0.runs:
             run.font.name = "Segoe UI"
-            run.font.size = Pt(18)
+            run.font.size = Pt(17)
             run.font.bold = True
             run.font.color.rgb = RGBColor(255, 255, 255)
 
@@ -161,90 +167,94 @@ def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = 
         p1.alignment = PP_ALIGN.CENTER
         for run in p1.runs:
             run.font.name = "Segoe UI"
-            run.font.size = Pt(12)
+            run.font.size = Pt(11)
             run.font.bold = True
             run.font.color.rgb = RGBColor(255, 255, 255)
 
         p2 = tf_sub.add_paragraph()
         p2.text = f"Mode: {'Valuasi (IDR)' if is_value else 'Kuantitas (Unit)'} | GB: {gb} | Status: {health_status}"
         p2.alignment = PP_ALIGN.CENTER
-        p2.space_before = Pt(4)
+        p2.space_before = Pt(3)
         for run in p2.runs:
             run.font.name = "Segoe UI"
-            run.font.size = Pt(10)
+            run.font.size = Pt(9.5)
             run.font.color.rgb = RGBColor(254, 243, 199)
 
-    # --- SLIDE 2: DASHBOARD MAIN SUMMARY (4 STATUS CARDS + 3-LINE TREND CHART) ---
+    # --- SLIDE 2: MAIN DASHBOARD OVERVIEW (4 STATUS CARDS + NATIVE 3-LINE TREND CHART) ---
     slide_2 = prs.slides[1] if len(prs.slides) > 1 else prs.slides.add_slide(prs.slide_layouts[6])
     set_slide_title(slide_2, f"🎯 Evaluasi Stok & Trend Pergerakan DOI (Januari 2026 – {period_label})")
 
-    # 4 Status Cards Grid
+    # 4 Status Cards Grid (Fits perfectly within 10.0" width: left=0.40" to 9.60")
     cards_data = [
-        {"title": "Semua Status", "count": f"{total_sku} SKU", "sub": "Total SKU Terdaftar", "color": RGBColor(0, 242, 254), "left": Inches(0.6)},
-        {"title": "🔴 Understock", "count": f"{under_cnt} SKU", "sub": "< 45 Hari DOI", "color": RGBColor(248, 113, 113), "left": Inches(3.6)},
-        {"title": "🟢 Normal", "count": f"{norm_cnt} SKU", "sub": "45 Hari – DOI Max", "color": RGBColor(52, 211, 153), "left": Inches(6.6)},
-        {"title": "🟡 Overstock", "count": f"{over_cnt} SKU", "sub": "> DOI Max Stok", "color": RGBColor(251, 191, 36), "left": Inches(9.6)},
+        {"title": "Semua Status", "count": f"{total_sku} SKU", "sub": "Total SKU Terdaftar", "color": RGBColor(0, 180, 216), "left": Inches(0.40)},
+        {"title": "🔴 Understock", "count": f"{under_cnt} SKU", "sub": "< 45 Hari DOI", "color": RGBColor(239, 68, 68), "left": Inches(2.75)},
+        {"title": "🟢 Normal", "count": f"{norm_cnt} SKU", "sub": "45 Hari – DOI Max", "color": RGBColor(16, 185, 129), "left": Inches(5.10)},
+        {"title": "🟡 Overstock", "count": f"{over_cnt} SKU", "sub": "> DOI Max Stok", "color": RGBColor(245, 158, 11), "left": Inches(7.45)},
     ]
 
     for card in cards_data:
-        shape = slide_2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, card["left"], Inches(1.15), Inches(2.7), Inches(1.25))
+        shape = slide_2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, card["left"], Inches(0.85), Inches(2.15), Inches(1.10))
         shape.fill.solid()
         shape.fill.fore_color.rgb = RGBColor(15, 23, 42)
         shape.line.color.rgb = card["color"]
-        shape.line.width = Pt(2)
+        shape.line.width = Pt(1.5)
 
         tf = shape.text_frame
         tf.word_wrap = True
+        tf.margin_left = Inches(0.08)
+        tf.margin_right = Inches(0.08)
+        tf.margin_top = Inches(0.06)
+        tf.margin_bottom = Inches(0.06)
         
         p0 = tf.paragraphs[0]
         p0.text = card["title"]
         p0.font.name = "Segoe UI"
-        p0.font.size = Pt(11)
+        p0.font.size = Pt(9.5)
         p0.font.bold = True
         p0.font.color.rgb = card["color"]
 
         p1 = tf.add_paragraph()
         p1.text = card["count"]
         p1.font.name = "Segoe UI"
-        p1.font.size = Pt(18)
+        p1.font.size = Pt(15)
         p1.font.bold = True
         p1.font.color.rgb = RGBColor(255, 255, 255)
-        p1.space_before = Pt(2)
+        p1.space_before = Pt(1)
 
         p2 = tf.add_paragraph()
         p2.text = card["sub"]
         p2.font.name = "Segoe UI"
-        p2.font.size = Pt(9)
+        p2.font.size = Pt(7.5)
         p2.font.color.rgb = RGBColor(148, 163, 184)
 
-    # 3-Line Trend Chart Section (DOI Combined Total, DOI MNJ, DOI KX)
+    # 3-Line Trend Chart Section (Fits perfectly within top=2.05", height=2.65" - above bottom banner!)
     chart_data = CategoryChartData()
     chart_data.categories = [tr["period_label"] for tr in doi_trend]
 
-    # Add all 3 series simultaneously!
     chart_data.add_series('DOI Combined Total', [tr["doi_total_days"] for tr in doi_trend])
     chart_data.add_series('DOI MNJ (Distributor)', [tr["doi_mnj_days"] for tr in doi_trend])
     chart_data.add_series('DOI KX (Principal)', [tr["doi_kx_days"] for tr in doi_trend])
 
     chart_shape = slide_2.shapes.add_chart(
         XL_CHART_TYPE.LINE_MARKERS,
-        Inches(0.6), Inches(2.6), Inches(11.7), Inches(4.5),
+        Inches(0.40), Inches(2.05), Inches(9.20), Inches(2.65),
         chart_data
     )
     chart = chart_shape.chart
     chart.has_legend = True
     chart.legend.position = XL_LEGEND_POSITION.TOP
     chart.legend.include_in_layout = False
-    chart.value_axis.has_major_gridlines = True
 
-    # Color formatting for lines
-    series_colors = [RGBColor(0, 242, 254), RGBColor(192, 132, 252), RGBColor(244, 114, 182)]
+    if hasattr(chart.legend, 'font'):
+        chart.legend.font.size = Pt(8)
+        chart.legend.font.name = "Segoe UI"
+
+    series_colors = [RGBColor(2, 132, 199), RGBColor(147, 51, 234), RGBColor(236, 72, 153)]
     for idx, series in enumerate(chart.series):
         series.format.line.color.rgb = series_colors[idx % len(series_colors)]
-        series.format.line.width = Pt(3)
-        series.has_data_labels = True
+        series.format.line.width = Pt(2)
 
-    # --- SLIDE 3: METRIK FINANSIAL & FISIK PERSEDIAAN ---
+    # --- SLIDE 3: METRIK FINANCIAL & FISIK PERSEDIAAN ---
     slide_3 = prs.slides[2] if len(prs.slides) > 2 else prs.slides.add_slide(prs.slide_layouts[6])
     set_slide_title(slide_3, f"📊 Detail Valuasi & Kuantitas Persediaan ({period_label})")
 
@@ -262,12 +272,12 @@ def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = 
     doi_kx_cons = (tot_kx_val / tot_sales_val * 30.0) if tot_sales_val > 0 else 0
     doi_comb_cons = (tot_comb_val / tot_sales_val * 30.0) if tot_sales_val > 0 else 0
 
-    table_shape3 = slide_3.shapes.add_table(5, 4, Inches(0.8), Inches(1.5), Inches(11.5), Inches(4.5))
+    table_shape3 = slide_3.shapes.add_table(5, 4, Inches(0.4), Inches(0.9), Inches(9.2), Inches(3.6))
     table3 = table_shape3.table
 
     headers_s3 = ["Metrik Indikator Persediaan", "Distributor MNJ", "Principal KX", "Total Combined Konsolidasi"]
     for col_idx, h_text in enumerate(headers_s3):
-        style_cell(table3.cell(0, col_idx), h_text, font_size=11, bold=True, color=RGBColor(255, 255, 255), align=PP_ALIGN.CENTER, bg_color=RGBColor(15, 23, 42))
+        style_cell(table3.cell(0, col_idx), h_text, font_size=10, bold=True, color=RGBColor(255, 255, 255), align=PP_ALIGN.CENTER, bg_color=RGBColor(15, 23, 42))
 
     row1 = ["Valuasi Stok Persediaan", format_curr_or_qty(tot_mnj_val, True), format_curr_or_qty(tot_kx_val, True), format_curr_or_qty(tot_comb_val, True)]
     row2 = ["Kuantitas Stok Persediaan", format_curr_or_qty(tot_mnj_qty, False), format_curr_or_qty(tot_kx_qty, False), format_curr_or_qty(tot_comb_qty, False)]
@@ -279,19 +289,19 @@ def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = 
         for c_idx, val_text in enumerate(r_data):
             align = PP_ALIGN.LEFT if c_idx == 0 else PP_ALIGN.RIGHT
             color = RGBColor(0, 242, 254) if c_idx == 3 else RGBColor(255, 255, 255)
-            style_cell(table3.cell(r_idx, c_idx), val_text, font_size=10, bold=(c_idx == 0 or c_idx == 3), color=color, align=align, bg_color=bg)
+            style_cell(table3.cell(r_idx, c_idx), val_text, font_size=9, bold=(c_idx == 0 or c_idx == 3), color=color, align=align, bg_color=bg)
 
     # --- SLIDE 4: RINGKASAN DOI PER GB & KONSOLIDASI ---
     slide_4 = prs.slides[3] if len(prs.slides) > 3 else prs.slides.add_slide(prs.slide_layouts[6])
-    set_slide_title(slide_4, f"🏢 Ringkasan DOI Per Group Business & Total Konsolidasi ({period_label})")
+    set_slide_title(slide_4, f"🏢 Ringkasan DOI Per Group Business ({period_label})")
 
     num_rows = len(gb_summary) + 1
-    table_shape4 = slide_4.shapes.add_table(num_rows + 1, 10, Inches(0.5), Inches(1.3), Inches(12.3), Inches(5.8))
+    table_shape4 = slide_4.shapes.add_table(num_rows + 1, 10, Inches(0.3), Inches(0.85), Inches(9.4), Inches(3.8))
     table4 = table_shape4.table
 
     gb_headers = ["GB", "SKU", "Stok Combined", "Avg Sales/Bln", "DOI Total", "DOI Max", "Selisih DOI", "Selisih Stok", "DOI Net", "Status"]
     for col_idx, h_text in enumerate(gb_headers):
-        style_cell(table4.cell(0, col_idx), h_text, font_size=9, bold=True, color=RGBColor(255, 255, 255), align=PP_ALIGN.CENTER, bg_color=RGBColor(15, 23, 42))
+        style_cell(table4.cell(0, col_idx), h_text, font_size=8, bold=True, color=RGBColor(255, 255, 255), align=PP_ALIGN.CENTER, bg_color=RGBColor(15, 23, 42))
 
     tot_sku_gbs = sum(g["total_sku"] for g in gb_summary)
     tot_stok_gbs = sum(g["stok_total_value" if is_value else "stok_total_qty"] for g in gb_summary)
@@ -330,7 +340,7 @@ def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = 
             elif c_idx == 5: color = RGBColor(167, 243, 208)
             elif c_idx in [6, 7]: color = RGBColor(251, 191, 36) if sel_stok > 0 else (RGBColor(248, 113, 113) if sel_stok < 0 else RGBColor(148, 163, 184))
             elif c_idx == 8: color = RGBColor(167, 243, 208)
-            style_cell(table4.cell(r_idx, c_idx), val_text, font_size=8, bold=(c_idx == 0), color=color, align=align, bg_color=bg)
+            style_cell(table4.cell(r_idx, c_idx), val_text, font_size=7.5, bold=(c_idx == 0), color=color, align=align, bg_color=bg)
 
     # Consolidated Total Row
     doi_tot_cons = (tot_stok_gbs / tot_sales_gbs * 30.0) if tot_sales_gbs > 0 else 0
@@ -354,7 +364,7 @@ def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = 
     c_idx_last = num_rows
     for c_idx, val_text in enumerate(cons_row):
         align = PP_ALIGN.LEFT if c_idx in [0, 9] else PP_ALIGN.RIGHT
-        style_cell(table4.cell(c_idx_last, c_idx), val_text, font_size=9, bold=True, color=RGBColor(0, 242, 254), align=align, bg_color=RGBColor(2, 132, 199))
+        style_cell(table4.cell(c_idx_last, c_idx), val_text, font_size=8, bold=True, color=RGBColor(0, 242, 254), align=align, bg_color=RGBColor(2, 132, 199))
 
     # Save to memory buffer
     buffer = io.BytesIO()
