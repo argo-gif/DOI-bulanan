@@ -7,7 +7,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.chart.data import CategoryChartData
-from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
+from pptx.enum.chart import XL_CHART_TYPE
 
 def format_curr_or_qty(num: float, is_value: bool, is_compact: bool = True) -> str:
     if num is None or num != num:
@@ -180,20 +180,20 @@ def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = 
             run.font.size = Pt(9.5)
             run.font.color.rgb = RGBColor(254, 243, 199)
 
-    # --- SLIDE 2: MAIN DASHBOARD OVERVIEW (4 STATUS CARDS + NATIVE 3-LINE TREND CHART) ---
+    # --- SLIDE 2: MAIN DASHBOARD OVERVIEW (4 STATUS CARDS + 3 SEPARATE CHARTS SIDE-BY-SIDE) ---
     slide_2 = prs.slides[1] if len(prs.slides) > 1 else prs.slides.add_slide(prs.slide_layouts[6])
     set_slide_title(slide_2, f"🎯 Evaluasi Stok & Trend Pergerakan DOI (Januari 2026 – {period_label})")
 
-    # 4 Status Cards Grid (Fits perfectly within 10.0" width: left=0.40" to 9.60")
+    # 4 Status Cards Grid (Fits perfectly within 10.0" width: left=0.35" to 9.65")
     cards_data = [
-        {"title": "Semua Status", "count": f"{total_sku} SKU", "sub": "Total SKU Terdaftar", "color": RGBColor(0, 180, 216), "left": Inches(0.40)},
-        {"title": "🔴 Understock", "count": f"{under_cnt} SKU", "sub": "< 45 Hari DOI", "color": RGBColor(239, 68, 68), "left": Inches(2.75)},
-        {"title": "🟢 Normal", "count": f"{norm_cnt} SKU", "sub": "45 Hari – DOI Max", "color": RGBColor(16, 185, 129), "left": Inches(5.10)},
-        {"title": "🟡 Overstock", "count": f"{over_cnt} SKU", "sub": "> DOI Max Stok", "color": RGBColor(245, 158, 11), "left": Inches(7.45)},
+        {"title": "Semua Status", "count": f"{total_sku} SKU", "sub": "Total SKU Terdaftar", "color": RGBColor(0, 180, 216), "left": Inches(0.35)},
+        {"title": "🔴 Understock", "count": f"{under_cnt} SKU", "sub": "< 45 Hari DOI", "color": RGBColor(239, 68, 68), "left": Inches(2.70)},
+        {"title": "🟢 Normal", "count": f"{norm_cnt} SKU", "sub": "45 Hari – DOI Max", "color": RGBColor(16, 185, 129), "left": Inches(5.05)},
+        {"title": "🟡 Overstock", "count": f"{over_cnt} SKU", "sub": "> DOI Max Stok", "color": RGBColor(245, 158, 11), "left": Inches(7.40)},
     ]
 
     for card in cards_data:
-        shape = slide_2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, card["left"], Inches(0.85), Inches(2.15), Inches(1.10))
+        shape = slide_2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, card["left"], Inches(0.85), Inches(2.25), Inches(1.05))
         shape.fill.solid()
         shape.fill.fore_color.rgb = RGBColor(15, 23, 42)
         shape.line.color.rgb = card["color"]
@@ -209,14 +209,14 @@ def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = 
         p0 = tf.paragraphs[0]
         p0.text = card["title"]
         p0.font.name = "Segoe UI"
-        p0.font.size = Pt(9.5)
+        p0.font.size = Pt(9.0)
         p0.font.bold = True
         p0.font.color.rgb = card["color"]
 
         p1 = tf.add_paragraph()
         p1.text = card["count"]
         p1.font.name = "Segoe UI"
-        p1.font.size = Pt(15)
+        p1.font.size = Pt(14)
         p1.font.bold = True
         p1.font.color.rgb = RGBColor(255, 255, 255)
         p1.space_before = Pt(1)
@@ -227,31 +227,60 @@ def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = 
         p2.font.size = Pt(7.5)
         p2.font.color.rgb = RGBColor(148, 163, 184)
 
-    # 3-Line Trend Chart Section (Fits perfectly within top=2.05", height=2.65" - above bottom banner!)
-    chart_data = CategoryChartData()
-    chart_data.categories = [tr["period_label"] for tr in doi_trend]
+    # 3 SEPARATE CHARTS SIDE-BY-SIDE ON THE SAME SLIDE
+    categories = [tr["period_label"] for tr in doi_trend]
 
-    chart_data.add_series('DOI Combined Total', [tr["doi_total_days"] for tr in doi_trend])
-    chart_data.add_series('DOI MNJ (Distributor)', [tr["doi_mnj_days"] for tr in doi_trend])
-    chart_data.add_series('DOI KX (Principal)', [tr["doi_kx_days"] for tr in doi_trend])
+    series_configs = [
+        {
+            "title": "🔵 DOI Combined Total",
+            "values": [tr["doi_total_days"] for tr in doi_trend],
+            "color": RGBColor(2, 132, 199),
+            "left": Inches(0.35)
+        },
+        {
+            "title": "🟣 DOI MNJ (Distributor)",
+            "values": [tr["doi_mnj_days"] for tr in doi_trend],
+            "color": RGBColor(147, 51, 234),
+            "left": Inches(3.50)
+        },
+        {
+            "title": "💖 DOI KX (Principal)",
+            "values": [tr["doi_kx_days"] for tr in doi_trend],
+            "color": RGBColor(236, 72, 153),
+            "left": Inches(6.65)
+        }
+    ]
 
-    chart_shape = slide_2.shapes.add_chart(
-        XL_CHART_TYPE.LINE_MARKERS,
-        Inches(0.40), Inches(2.05), Inches(9.20), Inches(2.65),
-        chart_data
-    )
-    chart = chart_shape.chart
-    chart.has_legend = True
-    chart.legend.position = XL_LEGEND_POSITION.TOP
-    chart.legend.include_in_layout = False
+    for cfg in series_configs:
+        # Header text box above each individual chart
+        hdr_box = slide_2.shapes.add_textbox(cfg["left"], Inches(1.98), Inches(2.95), Inches(0.32))
+        htf = hdr_box.text_frame
+        htf.word_wrap = True
+        hp = htf.paragraphs[0]
+        hp.text = cfg["title"]
+        hp.font.name = "Segoe UI"
+        hp.font.size = Pt(9.5)
+        hp.font.bold = True
+        hp.font.color.rgb = cfg["color"]
+        hp.alignment = PP_ALIGN.CENTER
 
-    if hasattr(chart.legend, 'font'):
-        chart.legend.font.size = Pt(8)
-        chart.legend.font.name = "Segoe UI"
+        # Chart Object
+        cdata = CategoryChartData()
+        cdata.categories = categories
+        cdata.add_series(cfg["title"], cfg["values"])
 
-    series_colors = [RGBColor(2, 132, 199), RGBColor(147, 51, 234), RGBColor(236, 72, 153)]
-    for idx, series in enumerate(chart.series):
-        series.format.line.color.rgb = series_colors[idx % len(series_colors)]
+        chart_shape = slide_2.shapes.add_chart(
+            XL_CHART_TYPE.LINE_MARKERS,
+            cfg["left"], Inches(2.30), Inches(2.95), Inches(2.35),
+            cdata
+        )
+        chart = chart_shape.chart
+        chart.has_legend = False
+        chart.value_axis.has_major_gridlines = True
+        
+        # Line formatting
+        series = chart.series[0]
+        series.format.line.color.rgb = cfg["color"]
         series.format.line.width = Pt(2)
 
     # --- SLIDE 3: METRIK FINANCIAL & FISIK PERSEDIAAN ---
