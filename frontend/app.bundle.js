@@ -866,7 +866,7 @@
         const combDisp = isVal ? gb.stok_total_value : gb.stok_total_qty;
         const salesDisp = isVal ? gb.avg_sales_value : gb.avg_sales_qty;
 
-        const maxDoi = gb.doi_max_days || gb.target_doi_days || 90;
+        const maxDoi = (gb.doi_max_days !== undefined && gb.doi_max_days !== null) ? gb.doi_max_days : (gb.target_doi_days !== undefined && gb.target_doi_days !== null ? gb.target_doi_days : 90);
         const isActive = this.filters.selectedGBs.includes(gb.gb);
 
         const selDoi = gb.selisih_doi_days || 0.0;
@@ -971,7 +971,7 @@
         const doiMNJ = item.doi_mnj_days;
         const doiKX = item.doi_kx_days;
         const doiTotal = item.doi_total_days;
-        const doiMax = item.doi_max_days || item.target_doi_days || 90;
+        const doiMax = (item.doi_max_days !== undefined && item.doi_max_days !== null) ? item.doi_max_days : (item.target_doi_days !== undefined && item.target_doi_days !== null ? item.target_doi_days : 90);
         const targetStatus = item.health_status_total;
 
         const selDoi = item.selisih_doi_days || 0.0;
@@ -1066,7 +1066,7 @@
 
       const formatCurr = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val);
       const formatNum = (val) => new Intl.NumberFormat('id-ID').format(val);
-      const doiMax = item.doi_max_days || item.target_doi_days || 90;
+      const doiMax = (item.doi_max_days !== undefined && item.doi_max_days !== null) ? item.doi_max_days : (item.target_doi_days !== undefined && item.target_doi_days !== null ? item.target_doi_days : 90);
 
       modalContent.innerHTML = `
         <div style="margin-bottom: 20px;">

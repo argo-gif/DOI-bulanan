@@ -300,7 +300,7 @@ class DashboardApp {
             ${targetDOI >= 999 ? '> 999' : targetDOI.toFixed(1)} Hari
           </td>
           <td style="text-align: right; font-weight: 700; font-size: 14px; color: #a7f3d0;">
-            ${(item.doi_max_days || item.target_doi_days || 90).toFixed(1)} Hari
+            ${((item.doi_max_days !== undefined && item.doi_max_days !== null) ? item.doi_max_days : (item.target_doi_days !== undefined && item.target_doi_days !== null ? item.target_doi_days : 90)).toFixed(1)} Hari
           </td>
           <td>
             <span class="badge ${badgeClass}"><span class="badge-dot" style="background:${dotColor};"></span>${targetStatus}</span>
@@ -345,7 +345,7 @@ class DashboardApp {
 
     const formatCurr = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val);
     const formatNum = (val) => new Intl.NumberFormat('id-ID').format(val);
-    const doiMax = item.doi_max_days || item.target_doi_days || 90;
+    const doiMax = (item.doi_max_days !== undefined && item.doi_max_days !== null) ? item.doi_max_days : (item.target_doi_days !== undefined && item.target_doi_days !== null ? item.target_doi_days : 90);
 
     modalContent.innerHTML = `
       <div style="margin-bottom: 20px;">
