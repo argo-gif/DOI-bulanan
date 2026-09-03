@@ -185,6 +185,48 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
 
             filtered.append(r)
 
+        # Calculate selisih GB: (selisih stok item / total avg sales GB) * 30.0
+        # Catatan: Selisih GB & urutan GB selalu menggunakan mode 'value' (Rupiah), meskipun unit='qty' dipilih
+        if filtered:
+            gb_summary_val = data_engine.get_gb_summary_report(
+                period=period if period else None,
+                avg_months=avg_months,
+                keterangan=ket_raw,
+                unit="value",
+                products=prod_raw,
+                health_status=health_status
+            )
+            
+            is_gb_active = bool(gb_set and "all" not in [g.lower() for g in gb_set])
+
+            if is_gb_active:
+                gb_sales_map = {g["gb"]: g["avg_sales_value"] for g in gb_summary_val}
+                for r in filtered:
+                    r_gb = r.get("gb", "Unassigned")
+                    gb_avg_sales = gb_sales_map.get(r_gb, 0.0)
+                    selisih_stok_val = r.get("selisih_value", 0.0)
+
+                    selisih_gb_days = round((selisih_stok_val / gb_avg_sales * 30.0), 2) if gb_avg_sales > 0 else 0.0
+
+                    r["selisih_doi_gb"] = selisih_gb_days
+                    r["selisih_value_gb"] = r.get("selisih_value", 0.0)
+                    r["selisih_qty_gb"] = r.get("selisih_qty", 0.0)
+            else:
+                # GB = All: selisih GB dihitung dari total sales SEMUA GB (konsolidasi)
+                total_avg_sales_all_gb = sum(g["avg_sales_value"] for g in gb_summary_val)
+                for r in filtered:
+                    selisih_stok_val = r.get("selisih_value", 0.0)
+
+                    selisih_gb_days = round((selisih_stok_val / total_avg_sales_all_gb * 30.0), 2) if total_avg_sales_all_gb > 0 else 0.0
+
+                    r["selisih_doi_gb"] = selisih_gb_days
+                    r["selisih_value_gb"] = r.get("selisih_value", 0.0)
+                    r["selisih_qty_gb"] = r.get("selisih_qty", 0.0)
+
+        # Selalu urutkan data berdasarkan Selisih Stok (Value/Rupiah) terbesar ke kecil (descending), baik filter GB All maupun spesifik GB
+        if filtered:
+            filtered.sort(key=lambda x: x.get("selisih_value", 0.0), reverse=True)
+
         return filtered
 
     def handle_summary(self, get_param):
@@ -261,6 +303,8 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         products = get_param("products", "All")
         health_status = get_param("health_status", "All")
         unit = get_param("unit", "value")
+        gb_raw = get_param("gb", "All")
+        gb_set = parse_multi_param(gb_raw)
 
         gb_summary = data_engine.get_gb_summary_report(
             period=period if period else None,
@@ -270,6 +314,9 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             products=products,
             health_status=health_status
         )
+
+        if gb_set and "all" not in [g.lower() for g in gb_set]:
+            gb_summary = [g for g in gb_summary if g["gb"] in gb_set]
 
         self._set_headers(200)
         self.wfile.write(json.dumps(gb_summary).encode("utf-8"))

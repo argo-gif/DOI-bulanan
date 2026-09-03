@@ -216,6 +216,10 @@ class DashboardApp {
 
     const isVal = this.filters.unit === 'value';
     const view = this.filters.view;
+    const isGBActive = Boolean(this.filters.gb && this.filters.gb !== 'All');
+
+    // Always sort by selisih_value descending (Rupiah value)
+    this.doiData.data.sort((a: any, b: any) => (b.selisih_value || 0) - (a.selisih_value || 0));
 
     const formatVal = (num: number) => {
       if (isVal) {

@@ -212,15 +212,15 @@
         const abs = Math.abs(num);
         if (abs >= 1e9) {
           const val = (num / 1e9).toFixed(2);
-          return isCurrency ? `Rp ${val} Miliar` : `${val} M Unit`;
+          return isCurrency ? `Rp ${val} Miliar` : `${val} M`;
         }
         if (abs >= 1e6) {
           const val = (num / 1e6).toFixed(2);
-          return isCurrency ? `Rp ${val} Juta` : `${val} Jt Unit`;
+          return isCurrency ? `Rp ${val} Juta` : `${val} Jt`;
         }
         if (abs >= 1e3) {
           const val = (num / 1e3).toFixed(1);
-          return isCurrency ? `Rp ${val} Ribu` : `${val} Rb Unit`;
+          return isCurrency ? `Rp ${val} Rb` : `${val} Rb`;
         }
       }
 
@@ -760,70 +760,111 @@
         } else if (this.filters.selectedKets && this.filters.selectedKets.length > 0) {
           filterLabel = `Keterangan: ${this.filters.selectedKets.join(', ')}`;
         }
-        subtitleEl.innerHTML = `Visualisasi pergerakan DOI historis MNJ, KX, dan Combined Total — <strong style="color: var(--accent-cyan);">${filterLabel}</strong>.`;
+        subtitleEl.innerHTML = `Visualisasi perbandingan tren pergerakan DOI historis 3-in-1 — <strong style="color: var(--accent-cyan);">${filterLabel}</strong>.`;
       }
 
       if (!chartContainer || !this.trendData || this.trendData.length === 0) return;
 
       const data = this.trendData;
-      const mode = this.filters.trendMode || 'total';
 
-      const getDOI = (d) => {
-        if (mode === 'mnj') return d.doi_mnj_days;
-        if (mode === 'kx') return d.doi_kx_days;
-        return d.doi_total_days;
-      };
-
-      const strokeColor = mode === 'mnj' ? '#00f2fe' : mode === 'kx' ? '#ec4899' : '#8b5cf6';
-
-      const maxDOI = Math.max(...data.map(d => getDOI(d)), 100);
+      const allValues = data.flatMap(d => [d.doi_total_days || 0, d.doi_mnj_days || 0, d.doi_kx_days || 0]);
+      const maxDOI = Math.max(...allValues, 100) * 1.12;
       const minDOI = 0;
 
-      const width = 800;
-      const height = 220;
-      const padding = { top: 20, right: 30, bottom: 40, left: 50 };
+      const width = 850;
+      const height = 250;
+      const padding = { top: 25, right: 30, bottom: 45, left: 55 };
 
       const chartW = width - padding.left - padding.right;
       const chartH = height - padding.top - padding.bottom;
 
       const xStep = chartW / Math.max(1, data.length - 1);
 
-      const points = data.map((d, i) => {
-        const doiVal = getDOI(d);
-        const x = padding.left + i * xStep;
-        const y = padding.top + chartH - ((doiVal - minDOI) / (maxDOI - minDOI)) * chartH;
-        return { x, y, doiVal, data: d };
-      });
+      const getY = (val) => padding.top + chartH - ((val - minDOI) / (maxDOI - minDOI)) * chartH;
 
-      const pathD = points.reduce((acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
-      const areaD = `${pathD} L ${points[points.length - 1].x} ${height - padding.bottom} L ${points[0].x} ${height - padding.bottom} Z`;
+      const pointsMNJ = data.map((d, i) => ({ x: padding.left + i * xStep, y: getY(d.doi_mnj_days), val: d.doi_mnj_days, data: d }));
+      const pointsKX = data.map((d, i) => ({ x: padding.left + i * xStep, y: getY(d.doi_kx_days), val: d.doi_kx_days, data: d }));
+      const pointsTotal = data.map((d, i) => ({ x: padding.left + i * xStep, y: getY(d.doi_total_days), val: d.doi_total_days, data: d }));
+
+      const pathMNJ = pointsMNJ.reduce((acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
+      const pathKX = pointsKX.reduce((acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
+      const pathTotal = pointsTotal.reduce((acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
+      const areaTotal = `${pathTotal} L ${pointsTotal[pointsTotal.length - 1].x} ${height - padding.bottom} L ${pointsTotal[0].x} ${height - padding.bottom} Z`;
 
       chartContainer.innerHTML = `
         <svg viewBox="0 0 ${width} ${height}" style="width: 100%; height: 100%; overflow: visible;">
           <defs>
-            <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="${strokeColor}" stop-opacity="0.45"/>
-              <stop offset="100%" stop-color="${strokeColor}" stop-opacity="0.0"/>
+            <linearGradient id="trendGradientTotal" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#a855f7" stop-opacity="0.28"/>
+              <stop offset="100%" stop-color="#a855f7" stop-opacity="0.0"/>
             </linearGradient>
+            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="2.5" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
           </defs>
 
           <!-- Grid horizontal lines -->
           <line x1="${padding.left}" y1="${padding.top}" x2="${width - padding.right}" y2="${padding.top}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4"/>
           <line x1="${padding.left}" y1="${padding.top + chartH / 2}" x2="${width - padding.right}" y2="${padding.top + chartH / 2}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4"/>
-          <line x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}" stroke="rgba(255,255,255,0.1)"/>
+          <line x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}" stroke="rgba(255,255,255,0.12)"/>
 
-          <!-- Trend Area & Line -->
-          <path d="${areaD}" fill="url(#trendGradient)" opacity="0.7"/>
-          <path d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Area under Total line -->
+          <path d="${areaTotal}" fill="url(#trendGradientTotal)"/>
 
-          <!-- Data Points & Labels -->
-          ${points.map(p => `
-            <g class="chart-point-group" data-period="${p.data.period}">
-              <circle cx="${p.x}" cy="${p.y}" r="6" fill="#080c14" stroke="${strokeColor}" stroke-width="3" style="transition: all 0.2s ease; cursor: pointer;"/>
-              <text x="${p.x}" y="${p.y - 12}" fill="#ffffff" font-size="11" font-weight="700" text-anchor="middle">${p.doiVal} Hari</text>
-              <text x="${p.x}" y="${height - padding.bottom + 18}" fill="#94a3b8" font-size="11" font-weight="600" text-anchor="middle">${p.data.period_label}</text>
-            </g>
-          `).join('')}
+          <!-- Series 1: DOI MNJ (Crimson Red) -->
+          <path d="${pathMNJ}" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
+
+          <!-- Series 2: DOI KX (Cyan Aqua) -->
+          <path d="${pathKX}" fill="none" stroke="#06b6d4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
+
+          <!-- Series 3: DOI Combined Total (Electric Purple Glow) -->
+          <path d="${pathTotal}" fill="none" stroke="#a855f7" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+
+          <!-- Data Points & Interactive Group -->
+          ${data.map((d, i) => {
+            const pMNJ = pointsMNJ[i];
+            const pKX = pointsKX[i];
+            const pTot = pointsTotal[i];
+
+            // Smart label Y-positioning
+            let yMNJText = pMNJ.y - 8;
+            let yKXText = pKX.y + 15;
+
+            if (pKX.y < pMNJ.y) {
+              yKXText = pKX.y - 8;
+              yMNJText = pMNJ.y + 15;
+            }
+
+            if (Math.abs(yMNJText - (pTot.y - 10)) < 12) {
+              yMNJText = pMNJ.y + 15;
+            }
+            if (Math.abs(yKXText - (pTot.y - 10)) < 12) {
+              yKXText = pKX.y + 15;
+            }
+
+            return `
+              <g class="chart-point-group" data-period="${d.period}" style="cursor: pointer;">
+                <!-- Vertical guide line -->
+                <line x1="${pTot.x}" y1="${padding.top}" x2="${pTot.x}" y2="${height - padding.bottom}" stroke="rgba(255,255,255,0.12)" stroke-dasharray="3"/>
+
+                <!-- MNJ Point & Label (Crimson Red) -->
+                <circle cx="${pMNJ.x}" cy="${pMNJ.y}" r="4" fill="#070b12" stroke="#ef4444" stroke-width="2.5"/>
+                <text x="${pMNJ.x}" y="${yMNJText}" fill="#f87171" font-size="10" font-weight="700" text-anchor="middle">${pMNJ.val.toFixed(1)}d</text>
+
+                <!-- KX Point & Label (Cyan Aqua) -->
+                <circle cx="${pKX.x}" cy="${pKX.y}" r="4" fill="#070b12" stroke="#06b6d4" stroke-width="2.5"/>
+                <text x="${pKX.x}" y="${yKXText}" fill="#22d3ee" font-size="10" font-weight="700" text-anchor="middle">${pKX.val.toFixed(1)}d</text>
+
+                <!-- Total Point & Label (Electric Purple) -->
+                <circle cx="${pTot.x}" cy="${pTot.y}" r="5" fill="#070b12" stroke="#a855f7" stroke-width="3"/>
+                <text x="${pTot.x}" y="${pTot.y - 10}" fill="#c084fc" font-size="11" font-weight="800" text-anchor="middle">${pTot.val.toFixed(1)}d</text>
+
+                <!-- Period X Label -->
+                <text x="${pTot.x}" y="${height - padding.bottom + 20}" fill="#94a3b8" font-size="11" font-weight="600" text-anchor="middle">${d.period_label}</text>
+              </g>
+            `;
+          }).join('')}
         </svg>
       `;
 
@@ -849,14 +890,19 @@
       }
 
       const isVal = (this.filters.unit === 'value');
+      const isGBFilterActive = Boolean(this.filters.selectedGBs && this.filters.selectedGBs.length > 0);
 
-      const totalSKU = this.gbSummary.reduce((a, b) => a + b.total_sku, 0);
-      const totalStokMNJ = this.gbSummary.reduce((a, b) => a + (isVal ? b.stok_mnj_value : b.stok_mnj_qty), 0);
-      const totalStokKX = this.gbSummary.reduce((a, b) => a + (isVal ? b.stok_kx_value : b.stok_kx_qty), 0);
-      const totalStokComb = this.gbSummary.reduce((a, b) => a + (isVal ? b.stok_total_value : b.stok_total_qty), 0);
-      const totalMinThresh = this.gbSummary.reduce((a, b) => a + (isVal ? b.min_value_total : b.min_qty_total), 0);
-      const totalMaxThresh = this.gbSummary.reduce((a, b) => a + (isVal ? b.max_value_total : b.max_qty_total), 0);
-      const totalSales = this.gbSummary.reduce((a, b) => a + (isVal ? b.avg_sales_value : b.avg_sales_qty), 0);
+      const targetGBList = isGBFilterActive
+        ? this.gbSummary.filter(gb => this.filters.selectedGBs.includes(gb.gb))
+        : this.gbSummary;
+
+      const totalSKU = targetGBList.reduce((a, b) => a + b.total_sku, 0);
+      const totalStokMNJ = targetGBList.reduce((a, b) => a + (isVal ? b.stok_mnj_value : b.stok_mnj_qty), 0);
+      const totalStokKX = targetGBList.reduce((a, b) => a + (isVal ? b.stok_kx_value : b.stok_kx_qty), 0);
+      const totalStokComb = targetGBList.reduce((a, b) => a + (isVal ? b.stok_total_value : b.stok_total_qty), 0);
+      const totalMinThresh = targetGBList.reduce((a, b) => a + (isVal ? b.min_value_total : b.min_qty_total), 0);
+      const totalMaxThresh = targetGBList.reduce((a, b) => a + (isVal ? b.max_value_total : b.max_qty_total), 0);
+      const totalSales = targetGBList.reduce((a, b) => a + (isVal ? b.avg_sales_value : b.avg_sales_qty), 0);
 
       const doiMNJ = totalSales > 0 ? (totalStokMNJ / totalSales * 30.0) : 0;
       const doiKX = totalSales > 0 ? (totalStokKX / totalSales * 30.0) : 0;
@@ -870,7 +916,7 @@
         totalHealthStatus = 'Overstock';
       }
 
-      const totalSelisihStok = this.gbSummary.reduce((a, b) => a + (isVal ? (b.selisih_value || 0) : (b.selisih_qty || 0)), 0);
+      const totalSelisihStok = targetGBList.reduce((a, b) => a + (isVal ? (b.selisih_value || 0) : (b.selisih_qty || 0)), 0);
       const totalSelisihDoi = totalSales > 0 ? (totalSelisihStok / totalSales * 30.0) : 0;
       const totalDoiAfterSelisih = doiTotal - totalSelisihDoi;
 
@@ -884,7 +930,7 @@
         totalValVarHtml = `<span style="color: #f87171; font-weight: 700;">${this.formatDisplayValue(totalSelisihStok, isVal)}</span>`;
       }
 
-      let html = this.gbSummary.map(gb => {
+      let html = targetGBList.map(gb => {
         const mnjDisp = isVal ? gb.stok_mnj_value : gb.stok_mnj_qty;
         const kxDisp = isVal ? gb.stok_kx_value : gb.stok_kx_qty;
         const combDisp = isVal ? gb.stok_total_value : gb.stok_total_qty;
@@ -927,24 +973,28 @@
         `;
       }).join('');
 
-      html += `
-        <tr style="background: rgba(11, 17, 32, 0.95); font-weight: 700; border-top: 2px solid var(--border-color);">
-          <td style="color: var(--accent-cyan); font-weight: 800;">TOTAL KONSOLIDASI</td>
-          <td style="text-align: right; color: #fff;">${totalSKU}</td>
-          <td style="text-align: right; color: #cbd5e1;">${this.formatDisplayValue(totalStokMNJ, isVal)}</td>
-          <td style="text-align: right; color: #f472b6;">${this.formatDisplayValue(totalStokKX, isVal)}</td>
-          <td style="text-align: right; color: #fff;">${this.formatDisplayValue(totalStokComb, isVal)}</td>
-          <td style="text-align: right; color: #fff;">${this.formatDisplayValue(totalSales, isVal)}</td>
-          <td style="text-align: right; color: #60a5fa;">${doiMNJ.toFixed(1)} d</td>
-          <td style="text-align: right; color: #f472b6;">${doiKX.toFixed(1)} d</td>
-          <td style="text-align: right; color: var(--accent-cyan); font-weight: 800;">${doiTotal.toFixed(1)} d</td>
-          <td style="text-align: right; color: #a7f3d0;">${doiTargetCons.toFixed(1)} d</td>
-          <td style="text-align: right;">${totalDoiVarHtml}</td>
-          <td style="text-align: right;">${totalValVarHtml}</td>
-          <td style="text-align: right; font-weight: 800; color: #a7f3d0;">${totalDoiAfterSelisih.toFixed(1)} d</td>
-          <td>${renderHealthBadge(totalHealthStatus)}</td>
-        </tr>
-      `;
+      if (targetGBList.length > 1) {
+        const totalLabel = isGBFilterActive ? 'TOTAL TERPILIH' : 'TOTAL KONSOLIDASI';
+
+        html += `
+          <tr style="background: rgba(11, 17, 32, 0.95); font-weight: 700; border-top: 2px solid var(--border-color);">
+            <td style="color: var(--accent-cyan); font-weight: 800;">${totalLabel}</td>
+            <td style="text-align: right; color: #fff;">${totalSKU}</td>
+            <td style="text-align: right; color: #cbd5e1;">${this.formatDisplayValue(totalStokMNJ, isVal)}</td>
+            <td style="text-align: right; color: #f472b6;">${this.formatDisplayValue(totalStokKX, isVal)}</td>
+            <td style="text-align: right; color: #fff;">${this.formatDisplayValue(totalStokComb, isVal)}</td>
+            <td style="text-align: right; color: #fff;">${this.formatDisplayValue(totalSales, isVal)}</td>
+            <td style="text-align: right; color: #60a5fa;">${doiMNJ.toFixed(1)} d</td>
+            <td style="text-align: right; color: #f472b6;">${doiKX.toFixed(1)} d</td>
+            <td style="text-align: right; color: var(--accent-cyan); font-weight: 800;">${doiTotal.toFixed(1)} d</td>
+            <td style="text-align: right; color: #a7f3d0;">${doiTargetCons.toFixed(1)} d</td>
+            <td style="text-align: right;">${totalDoiVarHtml}</td>
+            <td style="text-align: right;">${totalValVarHtml}</td>
+            <td style="text-align: right; font-weight: 800; color: #a7f3d0;">${totalDoiAfterSelisih.toFixed(1)} d</td>
+            <td>${renderHealthBadge(totalHealthStatus)}</td>
+          </tr>
+        `;
+      }
 
       tableBody.innerHTML = html;
 
@@ -985,6 +1035,8 @@
       }
 
       const isVal = (this.filters.unit === 'value');
+      // Always sort by selisih_value descending (Rupiah value)
+      this.doiData.data.sort((a, b) => (b.selisih_value || 0) - (a.selisih_value || 0));
 
       tableBody.innerHTML = this.doiData.data.map(item => {
         const stokMNJ = isVal ? item.stok_mnj_value : item.stok_mnj_qty;
@@ -998,18 +1050,29 @@
         const doiMax = (item.doi_max_days !== undefined && item.doi_max_days !== null) ? item.doi_max_days : (item.target_doi_days !== undefined && item.target_doi_days !== null ? item.target_doi_days : 90);
         const targetStatus = item.health_status_total;
 
+        // 1. Selisih vs Master DOI Max
         const selDoi = item.selisih_doi_days || 0.0;
         const selStok = isVal ? (item.selisih_value || 0.0) : (item.selisih_qty || 0.0);
         const doiAfterSelisih = item.doi_after_selisih !== undefined ? item.doi_after_selisih : (doiTotal - selDoi);
 
-        let selDoiHtml = '<span style="color: #94a3b8;">0.0 d</span>';
+        let selDoiHtml = '<span style="color: #94a3b8;">0.0d</span>';
         let selStokHtml = `<span style="color: #94a3b8;">${this.formatDisplayValue(0, isVal)}</span>`;
         if (targetStatus === 'Overstock') {
-          selDoiHtml = `<span style="color: #fbbf24; font-weight: 700;">+${selDoi.toFixed(1)} d</span>`;
+          selDoiHtml = `<span style="color: #fbbf24; font-weight: 700;">+${selDoi.toFixed(1)}d</span>`;
           selStokHtml = `<span style="color: #fbbf24; font-weight: 700;">+${this.formatDisplayValue(selStok, isVal)}</span>`;
         } else if (targetStatus === 'Understock') {
-          selDoiHtml = `<span style="color: #f87171; font-weight: 700;">${selDoi.toFixed(1)} d</span>`;
+          selDoiHtml = `<span style="color: #f87171; font-weight: 700;">${selDoi.toFixed(1)}d</span>`;
           selStokHtml = `<span style="color: #f87171; font-weight: 700;">${this.formatDisplayValue(selStok, isVal)}</span>`;
+        }
+
+        // 2. Selisih GB: (selisih stok item / avg sales GB 3) * 30
+        const selDoiGB = item.selisih_doi_gb !== undefined ? item.selisih_doi_gb : 0.0;
+
+        let selGbHtml = '<span style="color: #94a3b8;">0.00d</span>';
+        if (selDoiGB > 0) {
+          selGbHtml = `<span style="color: #38bdf8; font-weight: 700;">+${selDoiGB.toFixed(2)}d</span>`;
+        } else if (selDoiGB < 0) {
+          selGbHtml = `<span style="color: #f87171; font-weight: 700;">${selDoiGB.toFixed(2)}d</span>`;
         }
 
         let ketBadgeStyle = 'background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border: 1px solid rgba(100, 116, 139, 0.3);';
@@ -1027,27 +1090,28 @@
           <tr data-pcode="${item.product_code}" style="cursor: pointer;">
             <td>
               <div style="font-weight: 700; color: #fff;">${item.product_code}</div>
-              <div style="font-size: 10px; color: var(--text-muted);">${item.principal_product_code || '-'}</div>
+              <div style="font-size: 9.5px; color: var(--text-muted);">${item.principal_product_code || '-'}</div>
             </td>
             <td style="font-weight: 600;">${item.product_name}</td>
-            <td><span style="font-size: 11px; color: var(--text-secondary); font-weight: 600;">${item.gb}</span></td>
+            <td><span style="font-size: 10.5px; color: var(--text-secondary); font-weight: 600;">${item.gb}</span></td>
             <td><span class="badge" style="${ketBadgeStyle}">${item.keterangan_produk}</span></td>
             <td style="text-align: right; font-weight: 500; color: #cbd5e1;">${this.formatDisplayValue(stokMNJ, isVal)}</td>
             <td style="text-align: right; font-weight: 500; color: #f472b6;">${this.formatDisplayValue(stokKX, isVal)}</td>
             <td style="text-align: right; font-weight: 700; color: #fff;">${this.formatDisplayValue(stokTotal, isVal)}</td>
             <td style="text-align: right; font-weight: 500;">${this.formatDisplayValue(avgSales, isVal)}</td>
-            <td style="text-align: right; font-weight: 600; color: #60a5fa;">${doiMNJ >= 999 ? '>999' : doiMNJ.toFixed(1)} d</td>
-            <td style="text-align: right; font-weight: 600; color: #f472b6;">${doiKX >= 999 ? '>999' : doiKX.toFixed(1)} d</td>
+            <td style="text-align: right; font-weight: 600; color: #60a5fa;">${doiMNJ >= 999 ? '>999' : doiMNJ.toFixed(1)}d</td>
+            <td style="text-align: right; font-weight: 600; color: #f472b6;">${doiKX >= 999 ? '>999' : doiKX.toFixed(1)}d</td>
             <td style="text-align: right; font-weight: 800; color: var(--accent-cyan);">
-              ${doiTotal >= 999 ? '>999' : doiTotal.toFixed(1)} d
+              ${doiTotal >= 999 ? '>999' : doiTotal.toFixed(1)}d
             </td>
             <td style="text-align: right; font-weight: 700; color: #a7f3d0;">
-              ${doiMax >= 999 ? '>999' : doiMax ? doiMax.toFixed(1) : '0.0'} d
+              ${doiMax >= 999 ? '>999' : doiMax ? doiMax.toFixed(1) : '0.0'}d
             </td>
             <td style="text-align: right;">${selDoiHtml}</td>
             <td style="text-align: right;">${selStokHtml}</td>
+            <td style="text-align: right;">${selGbHtml}</td>
             <td style="text-align: right; font-weight: 700; color: #a7f3d0;">
-              ${doiAfterSelisih >= 999 ? '>999' : doiAfterSelisih.toFixed(1)} d
+              ${doiAfterSelisih >= 999 ? '>999' : doiAfterSelisih.toFixed(1)}d
             </td>
             <td>
               ${renderHealthBadge(targetStatus)}
