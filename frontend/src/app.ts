@@ -218,8 +218,23 @@ class DashboardApp {
     const view = this.filters.view;
     const isGBActive = Boolean(this.filters.gb && this.filters.gb !== 'All');
 
-    // Always sort by selisih_value descending (Rupiah value)
-    this.doiData.data.sort((a: any, b: any) => (b.selisih_value || 0) - (a.selisih_value || 0));
+    // Sort by entity-specific selisih stock value descending (Rupiah value)
+    this.doiData.data.sort((a: any, b: any) => {
+      const ketA = (a.keterangan_produk || '').toLowerCase();
+      const ketB = (b.keterangan_produk || '').toLowerCase();
+      let valA: number, valB: number;
+      if (view === 'mnj') {
+        valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_mnj_value || 0) : (a.selisih_value_mnj !== undefined ? a.selisih_value_mnj : (a.selisih_value || 0));
+        valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_mnj_value || 0) : (b.selisih_value_mnj !== undefined ? b.selisih_value_mnj : (b.selisih_value || 0));
+      } else if (view === 'kx') {
+        valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_kx_value || 0) : (a.selisih_value_kx !== undefined ? a.selisih_value_kx : (a.selisih_value || 0));
+        valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_kx_value || 0) : (b.selisih_value_kx !== undefined ? b.selisih_value_kx : (b.selisih_value || 0));
+      } else {
+        valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_total_value || 0) : (a.selisih_value || 0);
+        valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_total_value || 0) : (b.selisih_value || 0);
+      }
+      return valB - valA;
+    });
 
     const formatVal = (num: number) => {
       if (isVal) {

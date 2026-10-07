@@ -19,10 +19,10 @@ Dokumen ini mendefinisikan rencana kerja per fase dalam membangun Web Applicatio
 - [x] Membuat modul kalkulasi metrik:
   - Stok MNJ ($\text{QTY\_STOK\_BAIK} + \text{QTY\_BDP}$)
   - Stok KX ($\text{Saldo Akhir}$)
-  - Avg Sales Bulanan berdasar periode terpilih
+  - Avg Sales Bulanan berdasar periode terpilih & simulasi Avg Sales 2026 (YTD 8 Bulan)
   - Kalkulasi DOI ($\frac{\text{Stok}}{\text{Avg Sales}} \times 30$)
   - Konversi Quantity ke Value ($\text{Qty} \times \text{Harga Dasar}$)
-- [x] Pengujian data pipeline secara lokal (`backend/test_etl.py`) dan validasi keakuratan angka.
+- [x] Pengujian data pipeline secara lokal (`backend/test_etl.py`) dan validasi keakuratan angka simulasi Avg Sales 2026.
 
 ---
 

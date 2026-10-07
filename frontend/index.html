@@ -48,7 +48,40 @@
     </div>
   </header>
 
+  <!-- Sheet View Navigation Tabs -->
+  <nav class="sheet-tabs-container glass-panel">
+    <div class="sheet-tabs-header">
+      <span class="sheet-tabs-title">📌 Switch Sheet / View Dashboard:</span>
+    </div>
+    <div class="sheet-tabs-list">
+      <button class="sheet-tab-btn active" data-tab="combined" id="tabBtnCombined" type="button">
+        <span class="tab-icon">🌐</span>
+        <div class="tab-text">
+          <span class="tab-title">Sheet Total Konsolidasi</span>
+          <span class="tab-subtitle">Distributor MNJ + Principal KX</span>
+        </div>
+        <span class="tab-badge">Combined</span>
+      </button>
 
+      <button class="sheet-tab-btn" data-tab="mnj" id="tabBtnMNJ" type="button">
+        <span class="tab-icon">🏢</span>
+        <div class="tab-text">
+          <span class="tab-title">Sheet Khusus DOI MNJ</span>
+          <span class="tab-subtitle">Persediaan Distributor MNJ</span>
+        </div>
+        <span class="tab-badge mnj-tab-badge">Distributor</span>
+      </button>
+
+      <button class="sheet-tab-btn" data-tab="kx" id="tabBtnKX" type="button">
+        <span class="tab-icon">🏭</span>
+        <div class="tab-text">
+          <span class="tab-title">Sheet Khusus DOI KX</span>
+          <span class="tab-subtitle">Persediaan Principal KX</span>
+        </div>
+        <span class="tab-badge kx-tab-badge">Principal</span>
+      </button>
+    </div>
+  </nav>
 
   <!-- Filter Bar -->
   <section class="filter-bar glass-panel">
@@ -72,7 +105,11 @@
       </div>
 
       <!-- Export Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <button class="btn-export-excel" id="btnExportExcel" type="button" title="Ekspor laporan multi-sheet ke format Microsoft Excel (.xlsx)">
+          <span>📗</span>
+          <span>Ekspor Excel (Multi-Sheet)</span>
+        </button>
         <button class="btn-export" id="btnExport" type="button">
           <span>📥</span>
           <span>Ekspor CSV</span>
@@ -89,7 +126,15 @@
       <div class="filter-group">
         <span style="font-size: 13px; font-weight: 600; color: var(--accent-cyan);">📅 Periode Data:</span>
         <select class="select-control" id="periodSelect" style="border-color: var(--accent-cyan); font-weight: 600;">
-          <option value="">Memuat Periode...</option>
+          <option value="2026-09" selected>September 2026</option>
+          <option value="2026-08">Agustus 2026</option>
+          <option value="2026-07">Juli 2026</option>
+          <option value="2026-06">Juni 2026</option>
+          <option value="2026-05">Mei 2026</option>
+          <option value="2026-04">April 2026</option>
+          <option value="2026-03">Maret 2026</option>
+          <option value="2026-02">Februari 2026</option>
+          <option value="2026-01">Januari 2026</option>
         </select>
       </div>
 
@@ -100,6 +145,7 @@
           <option value="1">1 Bulan Terakhir</option>
           <option value="3">3 Bulan Terakhir</option>
           <option value="6" selected>6 Bulan Terakhir</option>
+          <option value="9">9 Bulan Terakhir</option>
           <option value="12">12 Bulan Terakhir</option>
         </select>
       </div>
@@ -187,7 +233,7 @@
             <span class="status-card-icon">🔴</span>
             <span class="status-card-title">Understock</span>
           </div>
-          <div class="status-card-count" id="countUnderstockSku" style="color: #f87171;">0 SKU</div>
+          <div class="status-card-count" id="countUnderstockSku" style="color: #b91c1c;">0 SKU</div>
           <div class="status-card-desc">&lt; 45 Hari DOI</div>
         </div>
 
@@ -197,7 +243,7 @@
             <span class="status-card-icon">🟢</span>
             <span class="status-card-title">Normal</span>
           </div>
-          <div class="status-card-count" id="countNormalSku" style="color: #34d399;">0 SKU</div>
+          <div class="status-card-count" id="countNormalSku" style="color: #047857;">0 SKU</div>
           <div class="status-card-desc">45 Hari – DOI Max</div>
         </div>
 
@@ -207,7 +253,7 @@
             <span class="status-card-icon">🟡</span>
             <span class="status-card-title">Overstock</span>
           </div>
-          <div class="status-card-count" id="countOverstockSku" style="color: #fbbf24;">0 SKU</div>
+          <div class="status-card-count" id="countOverstockSku" style="color: #b45309;">0 SKU</div>
           <div class="status-card-desc">&gt; Max Stok / DOI</div>
         </div>
       </div>
@@ -218,25 +264,25 @@
   <section class="glass-panel" style="padding: 24px; margin-bottom: 24px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
       <div>
-        <h2 id="trendChartTitle" style="font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
-          <span>📈</span> Trend Pergerakan DOI Historis (Januari 2026 – Juli 2026)
+        <h2 id="trendChartTitle" style="font-size: 18px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+          <span>📈</span> Trend Pergerakan DOI Historis (Januari 2026 – September 2026)
         </h2>
         <p id="trendSubtitle" style="font-size: 13px; color: var(--text-secondary);">Visualisasi perbandingan pergerakan DOI MNJ, DOI KX, dan DOI Combined Total.</p>
       </div>
 
       <!-- Unified Legend Indicator -->
-      <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; background: rgba(15, 23, 42, 0.6); padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08);">
+      <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; background: #f8fafc; padding: 8px 16px; border-radius: 20px; border: 1px solid #e2e8f0;">
         <div style="display: flex; align-items: center; gap: 6px;">
-          <span style="width: 10px; height: 10px; border-radius: 50%; background: #a855f7; display: inline-block;"></span>
-          <span style="font-size: 12px; font-weight: 700; color: #c084fc;">DOI Combined Total</span>
+          <span style="width: 10px; height: 10px; border-radius: 50%; background: #7c3aed; display: inline-block;"></span>
+          <span style="font-size: 12px; font-weight: 700; color: #7c3aed;">DOI Combined Total</span>
         </div>
         <div style="display: flex; align-items: center; gap: 6px;">
-          <span style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444; display: inline-block;"></span>
-          <span style="font-size: 12px; font-weight: 700; color: #f87171;">DOI MNJ (Distributor)</span>
+          <span style="width: 10px; height: 10px; border-radius: 50%; background: #dc2626; display: inline-block;"></span>
+          <span style="font-size: 12px; font-weight: 700; color: #dc2626;">DOI MNJ (Distributor)</span>
         </div>
         <div style="display: flex; align-items: center; gap: 6px;">
-          <span style="width: 10px; height: 10px; border-radius: 50%; background: #06b6d4; display: inline-block;"></span>
-          <span style="font-size: 12px; font-weight: 700; color: #22d3ee;">DOI KX (Principal)</span>
+          <span style="width: 10px; height: 10px; border-radius: 50%; background: #0284c7; display: inline-block;"></span>
+          <span style="font-size: 12px; font-weight: 700; color: #0284c7;">DOI KX (Principal)</span>
         </div>
       </div>
     </div>
@@ -248,31 +294,30 @@
 
   <!-- DOI Per Group Business (GB) Summary Table Section -->
   <section class="glass-panel" style="padding: 24px; margin-bottom: 24px; overflow-x: auto;">
-    <div style="margin-bottom: 16px;">
-      <h2 style="font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <span>🏢</span> Ringkasan DOI Per Group Business (GB) &amp; Total Konsolidasi
-        <span id="gbPeriodBadge" style="font-size: 12px; font-weight: 600; color: var(--accent-cyan); background: rgba(0, 242, 254, 0.12); padding: 2px 10px; border-radius: 12px; border: 1px solid rgba(0, 242, 254, 0.3); margin-left: 4px;">Periode: Juli 2026</span>
-      </h2>
-      <p style="font-size: 13px; color: var(--text-secondary);">Perbandingan stok persediaan MNJ, KX Principal, Total Combined, DOI Total, dan DOI Max Master per GB.</p>
-    </div>
+    <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h2 id="gbSectionTitle" style="font-size: 18px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span>🏢</span> Ringkasan DOI Per Group Business (GB) &amp; Total Konsolidasi
+          <span id="gbPeriodBadge" style="font-size: 12px; font-weight: 600; color: #0284c7; background: #e0f2fe; padding: 2px 10px; border-radius: 12px; border: 1px solid #bae6fd; margin-left: 4px;">Periode: September 2026</span>
+        </h2>
+        <p id="gbSectionSub" style="font-size: 13px; color: var(--text-secondary);">Perbandingan stok persediaan MNJ, KX Principal, Total Combined, DOI Total, dan DOI Max Master per GB.</p>
+      </div>
+      </div>
 
     <table class="data-table">
       <thead>
         <tr>
           <th>GB</th>
           <th style="text-align: right;">SKU</th>
-          <th style="text-align: right;">Stok MNJ</th>
-          <th style="text-align: right;">Stok KX</th>
-          <th style="text-align: right;">Combined</th>
+          <th id="gbThStokMnj" style="text-align: right;">Stok MNJ</th>
+          <th id="gbThStokKx" style="text-align: right;">Stok KX</th>
+          <th id="gbThComb" style="text-align: right;">Combined</th>
           <th style="text-align: right;">Avg Sales</th>
-          <th style="text-align: right;">DOI MNJ</th>
-          <th style="text-align: right;">DOI KX</th>
-          <th style="text-align: right; color: var(--accent-cyan);">DOI Total</th>
-          <th style="text-align: right; color: #a7f3d0;">DOI Max</th>
-          <th style="text-align: right; color: #fbbf24;">Sel. DOI</th>
-          <th style="text-align: right; color: #fbbf24;">Sel. Stok</th>
-          <th style="text-align: right; color: #a7f3d0;">DOI Net</th>
-          <th>Status</th>
+          <th id="gbThDoiMnj" style="text-align: right;">DOI MNJ</th>
+          <th id="gbThDoiKx" style="text-align: right;">DOI KX</th>
+          <th id="gbThDoiTotal" style="text-align: right; color: #0284c7;">DOI Total</th>
+          <th id="gbThDoiMax" style="text-align: right; color: #059669;">DOI Max</th>
+          <th id="gbThStatus">Status</th>
         </tr>
       </thead>
       <tbody id="gbTableBody">
@@ -281,13 +326,37 @@
     </table>
   </section>
 
+  <!-- Rekapan Selisih DOI GB Per Status & Group Business Matrix Section -->
+  <section class="glass-panel" style="padding: 24px; margin-bottom: 24px; overflow-x: auto;">
+    <div style="margin-bottom: 16px;">
+      <h2 id="catGbSectionTitle" style="font-size: 18px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <span>📊</span> Matrix Impact Selisih DOI GB Per Status &amp; Group Business
+        <span id="catGbPeriodBadge" style="font-size: 12px; font-weight: 600; color: #0284c7; background: #e0f2fe; padding: 2px 10px; border-radius: 12px; border: 1px solid #bae6fd; margin-left: 4px;">Periode: September 2026</span>
+      </h2>
+      <p id="catGbSectionSub" style="font-size: 13px; color: var(--text-secondary);">Matrix rincian dampak Selisih DOI GB per Status Evaluasi (Overstock, Understock, Streamline, Festive) untuk tiap Group Business dan Total Konsolidasi.</p>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Status Evaluasi</th>
+          <!-- GB Columns rendered dynamically in JS -->
+        </tr>
+      </thead>
+      <tbody id="catGbTableBody">
+        <!-- Rendered dynamically -->
+      </tbody>
+    </table>
+  </section>
+
   <!-- Interactive SKU Detail Table Container -->
   <section class="glass-panel" style="overflow: hidden;">
     <div style="padding: 12px 16px 6px 16px;">
-      <h2 style="font-size: 15px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      <h2 id="detailSectionTitle" style="font-size: 15px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
         <span>📋</span> Detail Produk &amp; Evaluasi Realisasi DOI vs DOI Max Master
-        <span id="detailPeriodBadge" style="font-size: 11px; font-weight: 600; color: var(--accent-cyan); background: rgba(0, 242, 254, 0.12); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(0, 242, 254, 0.3); margin-left: 4px;">Periode: Juli 2026</span>
+        <span id="detailPeriodBadge" style="font-size: 11px; font-weight: 600; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 12px; border: 1px solid #bae6fd; margin-left: 4px;">Periode: September 2026</span>
       </h2>
+      <p id="detailSectionSub" style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">Rincian evaluasi DOI seluruh produk distributor dan principal.</p>
     </div>
 
     <div class="table-container">
@@ -298,19 +367,18 @@
             <th>Nama Produk</th>
             <th>GB</th>
             <th>Ket</th>
-            <th style="text-align: right;">Stok MNJ</th>
-            <th style="text-align: right;">Stok KX</th>
-            <th style="text-align: right;">Combined</th>
+            <th id="detailThStokMnj" style="text-align: right;">Stok MNJ</th>
+            <th id="detailThStokKx" style="text-align: right;">Stok KX</th>
+            <th id="detailThComb" style="text-align: right;">Combined</th>
             <th style="text-align: right;">Avg Sales</th>
-            <th style="text-align: right;">DOI MNJ</th>
-            <th style="text-align: right;">DOI KX</th>
-            <th style="text-align: right; color: var(--accent-cyan);">DOI Total</th>
-            <th style="text-align: right; color: #a7f3d0;">DOI Max</th>
-            <th style="text-align: right; color: #fbbf24;">Sel. DOI</th>
-            <th style="text-align: right; color: #fbbf24;">Sel. Stok</th>
-            <th style="text-align: right; color: #38bdf8;" title="Selisih DOI item relatif terhadap DOI Total GB">Sel. GB</th>
-            <th style="text-align: right; color: #a7f3d0;">DOI Net</th>
-            <th>Status</th>
+            <th id="detailThDoiMnj" style="text-align: right;">DOI MNJ</th>
+            <th id="detailThDoiKx" style="text-align: right;">DOI KX</th>
+            <th id="detailThDoiTotal" style="text-align: right; color: #0284c7;">DOI Total</th>
+            <th id="detailThDoiMax" style="text-align: right; color: #059669;">DOI Max</th>
+            <th id="detailThSelDoi" style="text-align: right; color: #b45309;" title="Selisih DOI item relatif terhadap DOI Max Master">Sel. DOI</th>
+            <th id="detailThSelStok" style="text-align: right; color: #b45309;" title="Selisih Stok / Valuasi relatif terhadap DOI Max Master">Sel. Stok</th>
+            <th id="thSelGB" style="text-align: right; color: #0284c7;" title="Selisih DOI item relatif terhadap DOI Total Konsolidasi Nasional">Sel. Nas</th>
+            <th id="detailThStatus">Status</th>
           </tr>
         </thead>
         <tbody id="tableBody">
@@ -339,6 +407,6 @@
     </div>
   </div>
 
-  <script src="app.bundle.js"></script>
+  <script src="app.bundle.js?v=20261006_v3"></script>
 </body>
 </html>

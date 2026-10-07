@@ -31,11 +31,13 @@ class DashboardApp {
       if (this.metadata && this.metadata.periods && this.metadata.periods.length > 0) {
         this.filters.period = this.metadata.periods[0]; // Default to latest period
       }
+      this.updateApiStatus(true, 'API Live Connected');
       this.populateFilterDropdowns();
       this.bindEvents();
       await this.refreshData();
     } catch (err) {
       console.error('Initialization error:', err);
+      this.updateApiStatus(false, 'API Disconnected');
       this.showError('Gagal terhubung ke API backend. Pastikan server backend FastAPI berjalan di http://localhost:8000.');
     }
   }
@@ -294,13 +296,13 @@ class DashboardApp {
           <td style="text-align: right; font-weight: 500;">${formatVal(stokKX)}</td>
           <td style="text-align: right; font-weight: 700; color: #fff;">${formatVal(totalStok)}</td>
           <td style="text-align: right; font-weight: 500;">${formatVal(avgSales)}</td>
-          <td style="text-align: right; font-weight: 600; color: #60a5fa;">${item.doi_mnj_days.toFixed(1)} d</td>
-          <td style="text-align: right; font-weight: 600; color: #f472b6;">${item.doi_kx_days.toFixed(1)} d</td>
+          <td style="text-align: right; font-weight: 600; color: #60a5fa;">${item.doi_mnj_days.toFixed(0)} d</td>
+          <td style="text-align: right; font-weight: 600; color: #f472b6;">${item.doi_kx_days.toFixed(0)} d</td>
           <td style="text-align: right; font-weight: 800; font-size: 14px; color: var(--accent-cyan);">
-            ${targetDOI >= 999 ? '> 999' : targetDOI.toFixed(1)} Hari
+            ${targetDOI >= 999 ? '> 999' : targetDOI.toFixed(0)} Hari
           </td>
           <td style="text-align: right; font-weight: 700; font-size: 14px; color: #a7f3d0;">
-            ${((item.doi_max_days !== undefined && item.doi_max_days !== null) ? item.doi_max_days : (item.target_doi_days !== undefined && item.target_doi_days !== null ? item.target_doi_days : 90)).toFixed(1)} Hari
+            ${((item.doi_max_days !== undefined && item.doi_max_days !== null) ? item.doi_max_days : (item.target_doi_days !== undefined && item.target_doi_days !== null ? item.target_doi_days : 90)).toFixed(0)} Hari
           </td>
           <td>
             <span class="badge ${badgeClass}"><span class="badge-dot" style="background:${dotColor};"></span>${targetStatus}</span>
@@ -375,7 +377,7 @@ class DashboardApp {
             <div style="font-size: 12px; color: var(--text-secondary);">${formatNum(item.stok_mnj_qty)} Unit (${formatCurr(item.stok_mnj_value)})</div>
           </div>
           <div style="text-align: right;">
-            <div style="font-size: 18px; font-weight: 800; color: var(--accent-cyan);">${item.doi_mnj_days.toFixed(1)} Hari</div>
+            <div style="font-size: 18px; font-weight: 800; color: var(--accent-cyan);">${item.doi_mnj_days.toFixed(0)} Hari</div>
             <span class="badge ${item.health_status_mnj === 'Understock' ? 'badge-understock' : item.health_status_mnj === 'Overstock' ? 'badge-overstock' : 'badge-normal'}">${item.health_status_mnj}</span>
           </div>
         </div>
@@ -386,18 +388,18 @@ class DashboardApp {
             <div style="font-size: 12px; color: var(--text-secondary);">${formatNum(item.stok_kx_qty)} Unit (${formatCurr(item.stok_kx_value)})</div>
           </div>
           <div style="text-align: right;">
-            <div style="font-size: 18px; font-weight: 800; color: var(--accent-cyan);">${item.doi_kx_days.toFixed(1)} Hari</div>
+            <div style="font-size: 18px; font-weight: 800; color: var(--accent-cyan);">${item.doi_kx_days.toFixed(0)} Hari</div>
             <span class="badge ${item.health_status_kx === 'Understock' ? 'badge-understock' : item.health_status_kx === 'Overstock' ? 'badge-overstock' : 'badge-normal'}">${item.health_status_kx || 'Normal'}</span>
           </div>
         </div>
 
         <div style="background: rgba(0, 242, 254, 0.1); border: 1px solid rgba(0, 242, 254, 0.3); padding: 14px 18px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <div style="font-weight: 700; color: #fff;">Total Konsolidasi (Max: ${doiMax.toFixed(1)} Hari)</div>
+            <div style="font-weight: 700; color: #fff;">Total Konsolidasi (Max: ${doiMax.toFixed(0)} Hari)</div>
             <div style="font-size: 12px; color: var(--text-secondary);">${formatNum(item.stok_total_qty)} Unit (${formatCurr(item.stok_total_value)})</div>
           </div>
           <div style="text-align: right;">
-            <div style="font-size: 20px; font-weight: 800; color: #fff;">${item.doi_total_days.toFixed(1)} Hari</div>
+            <div style="font-size: 20px; font-weight: 800; color: #fff;">${item.doi_total_days.toFixed(0)} Hari</div>
             <span class="badge ${item.health_status_total === 'Understock' ? 'badge-understock' : item.health_status_total === 'Overstock' ? 'badge-overstock' : 'badge-normal'}">${item.health_status_total}</span>
           </div>
         </div>
@@ -407,13 +409,38 @@ class DashboardApp {
     modalOverlay.classList.add('active');
   }
 
+  updateApiStatus(online, msg) {
+    const pill = document.querySelector('.status-pill');
+    if (!pill) return;
+    const dot = pill.querySelector('.pulse-dot');
+    const textSpan = pill.querySelector('span:last-child');
+    
+    if (online) {
+      pill.style.background = 'rgba(16, 185, 129, 0.15)';
+      pill.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+      pill.style.color = '#34d399';
+      if (dot) dot.style.background = '#34d399';
+      if (textSpan) textSpan.innerText = msg || 'API Live Connected';
+    } else {
+      pill.style.background = 'rgba(239, 68, 68, 0.15)';
+      pill.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+      pill.style.color = '#f87171';
+      if (dot) dot.style.background = '#ef4444';
+      if (textSpan) textSpan.innerText = msg || 'API Disconnected';
+    }
+  }
+
   showError(msg) {
     const tableBody = document.getElementById('tableBody');
     if (tableBody) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="13" style="text-align: center; padding: 40px; color: var(--status-understock);">
-            ❌ ${msg}
+          <td colspan="17" style="text-align: center; padding: 40px; color: #f87171; background: rgba(239, 68, 68, 0.05);">
+            <div style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">⚠️ ${msg}</div>
+            <div style="font-size: 13px; color: var(--text-secondary);">
+              Jalankan perintah berikut di terminal: <code style="background: rgba(15, 23, 42, 0.8); padding: 4px 8px; border-radius: 4px; color: var(--accent-cyan);">python backend/main.py</code>
+              lalu buka <a href="http://localhost:8000" style="color: var(--accent-cyan); font-weight: bold; text-decoration: underline;">http://localhost:8000</a>
+            </div>
           </td>
         </tr>
       `;
@@ -421,7 +448,17 @@ class DashboardApp {
   }
 }
 
-// Initialize on DOM Ready
-document.addEventListener('DOMContentLoaded', () => {
-  new DashboardApp();
-});
+function startApp() {
+  if (!window.__doi_app_initialized) {
+    window.__doi_app_initialized = true;
+    new DashboardApp();
+  }
+}
+
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  startApp();
+} else {
+  document.addEventListener('DOMContentLoaded', startApp);
+  window.addEventListener('load', startApp);
+  setTimeout(startApp, 100);
+}

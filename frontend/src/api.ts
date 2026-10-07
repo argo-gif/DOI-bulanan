@@ -1,6 +1,11 @@
 import { FilterState, MetadataResponse, SummaryResponse, DOIResponse } from './types';
 
-const API_BASE = '/api/v1';
+let API_BASE = '/api/v1';
+if (typeof window !== 'undefined') {
+  if (window.location.protocol === 'file:' || (window.location.port && window.location.port !== '8000')) {
+    API_BASE = 'http://localhost:8000/api/v1';
+  }
+}
 
 export async function fetchMetadata(): Promise<MetadataResponse> {
   const res = await fetch(`${API_BASE}/metadata`);

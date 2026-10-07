@@ -25,7 +25,9 @@ def test_data_engine():
 
     # 3. Sales Data
     sales = engine.load_sales(target_period=periods[0], avg_months=1)
-    print(f"[OK] Sales data loaded: {len(sales)} products mapped")
+    sales_2026 = engine.load_sales(target_period=periods[0], avg_months=2026)
+    print(f"[OK] Sales data loaded: {len(sales)} products mapped (2026 avg sales: {len(sales_2026)})")
+    assert len(sales_2026) > 0, "2026 sales simulation should return non-empty sales!"
 
     # 4. DOI Consolidated Report
     report = engine.get_doi_mnj_report(period=periods[0], avg_months=1)

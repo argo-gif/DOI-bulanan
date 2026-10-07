@@ -29,6 +29,9 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         self.end_headers()
 
     def serve_file(self, full_path: str):
@@ -84,6 +87,9 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             elif path == "/api/v1/gb-summary":
                 self.handle_gb_summary(get_param)
 
+            elif path == "/api/v1/category-gb-summary":
+                self.handle_category_gb_summary(get_param)
+
             elif path == "/api/v1/doi-trend":
                 self.handle_doi_trend(get_param)
 
@@ -92,6 +98,9 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
 
             elif path == "/api/v1/export":
                 self.handle_export(get_param)
+
+            elif path == "/api/v1/export-excel":
+                self.handle_export_excel(get_param)
 
             elif path == "/api/v1/export-ppt":
                 self.handle_export_ppt(get_param)
@@ -109,9 +118,16 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
                     self._set_headers(404)
                     self.wfile.write(json.dumps({"error": f"Endpoint or file not found: {path}"}).encode("utf-8"))
 
+        except (ConnectionAbortedError, BrokenPipeError, ConnectionResetError):
+            pass
         except Exception as e:
-            self._set_headers(500)
-            self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+            import traceback
+            traceback.print_exc()
+            try:
+                self._set_headers(500)
+                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+            except Exception:
+                pass
 
     def handle_metadata(self):
         master = data_engine.load_master_data()
@@ -135,7 +151,7 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             "gb_options": gbs,
             "keterangan_options": keterangan_opts,
             "product_options": product_options,
-            "avg_months_options": [1, 3, 6, 12],
+            "avg_months_options": [1, 3, 6, 9, 12, 2025, 2026],
             "total_products": len(master)
         }
         self._set_headers(200)
@@ -144,6 +160,7 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
     def get_filtered_data(self, get_param):
         period = get_param("period", "")
         avg_months = int(get_param("avg_months", "6"))
+        view_mode = get_param("view_mode", get_param("view", get_param("tab", "combined"))).lower()
         
         report = data_engine.get_doi_mnj_report(period=period if period else None, avg_months=avg_months)
 
@@ -173,8 +190,10 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             if prod_set and p_code not in prod_set and p_pcode not in prod_set and p_old not in prod_set:
                 continue
 
-            if health_status != "All" and r["health_status_total"] != health_status:
-                continue
+            if health_status != "All":
+                status_check = r.get("health_status_mnj") if view_mode == "mnj" else (r.get("health_status_kx") if view_mode == "kx" else r.get("health_status_total"))
+                if status_check != health_status:
+                    continue
 
             if search:
                 code_match = search in r["product_code"].lower()
@@ -194,44 +213,56 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
                 keterangan=ket_raw,
                 unit="value",
                 products=prod_raw,
-                health_status=health_status
+                health_status=health_status,
+                view_mode=view_mode
             )
             
             is_gb_active = bool(gb_set and "all" not in [g.lower() for g in gb_set])
 
-            if is_gb_active:
-                gb_sales_map = {g["gb"]: g["avg_sales_value"] for g in gb_summary_val}
-                for r in filtered:
+            for r in filtered:
+                ket_p = (r.get("keterangan_produk") or "").strip().lower()
+                if view_mode == "mnj":
+                    selisih_stok_val = r.get("stok_mnj_value", 0.0) if ket_p in ["streamline", "festive"] else r.get("selisih_value_mnj", 0.0)
+                    selisih_stok_qty = r.get("stok_mnj_qty", 0.0) if ket_p in ["streamline", "festive"] else r.get("selisih_qty_mnj", 0.0)
+                elif view_mode == "kx":
+                    selisih_stok_val = r.get("stok_kx_value", 0.0) if ket_p in ["streamline", "festive"] else r.get("selisih_value_kx", 0.0)
+                    selisih_stok_qty = r.get("stok_kx_qty", 0.0) if ket_p in ["streamline", "festive"] else r.get("selisih_qty_kx", 0.0)
+                else:
+                    selisih_stok_val = r.get("stok_total_value", 0.0) if ket_p in ["streamline", "festive"] else r.get("selisih_value", 0.0)
+                    selisih_stok_qty = r.get("stok_total_qty", 0.0) if ket_p in ["streamline", "festive"] else r.get("selisih_qty", 0.0)
+
+                if is_gb_active:
+                    gb_sales_map = {g["gb"]: g["avg_sales_value"] for g in gb_summary_val}
                     r_gb = r.get("gb", "Unassigned")
                     gb_avg_sales = gb_sales_map.get(r_gb, 0.0)
-                    selisih_stok_val = r.get("selisih_value", 0.0)
-
                     selisih_gb_days = round((selisih_stok_val / gb_avg_sales * 30.0), 2) if gb_avg_sales > 0 else 0.0
-
-                    r["selisih_doi_gb"] = selisih_gb_days
-                    r["selisih_value_gb"] = r.get("selisih_value", 0.0)
-                    r["selisih_qty_gb"] = r.get("selisih_qty", 0.0)
-            else:
-                # GB = All: selisih GB dihitung dari total sales SEMUA GB (konsolidasi)
-                total_avg_sales_all_gb = sum(g["avg_sales_value"] for g in gb_summary_val)
-                for r in filtered:
-                    selisih_stok_val = r.get("selisih_value", 0.0)
-
+                else:
+                    total_avg_sales_all_gb = sum(g["avg_sales_value"] for g in gb_summary_val)
                     selisih_gb_days = round((selisih_stok_val / total_avg_sales_all_gb * 30.0), 2) if total_avg_sales_all_gb > 0 else 0.0
 
-                    r["selisih_doi_gb"] = selisih_gb_days
-                    r["selisih_value_gb"] = r.get("selisih_value", 0.0)
-                    r["selisih_qty_gb"] = r.get("selisih_qty", 0.0)
+                r["selisih_doi_gb"] = selisih_gb_days
+                r["selisih_value_gb"] = selisih_stok_val
+                r["selisih_qty_gb"] = selisih_stok_qty
 
         # Selalu urutkan data berdasarkan Selisih Stok (Value/Rupiah) terbesar ke kecil (descending), baik filter GB All maupun spesifik GB
         if filtered:
-            filtered.sort(key=lambda x: x.get("selisih_value", 0.0), reverse=True)
+            def get_sort_key(x):
+                ket_p = (x.get("keterangan_produk") or "").strip().lower()
+                if view_mode == "mnj":
+                    return x.get("stok_mnj_value", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_value_mnj", 0.0)
+                elif view_mode == "kx":
+                    return x.get("stok_kx_value", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_value_kx", 0.0)
+                else:
+                    return x.get("stok_total_value", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_value", 0.0)
+
+            filtered.sort(key=get_sort_key, reverse=True)
 
         return filtered
 
     def handle_summary(self, get_param):
         filtered = self.get_filtered_data(get_param)
         unit = get_param("unit", "qty").lower()
+        view_mode = get_param("view_mode", get_param("view", get_param("tab", "combined"))).lower()
 
         under = 0
         normal = 0
@@ -247,7 +278,7 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         tot_sales_qty = 0.0
 
         for r in filtered:
-            status = r["health_status_total"]
+            status = r.get("health_status_mnj") if view_mode == "mnj" else (r.get("health_status_kx") if view_mode == "kx" else r.get("health_status_total"))
             if status == "Understock":
                 under += 1
             elif status == "Normal":
@@ -303,6 +334,7 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         products = get_param("products", "All")
         health_status = get_param("health_status", "All")
         unit = get_param("unit", "value")
+        view_mode = get_param("view_mode", get_param("view", get_param("tab", "combined"))).lower()
         gb_raw = get_param("gb", "All")
         gb_set = parse_multi_param(gb_raw)
 
@@ -312,7 +344,8 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             keterangan=keterangan,
             unit=unit,
             products=products,
-            health_status=health_status
+            health_status=health_status,
+            view_mode=view_mode
         )
 
         if gb_set and "all" not in [g.lower() for g in gb_set]:
@@ -320,6 +353,34 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
 
         self._set_headers(200)
         self.wfile.write(json.dumps(gb_summary).encode("utf-8"))
+
+    def handle_category_gb_summary(self, get_param):
+        period = get_param("period", "")
+        avg_months = int(get_param("avg_months", "6"))
+        keterangan = get_param("keterangan", "All")
+        products = get_param("products", "All")
+        health_status = get_param("health_status", "All")
+        unit = get_param("unit", "value")
+        view_mode = get_param("view_mode", get_param("view", get_param("tab", "combined"))).lower()
+        gb_raw = get_param("gb", "All")
+        gb_set = parse_multi_param(gb_raw)
+
+        cat_summary = data_engine.get_category_gb_summary_report(
+            period=period if period else None,
+            avg_months=avg_months,
+            keterangan=keterangan,
+            unit=unit,
+            products=products,
+            health_status=health_status,
+            gb=gb_raw,
+            view_mode=view_mode
+        )
+
+        if gb_set and "all" not in [g.lower() for g in gb_set]:
+            cat_summary = [g for g in cat_summary if g["gb"] in gb_set]
+
+        self._set_headers(200)
+        self.wfile.write(json.dumps(cat_summary).encode("utf-8"))
 
     def handle_doi_trend(self, get_param):
         gb = get_param("gb", "All")
@@ -329,6 +390,7 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         avg_months = int(get_param("avg_months", "6"))
         unit = get_param("unit", "value")
         period = get_param("period", get_param("until_period", ""))
+        view_mode = get_param("view_mode", get_param("view", get_param("tab", "combined"))).lower()
 
         trend_data = data_engine.get_historical_doi_trend(
             gb=gb,
@@ -337,7 +399,8 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             unit=unit,
             products=products,
             health_status=health_status,
-            until_period=period if period else None
+            until_period=period if period else None,
+            view_mode=view_mode
         )
 
         self._set_headers(200)
@@ -399,6 +462,139 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(csv_content.encode("utf-8"))
+
+    def handle_export_excel(self, get_param):
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+        from openpyxl.utils import get_column_letter
+
+        filtered = self.get_filtered_data(get_param)
+        period_str = get_param("period", "2026-07")
+
+        wb = openpyxl.Workbook()
+
+        header_fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
+        header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+        align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+        def style_header(ws, headers):
+            ws.append(headers)
+            ws.row_dimensions[1].height = 28
+            for col_idx in range(1, len(headers) + 1):
+                cell = ws.cell(row=1, column=col_idx)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = align_center
+
+        def auto_fit_columns(ws):
+            ws.views.sheetView[0].showGridLines = True
+            for col in ws.columns:
+                max_len = 0
+                col_letter = get_column_letter(col[0].column)
+                for cell in col:
+                    val_str = str(cell.value or '')
+                    if '\n' in val_str:
+                        val_str = max(val_str.split('\n'), key=len)
+                    max_len = max(max_len, len(val_str))
+                ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+        # Sheet 1: Total Konsolidasi
+        ws_comb = wb.active
+        ws_comb.title = "Total Konsolidasi"
+        headers_comb = [
+            "Periode", "Kode Produk", "Kode Principal", "Nama Produk", "GB", "Keterangan",
+            "Harga Dasar (IDR)", "Stok MNJ Qty", "Stok MNJ Value (IDR)", "DOI MNJ (Hari)",
+            "Stok KX Qty", "Stok KX Value (IDR)", "DOI KX (Hari)",
+            "Combined Stok Qty", "Combined Stok Value (IDR)", "DOI Total (Hari)",
+            "DOI Min (Hari)", "DOI Max (Hari)", "Selisih DOI (Hari)", "Selisih Valuasi (IDR)",
+            "Avg Sales Qty", "Avg Sales Value (IDR)", "Status Health Total"
+        ]
+        style_header(ws_comb, headers_comb)
+
+        for r in filtered:
+            ws_comb.append([
+                r["period"], r["product_code"], r["principal_product_code"], r["product_name"],
+                r["gb"], r["keterangan_produk"], r["harga_dasar"],
+                r["stok_mnj_qty"], r["stok_mnj_value"], r["doi_mnj_days"],
+                r["stok_kx_qty"], r["stok_kx_value"], r["doi_kx_days"],
+                r["stok_total_qty"], r["stok_total_value"], r["doi_total_days"],
+                r["doi_min_days"], r["doi_max_days"], r.get("selisih_doi_days", 0.0), r.get("selisih_value", 0.0),
+                r["avg_sales_qty"], r["avg_sales_value"], r["health_status_total"]
+            ])
+        auto_fit_columns(ws_comb)
+
+        # Sheet 2: DOI MNJ (Distributor)
+        ws_mnj = wb.create_sheet(title="DOI MNJ (Distributor)")
+        headers_mnj = [
+            "Periode", "Kode Produk", "Kode Principal", "Nama Produk", "GB", "Keterangan",
+            "Harga Dasar (IDR)", "Qty Baik MNJ", "Qty BDP MNJ", "Total Stok MNJ Qty", "Stok MNJ Value (IDR)",
+            "Avg Sales Qty", "Avg Sales Value (IDR)", "DOI MNJ (Hari)", "DOI Max Master (Hari)",
+            "Selisih DOI MNJ (Hari)", "Selisih Stok MNJ (IDR)", "Status Stok MNJ"
+        ]
+        style_header(ws_mnj, headers_mnj)
+
+        for r in filtered:
+            ket_p = (r.get("keterangan_produk") or "").strip().lower()
+            is_spec = ket_p in ["streamline", "festive"]
+            doi_max = r["doi_max_days"]
+            doi_mnj = r["doi_mnj_days"]
+            sel_doi_mnj = round(max(0.0, doi_mnj - doi_max), 1) if (not is_spec and doi_max > 0 and doi_mnj > doi_max) else (
+                round(doi_mnj - doi_max, 1) if (not is_spec and doi_max > 0 and doi_mnj < r["doi_min_days"]) else 0.0
+            )
+            sel_stok_mnj = r["stok_mnj_value"] if is_spec else (
+                round(max(0.0, r["stok_mnj_value"] - (doi_max / 30.0 * r["avg_sales_value"])), 2) if (doi_max > 0 and doi_mnj > doi_max) else 0.0
+            )
+
+            ws_mnj.append([
+                r["period"], r["product_code"], r["principal_product_code"], r["product_name"],
+                r["gb"], r["keterangan_produk"], r["harga_dasar"],
+                r["qty_baik"], r["qty_bdp"], r["stok_mnj_qty"], r["stok_mnj_value"],
+                r["avg_sales_qty"], r["avg_sales_value"], doi_mnj, doi_max,
+                sel_doi_mnj, sel_stok_mnj, r["health_status_mnj"]
+            ])
+        auto_fit_columns(ws_mnj)
+
+        # Sheet 3: DOI KX (Principal)
+        ws_kx = wb.create_sheet(title="DOI KX (Principal)")
+        headers_kx = [
+            "Periode", "Kode Produk", "Kode Principal", "Nama Produk", "GB", "Keterangan",
+            "Harga Dasar (IDR)", "Stok KX Qty", "Stok KX Value (IDR)",
+            "Avg Sales Qty", "Avg Sales Value (IDR)", "DOI KX (Hari)", "DOI Max Master (Hari)",
+            "Selisih DOI KX (Hari)", "Selisih Stok KX (IDR)", "Status Stok KX"
+        ]
+        style_header(ws_kx, headers_kx)
+
+        for r in filtered:
+            ket_p = (r.get("keterangan_produk") or "").strip().lower()
+            is_spec = ket_p in ["streamline", "festive"]
+            doi_max = r["doi_max_days"]
+            doi_kx = r["doi_kx_days"]
+            sel_doi_kx = round(max(0.0, doi_kx - doi_max), 1) if (not is_spec and doi_max > 0 and doi_kx > doi_max) else (
+                round(doi_kx - doi_max, 1) if (not is_spec and doi_max > 0 and doi_kx < r["doi_min_days"]) else 0.0
+            )
+            sel_stok_kx = r["stok_kx_value"] if is_spec else (
+                round(max(0.0, r["stok_kx_value"] - (doi_max / 30.0 * r["avg_sales_value"])), 2) if (doi_max > 0 and doi_kx > doi_max) else 0.0
+            )
+
+            ws_kx.append([
+                r["period"], r["product_code"], r["principal_product_code"], r["product_name"],
+                r["gb"], r["keterangan_produk"], r["harga_dasar"],
+                r["stok_kx_qty"], r["stok_kx_value"],
+                r["avg_sales_qty"], r["avg_sales_value"], doi_kx, doi_max,
+                sel_doi_kx, sel_stok_kx, r["health_status_kx"]
+            ])
+        auto_fit_columns(ws_kx)
+
+        excel_buffer = io.BytesIO()
+        wb.save(excel_buffer)
+        excel_bytes = excel_buffer.getvalue()
+
+        self.send_response(200)
+        self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        self.send_header("Content-Disposition", f"attachment; filename=Laporan_MultiSheet_DOI_MNJ_KX_{period_str}.xlsx")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(excel_bytes)
 
     def handle_export_ppt(self, get_param):
         filters = {
