@@ -40,7 +40,7 @@
     const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0) ? filters.selectedProducts.join(',') : 'All';
 
     const params = new URLSearchParams({
-      period: filters.period || '2026-09',
+      period: filters.period || '2026-10',
       unit: filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
@@ -59,7 +59,7 @@
     const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0) ? filters.selectedProducts.join(',') : 'All';
 
     const params = new URLSearchParams({
-      period: filters.period || '2026-09',
+      period: filters.period || '2026-10',
       avg_months: (filters.avg_months || 6).toString(),
       keterangan: ketVal,
       products: prodVal,
@@ -78,7 +78,7 @@
     const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0) ? filters.selectedProducts.join(',') : 'All';
 
     const params = new URLSearchParams({
-      period: filters.period || '2026-09',
+      period: filters.period || '2026-10',
       avg_months: (filters.avg_months || 6).toString(),
       keterangan: ketVal,
       products: prodVal,
@@ -115,7 +115,7 @@
       keterangan: ketVal,
       products: prodVal,
       health_status: filters.health_status || 'All',
-      period: filters.period || '2026-09',
+      period: filters.period || '2026-10',
       avg_months: (filters.avg_months || 6).toString(),
       unit: filters.unit || 'value'
     });
@@ -130,7 +130,7 @@
     const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0) ? filters.selectedProducts.join(',') : 'All';
 
     const params = new URLSearchParams({
-      period: filters.period || '2026-09',
+      period: filters.period || '2026-10',
       unit: filters.detailSelisihUnit || filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
@@ -152,7 +152,7 @@
     const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0) ? filters.selectedProducts.join(',') : 'All';
 
     const params = new URLSearchParams({
-      period: filters.period || '2026-09',
+      period: filters.period || '2026-10',
       unit: filters.detailSelisihUnit || filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
@@ -170,7 +170,7 @@
     const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0) ? filters.selectedProducts.join(',') : 'All';
 
     const params = new URLSearchParams({
-      period: filters.period || '2026-09',
+      period: filters.period || '2026-10',
       unit: filters.detailSelisihUnit || filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
@@ -188,7 +188,7 @@
     const prodVal = Array.isArray(filters.selectedItems) && filters.selectedItems.length > 0 ? filters.selectedItems.join(',') : 'All';
 
     const params = new URLSearchParams({
-      period: filters.period || '2026-09',
+      period: filters.period || '2026-10',
       unit: filters.detailSelisihUnit || filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
@@ -243,7 +243,7 @@
         activeTab: 'combined',
         detailStockUnit: 'value',
         detailSelisihUnit: 'value',  // 'combined', 'mnj', 'kx'
-        period: '2026-09',
+        period: '2026-10',
         unit: 'value',          // DEFAULT VALUASI (RUPIAH)
         scale: 'compact',       // 'compact' or 'full'
         trendMode: 'total',     // 'total', 'mnj', 'kx'
@@ -272,7 +272,7 @@
         if (this.metadata && this.metadata.periods && this.metadata.periods.length > 0) {
           this.filters.period = this.metadata.periods[0];
         } else {
-          this.filters.period = '2026-09';
+          this.filters.period = '2026-10';
         }
         this.updateApiStatus(true, 'API Live Connected');
         this.populateFilterDropdowns();
@@ -281,7 +281,7 @@
       } catch (err) {
         console.error('[DASHBOARD] Initialization error:', err);
         this.updateApiStatus(false, 'API Disconnected');
-        this.filters.period = '2026-09';
+        this.filters.period = '2026-10';
         this.populateFilterDropdowns();
         this.bindEvents();
         await this.refreshData();
@@ -320,7 +320,7 @@
       if (periodSelect) {
         const periods = (this.metadata && this.metadata.periods && this.metadata.periods.length > 0)
           ? this.metadata.periods
-          : ['2026-09', '2026-08', '2026-07', '2026-06', '2026-05', '2026-04', '2026-03', '2026-02', '2026-01'];
+          : ['2026-10', '2026-09', '2026-08', '2026-07', '2026-06', '2026-05', '2026-04', '2026-03', '2026-02', '2026-01'];
 
         periodSelect.innerHTML = periods
           .map(p => {
@@ -801,7 +801,7 @@
         if (detailTitle) detailTitle.innerHTML = `<span>📋</span> Detail Produk & Evaluasi Realisasi DOI KX (Principal) ${detailBadge}`;
         if (detailSub) detailSub.innerText = 'Rincian evaluasi DOI khusus principal KX per produk. Threshold Understock < 15 Hari.';
       } else {
-        if (trendChartTitle) trendChartTitle.innerHTML = `<span>📈</span> Trend Pergerakan DOI Historis (Januari 2026 – Agustus 2026)`;
+        if (trendChartTitle) trendChartTitle.innerHTML = `<span>📈</span> Trend Pergerakan DOI Historis (Januari 2026 – Oktober 2026)`;
         if (trendSubtitle) trendSubtitle.innerText = 'Visualisasi perbandingan pergerakan DOI MNJ, DOI KX, dan DOI Combined Total.';
 
         if (gbTitle) gbTitle.innerHTML = `<span>🏢</span> Ringkasan DOI Per Group Business (GB) & Total Konsolidasi ${gbBadge}`;
