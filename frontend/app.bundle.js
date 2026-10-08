@@ -41,7 +41,7 @@
 
     const params = new URLSearchParams({
       period: filters.period || '2026-09',
-      unit: filters.detailUnit || filters.unit || 'value',
+      unit: filters.detailSelisihUnit || filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -64,7 +64,7 @@
       keterangan: ketVal,
       products: prodVal,
       health_status: filters.health_status || 'All',
-      unit: filters.detailUnit || filters.unit || 'value',
+      unit: filters.detailSelisihUnit || filters.unit || 'value',
       view_mode: filters.activeTab || 'combined'
     });
     const res = await fetchWithRetry(`${API_BASE}/gb-summary?${params.toString()}`);
@@ -83,7 +83,7 @@
       keterangan: ketVal,
       products: prodVal,
       health_status: filters.health_status || 'All',
-      unit: filters.detailUnit || filters.unit || 'value',
+      unit: filters.detailSelisihUnit || filters.unit || 'value',
       gb: gbVal,
       view_mode: filters.activeTab || 'combined'
     });
@@ -131,7 +131,7 @@
 
     const params = new URLSearchParams({
       period: filters.period || '2026-09',
-      unit: filters.detailUnit || filters.unit || 'value',
+      unit: filters.detailSelisihUnit || filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -153,7 +153,7 @@
 
     const params = new URLSearchParams({
       period: filters.period || '2026-09',
-      unit: filters.detailUnit || filters.unit || 'value',
+      unit: filters.detailSelisihUnit || filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -171,7 +171,7 @@
 
     const params = new URLSearchParams({
       period: filters.period || '2026-09',
-      unit: filters.detailUnit || filters.unit || 'value',
+      unit: filters.detailSelisihUnit || filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -189,7 +189,7 @@
 
     const params = new URLSearchParams({
       period: filters.period || '2026-09',
-      unit: filters.detailUnit || filters.unit || 'value',
+      unit: filters.detailSelisihUnit || filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -530,22 +530,29 @@
       document.querySelectorAll('[data-unit]').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const unit = e.currentTarget.getAttribute('data-unit');
-          this.filters.detailUnit = unit;
-          this.setFilter({ unit, detailUnit: unit, page: 1 });
+          this.setFilter({ unit, page: 1 });
           document.querySelectorAll('[data-unit]').forEach(b => b.classList.remove('active'));
           e.currentTarget.classList.add('active');
-          document.querySelectorAll('#detailUnitToggleContainer [data-detail-unit]').forEach(b => {
-            if (b.getAttribute('data-detail-unit') === unit) b.classList.add('active');
-            else b.classList.remove('active');
-          });
         });
       });
 
-      document.querySelectorAll('#detailUnitToggleContainer [data-detail-unit]').forEach(btn => {
+      // Filter 1: Detail Table Stok & Sales Unit (Stand-Alone)
+      document.querySelectorAll('#detailStockUnitToggleContainer [data-detail-stock-unit]').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const detailUnit = e.currentTarget.getAttribute('data-detail-unit');
-          this.filters.detailUnit = detailUnit;
-          document.querySelectorAll('#detailUnitToggleContainer [data-detail-unit]').forEach(b => b.classList.remove('active'));
+          const unit = e.currentTarget.getAttribute('data-detail-stock-unit');
+          this.filters.detailStockUnit = unit;
+          document.querySelectorAll('#detailStockUnitToggleContainer [data-detail-stock-unit]').forEach(b => b.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          this.renderTable();
+        });
+      });
+
+      // Filter 2: Detail Table Hitung Selisih (Stok & Nas) Unit (Stand-Alone)
+      document.querySelectorAll('#detailSelisihUnitToggleContainer [data-detail-selisih-unit]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const unit = e.currentTarget.getAttribute('data-detail-selisih-unit');
+          this.filters.detailSelisihUnit = unit;
+          document.querySelectorAll('#detailSelisihUnitToggleContainer [data-detail-selisih-unit]').forEach(b => b.classList.remove('active'));
           e.currentTarget.classList.add('active');
           this.setFilter({ page: 1 });
         });
@@ -846,7 +853,8 @@
       if (!this.summary) return;
 
       const formatNum = (val) => new Intl.NumberFormat('id-ID').format(val);
-      const isVal = (this.filters.detailUnit ? this.filters.detailUnit === 'value' : this.filters.unit === 'value');
+      const isStockVal = (this.filters.detailStockUnit ? this.filters.detailStockUnit === 'value' : true);
+      const isSelisihVal = (this.filters.detailSelisihUnit ? this.filters.detailSelisihUnit === 'value' : true);
 
       const elSKU = document.getElementById('metricTotalSKU');
       if (elSKU) elSKU.innerText = formatNum(this.summary.total_sku);
@@ -1126,7 +1134,8 @@
         if (thStatus) thStatus.innerText = 'Status Total';
       }
 
-      const isVal = (this.filters.detailUnit ? this.filters.detailUnit === 'value' : this.filters.unit === 'value');
+      const isStockVal = (this.filters.detailStockUnit ? this.filters.detailStockUnit === 'value' : true);
+      const isSelisihVal = (this.filters.detailSelisihUnit ? this.filters.detailSelisihUnit === 'value' : true);
       const isGBFilterActive = Boolean(this.filters.selectedGBs && this.filters.selectedGBs.length > 0);
 
       const targetGBList = isGBFilterActive
@@ -1497,9 +1506,16 @@
       const tableBody = document.getElementById('tableBody');
       if (!tableBody || !this.doiData) return;
 
-      const currentDetailUnit = this.filters.detailUnit || this.filters.unit || 'value';
-      document.querySelectorAll('#detailUnitToggleContainer [data-detail-unit]').forEach(b => {
-        if (b.getAttribute('data-detail-unit') === currentDetailUnit) b.classList.add('active');
+      const currentStockUnit = this.filters.detailStockUnit || 'value';
+      const currentSelisihUnit = this.filters.detailSelisihUnit || 'value';
+
+      document.querySelectorAll('#detailStockUnitToggleContainer [data-detail-stock-unit]').forEach(b => {
+        if (b.getAttribute('data-detail-stock-unit') === currentStockUnit) b.classList.add('active');
+        else b.classList.remove('active');
+      });
+
+      document.querySelectorAll('#detailSelisihUnitToggleContainer [data-detail-selisih-unit]').forEach(b => {
+        if (b.getAttribute('data-detail-selisih-unit') === currentSelisihUnit) b.classList.add('active');
         else b.classList.remove('active');
       });
 
@@ -1562,7 +1578,8 @@
         return;
       }
 
-      const isVal = (this.filters.detailUnit ? this.filters.detailUnit === 'value' : this.filters.unit === 'value');
+      const isStockVal = (this.filters.detailStockUnit ? this.filters.detailStockUnit === 'value' : true);
+      const isSelisihVal = (this.filters.detailSelisihUnit ? this.filters.detailSelisihUnit === 'value' : true);
       const stokMnjColStyle = (activeTab === 'kx') ? 'display:none;' : '';
       const stokKxColStyle = (activeTab === 'mnj') ? 'display:none;' : '';
       const combColStyle = (activeTab === 'mnj' || activeTab === 'kx') ? 'display:none;' : '';
@@ -1570,12 +1587,12 @@
       const doiKxColStyle = (activeTab === 'mnj') ? 'display:none;' : '';
       const doiTotalColStyle = (activeTab === 'mnj' || activeTab === 'kx') ? 'display:none;' : '';
 
-      // Sort by entity-specific selisih stock descending (Qty or Value depending on detailUnit)
+      // Sort by entity-specific selisih stock descending (Qty or Value depending on detailSelisihUnit)
       this.doiData.data.sort((a, b) => {
         const ketA = (a.keterangan_produk || '').toLowerCase();
         const ketB = (b.keterangan_produk || '').toLowerCase();
         let valA, valB;
-        if (isVal) {
+        if (isSelisihVal) {
           if (activeTab === 'mnj') {
             valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_mnj_value || 0) : (a.selisih_value_mnj !== undefined ? a.selisih_value_mnj : (a.selisih_value || 0));
             valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_mnj_value || 0) : (b.selisih_value_mnj !== undefined ? b.selisih_value_mnj : (b.selisih_value || 0));
@@ -1602,17 +1619,17 @@
       });
 
       tableBody.innerHTML = this.doiData.data.map(item => {
-        const stokMNJ = isVal ? item.stok_mnj_value : item.stok_mnj_qty;
-        const stokKX = isVal ? item.stok_kx_value : item.stok_kx_qty;
-        const stokTotal = isVal ? item.stok_total_value : item.stok_total_qty;
-        const avgSales = isVal ? item.avg_sales_value : item.avg_sales_qty;
+        const stokMNJ = isStockVal ? item.stok_mnj_value : item.stok_mnj_qty;
+        const stokKX = isStockVal ? item.stok_kx_value : item.stok_kx_qty;
+        const stokTotal = isStockVal ? item.stok_total_value : item.stok_total_qty;
+        const avgSales = isStockVal ? item.avg_sales_value : item.avg_sales_qty;
 
         const doiMNJ = item.doi_mnj_days;
         const doiKX = item.doi_kx_days;
         const doiTotal = item.doi_total_days;
         let doiMax = (item.doi_max_days !== undefined && item.doi_max_days !== null) ? item.doi_max_days : (item.target_doi_days !== undefined && item.target_doi_days !== null ? item.target_doi_days : 90);
         let selDoi = item.selisih_doi_days !== undefined ? item.selisih_doi_days : 0.0;
-        let selStok = isVal ? (item.selisih_value !== undefined ? item.selisih_value : 0.0) : (item.selisih_qty !== undefined ? item.selisih_qty : 0.0);
+        let selStok = isSelisihVal ? (item.selisih_value !== undefined ? item.selisih_value : 0.0) : (item.selisih_qty !== undefined ? item.selisih_qty : 0.0);
         let targetStatus = item.health_status_total;
 
         let actualDoi = doiTotal;
@@ -1642,13 +1659,13 @@
 
         if (!isSpecialHide) {
           selDoiHtml = '<span style="color: #64748b;">0d</span>';
-          selStokHtml = `<span style="color: #64748b;">${this.formatDisplayValue(0, isVal)}</span>`;
+          selStokHtml = `<span style="color: #64748b;">${this.formatDisplayValue(0, isSelisihVal)}</span>`;
           if (targetStatus === 'Overstock') {
             selDoiHtml = `<span style="color: #b45309; font-weight: 800;">+${selDoi.toFixed(0)}d</span>`;
-            selStokHtml = `<span style="color: #b45309; font-weight: 800;">+${this.formatDisplayValue(selStok, isVal)}</span>`;
+            selStokHtml = `<span style="color: #b45309; font-weight: 800;">+${this.formatDisplayValue(selStok, isSelisihVal)}</span>`;
           } else if (targetStatus === 'Understock') {
             selDoiHtml = `<span style="color: #b91c1c; font-weight: 800;">${selDoi.toFixed(0)}d</span>`;
-            selStokHtml = `<span style="color: #b91c1c; font-weight: 800;">${this.formatDisplayValue(selStok, isVal)}</span>`;
+            selStokHtml = `<span style="color: #b91c1c; font-weight: 800;">${this.formatDisplayValue(selStok, isSelisihVal)}</span>`;
           }
 
           doiNetHtml = `${doiAfterSelisih >= 999 ? '>999' : doiAfterSelisih.toFixed(0)}d`;
@@ -1683,10 +1700,10 @@
             <td style="font-weight: 700; color: #0f172a;">${item.product_name}</td>
             <td><span style="font-size: 10.5px; color: #334155; font-weight: 700;">${item.gb}</span></td>
             <td><span class="badge" style="${ketBadgeStyle}">${item.keterangan_produk}</span></td>
-            <td style="${stokMnjColStyle} text-align: right; font-weight: 600; color: #b91c1c;">${this.formatDisplayValue(stokMNJ, isVal)}</td>
-            <td style="${stokKxColStyle} text-align: right; font-weight: 600; color: #0369a1;">${this.formatDisplayValue(stokKX, isVal)}</td>
-            <td style="${combColStyle} text-align: right; font-weight: 800; color: #0f172a;">${this.formatDisplayValue(stokTotal, isVal)}</td>
-            <td style="text-align: right; font-weight: 600; color: #334155;">${this.formatDisplayValue(avgSales, isVal)}</td>
+            <td style="${stokMnjColStyle} text-align: right; font-weight: 600; color: #b91c1c;">${this.formatDisplayValue(stokMNJ, isStockVal)}</td>
+            <td style="${stokKxColStyle} text-align: right; font-weight: 600; color: #0369a1;">${this.formatDisplayValue(stokKX, isStockVal)}</td>
+            <td style="${combColStyle} text-align: right; font-weight: 800; color: #0f172a;">${this.formatDisplayValue(stokTotal, isStockVal)}</td>
+            <td style="text-align: right; font-weight: 600; color: #334155;">${this.formatDisplayValue(avgSales, isStockVal)}</td>
             <td style="${doiMnjColStyle} text-align: right; font-weight: 700; color: #b91c1c;">${doiMNJ >= 999 ? '>999' : doiMNJ.toFixed(0)}d</td>
             <td style="${doiKxColStyle} text-align: right; font-weight: 700; color: #0369a1;">${doiKX >= 999 ? '>999' : doiKX.toFixed(0)}d</td>
             <td style="${doiTotalColStyle} text-align: right; font-weight: 800; color: #1d4ed8;">

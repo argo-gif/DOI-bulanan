@@ -360,12 +360,24 @@
         <p id="detailSectionSub" style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">Rincian evaluasi DOI seluruh produk distributor dan principal.</p>
       </div>
 
-      <!-- Dedicated Satuan Filter for Detail Produk Table -->
-      <div style="display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 4px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <span style="font-size: 12px; font-weight: 700; color: #475569;">Filter Detail Table:</span>
-        <div class="toggle-container" id="detailUnitToggleContainer">
-          <button class="toggle-btn" id="btnDetailUnitQty" data-detail-unit="qty" type="button">Quantity (Unit)</button>
-          <button class="toggle-btn active" id="btnDetailUnitVal" data-detail-unit="value" type="button">Valuasi (Rupiah)</button>
+      <!-- Dedicated Independent Filters for Detail Produk Table -->
+      <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+        <!-- Filter 1: Satuan Stok & Sales -->
+        <div style="display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 4px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+          <span style="font-size: 11.5px; font-weight: 700; color: #475569;">Stok &amp; Sales:</span>
+          <div class="toggle-container" id="detailStockUnitToggleContainer">
+            <button class="toggle-btn" id="btnDetailStockQty" data-detail-stock-unit="qty" type="button">Quantity (Unit)</button>
+            <button class="toggle-btn active" id="btnDetailStockVal" data-detail-stock-unit="value" type="button">Valuasi (Rupiah)</button>
+          </div>
+        </div>
+
+        <!-- Filter 2: Satuan Selisih Stok & Nas -->
+        <div style="display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 4px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+          <span style="font-size: 11.5px; font-weight: 700; color: #0284c7;">Hitung Selisih (Stok &amp; Nas):</span>
+          <div class="toggle-container" id="detailSelisihUnitToggleContainer">
+            <button class="toggle-btn active" id="btnDetailSelisihVal" data-detail-selisih-unit="value" type="button">Valuasi (Rupiah)</button>
+            <button class="toggle-btn" id="btnDetailSelisihQty" data-detail-selisih-unit="qty" type="button">Quantity (Unit)</button>
+          </div>
         </div>
       </div>
     </div>
