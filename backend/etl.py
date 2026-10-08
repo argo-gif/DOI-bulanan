@@ -348,8 +348,20 @@ class DataEngine:
                 self.preload_all_data()
             months_2026 = [m for m in sorted(self._sales_cache.keys()) if m.startswith("2026")]
             return months_2026 if months_2026 else [f"2026-{i:02d}" for i in range(1, 9)]
+
+        if not self._is_preloaded:
+            self.preload_all_data()
+
+        # Automatic fallback: If target_period sales is not yet uploaded/closed (e.g. 2026-10 mid-month),
+        # use the latest closed sales month (e.g. 2026-09) as the anchor for the lookback window.
+        start_month_str = target_period
+        if self._sales_cache:
+            available_sales_months = sorted([m for m in self._sales_cache.keys() if m <= target_period], reverse=True)
+            if available_sales_months and target_period not in self._sales_cache:
+                start_month_str = available_sales_months[0]
+
         try:
-            year, month = int(target_period[0:4]), int(target_period[5:7])
+            year, month = int(start_month_str[0:4]), int(start_month_str[5:7])
         except (ValueError, IndexError):
             return [target_period]
 

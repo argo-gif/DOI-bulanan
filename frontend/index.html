@@ -351,12 +351,23 @@
 
   <!-- Interactive SKU Detail Table Container -->
   <section class="glass-panel" style="overflow: hidden;">
-    <div style="padding: 12px 16px 6px 16px;">
-      <h2 id="detailSectionTitle" style="font-size: 15px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <span>📋</span> Detail Produk &amp; Evaluasi Realisasi DOI vs DOI Max Master
-        <span id="detailPeriodBadge" style="font-size: 11px; font-weight: 600; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 12px; border: 1px solid #bae6fd; margin-left: 4px;">Periode: September 2026</span>
-      </h2>
-      <p id="detailSectionSub" style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">Rincian evaluasi DOI seluruh produk distributor dan principal.</p>
+    <div style="padding: 12px 16px 8px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid #f1f5f9;">
+      <div>
+        <h2 id="detailSectionTitle" style="font-size: 15px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span>📋</span> Detail Produk &amp; Evaluasi Realisasi DOI vs DOI Max Master
+          <span id="detailPeriodBadge" style="font-size: 11px; font-weight: 600; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 12px; border: 1px solid #bae6fd; margin-left: 4px;">Periode: September 2026</span>
+        </h2>
+        <p id="detailSectionSub" style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">Rincian evaluasi DOI seluruh produk distributor dan principal.</p>
+      </div>
+
+      <!-- Dedicated Satuan Filter for Detail Produk Table -->
+      <div style="display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 4px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <span style="font-size: 12px; font-weight: 700; color: #475569;">Filter Detail Table:</span>
+        <div class="toggle-container" id="detailUnitToggleContainer">
+          <button class="toggle-btn" id="btnDetailUnitQty" data-detail-unit="qty" type="button">Quantity (Unit)</button>
+          <button class="toggle-btn active" id="btnDetailUnitVal" data-detail-unit="value" type="button">Valuasi (Rupiah)</button>
+        </div>
+      </div>
     </div>
 
     <div class="table-container">

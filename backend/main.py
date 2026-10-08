@@ -205,13 +205,14 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             filtered.append(r)
 
         # Calculate selisih GB: (selisih stok item / total avg sales GB) * 30.0
-        # Catatan: Selisih GB & urutan GB selalu menggunakan mode 'value' (Rupiah), meskipun unit='qty' dipilih
+        # Mengikuti mode 'unit' yang dipilih (qty atau value)
         if filtered:
-            gb_summary_val = data_engine.get_gb_summary_report(
+            unit_mode = get_param("unit", "value").lower()
+            gb_summary_report = data_engine.get_gb_summary_report(
                 period=period if period else None,
                 avg_months=avg_months,
                 keterangan=ket_raw,
-                unit="value",
+                unit=unit_mode,
                 products=prod_raw,
                 health_status=health_status,
                 view_mode=view_mode
@@ -231,29 +232,40 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
                     selisih_stok_val = r.get("stok_total_value", 0.0) if ket_p in ["streamline", "festive"] else r.get("selisih_value", 0.0)
                     selisih_stok_qty = r.get("stok_total_qty", 0.0) if ket_p in ["streamline", "festive"] else r.get("selisih_qty", 0.0)
 
+                selisih_stok_metric = selisih_stok_qty if unit_mode == "qty" else selisih_stok_val
+
                 if is_gb_active:
-                    gb_sales_map = {g["gb"]: g["avg_sales_value"] for g in gb_summary_val}
+                    gb_sales_map = {g["gb"]: (g["avg_sales_qty"] if unit_mode == "qty" else g["avg_sales_value"]) for g in gb_summary_report}
                     r_gb = r.get("gb", "Unassigned")
                     gb_avg_sales = gb_sales_map.get(r_gb, 0.0)
-                    selisih_gb_days = round((selisih_stok_val / gb_avg_sales * 30.0), 2) if gb_avg_sales > 0 else 0.0
+                    selisih_gb_days = round((selisih_stok_metric / gb_avg_sales * 30.0), 2) if gb_avg_sales > 0 else 0.0
                 else:
-                    total_avg_sales_all_gb = sum(g["avg_sales_value"] for g in gb_summary_val)
-                    selisih_gb_days = round((selisih_stok_val / total_avg_sales_all_gb * 30.0), 2) if total_avg_sales_all_gb > 0 else 0.0
+                    total_avg_sales_all_gb = sum((g["avg_sales_qty"] if unit_mode == "qty" else g["avg_sales_value"]) for g in gb_summary_report)
+                    selisih_gb_days = round((selisih_stok_metric / total_avg_sales_all_gb * 30.0), 2) if total_avg_sales_all_gb > 0 else 0.0
 
                 r["selisih_doi_gb"] = selisih_gb_days
                 r["selisih_value_gb"] = selisih_stok_val
                 r["selisih_qty_gb"] = selisih_stok_qty
 
-        # Selalu urutkan data berdasarkan Selisih Stok (Value/Rupiah) terbesar ke kecil (descending), baik filter GB All maupun spesifik GB
+        # Urutkan data berdasarkan Selisih Stok terbesar ke kecil (descending) sesuai unit_mode (qty atau value)
         if filtered:
+            unit_mode = get_param("unit", "value").lower()
             def get_sort_key(x):
                 ket_p = (x.get("keterangan_produk") or "").strip().lower()
-                if view_mode == "mnj":
-                    return x.get("stok_mnj_value", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_value_mnj", 0.0)
-                elif view_mode == "kx":
-                    return x.get("stok_kx_value", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_value_kx", 0.0)
+                if unit_mode == "qty":
+                    if view_mode == "mnj":
+                        return x.get("stok_mnj_qty", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_qty_mnj", 0.0)
+                    elif view_mode == "kx":
+                        return x.get("stok_kx_qty", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_qty_kx", 0.0)
+                    else:
+                        return x.get("stok_total_qty", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_qty", 0.0)
                 else:
-                    return x.get("stok_total_value", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_value", 0.0)
+                    if view_mode == "mnj":
+                        return x.get("stok_mnj_value", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_value_mnj", 0.0)
+                    elif view_mode == "kx":
+                        return x.get("stok_kx_value", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_value_kx", 0.0)
+                    else:
+                        return x.get("stok_total_value", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_value", 0.0)
 
             filtered.sort(key=get_sort_key, reverse=True)
 

@@ -41,7 +41,7 @@
 
     const params = new URLSearchParams({
       period: filters.period || '2026-09',
-      unit: filters.unit || 'value',
+      unit: filters.detailUnit || filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -64,7 +64,7 @@
       keterangan: ketVal,
       products: prodVal,
       health_status: filters.health_status || 'All',
-      unit: filters.unit || 'value',
+      unit: filters.detailUnit || filters.unit || 'value',
       view_mode: filters.activeTab || 'combined'
     });
     const res = await fetchWithRetry(`${API_BASE}/gb-summary?${params.toString()}`);
@@ -83,7 +83,7 @@
       keterangan: ketVal,
       products: prodVal,
       health_status: filters.health_status || 'All',
-      unit: filters.unit || 'value',
+      unit: filters.detailUnit || filters.unit || 'value',
       gb: gbVal,
       view_mode: filters.activeTab || 'combined'
     });
@@ -131,7 +131,7 @@
 
     const params = new URLSearchParams({
       period: filters.period || '2026-09',
-      unit: filters.unit || 'value',
+      unit: filters.detailUnit || filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -153,7 +153,7 @@
 
     const params = new URLSearchParams({
       period: filters.period || '2026-09',
-      unit: filters.unit || 'value',
+      unit: filters.detailUnit || filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -171,7 +171,7 @@
 
     const params = new URLSearchParams({
       period: filters.period || '2026-09',
-      unit: filters.unit || 'value',
+      unit: filters.detailUnit || filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -189,7 +189,7 @@
 
     const params = new URLSearchParams({
       period: filters.period || '2026-09',
-      unit: filters.unit || 'value',
+      unit: filters.detailUnit || filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -530,9 +530,24 @@
       document.querySelectorAll('[data-unit]').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const unit = e.currentTarget.getAttribute('data-unit');
-          this.setFilter({ unit, page: 1 });
+          this.filters.detailUnit = unit;
+          this.setFilter({ unit, detailUnit: unit, page: 1 });
           document.querySelectorAll('[data-unit]').forEach(b => b.classList.remove('active'));
           e.currentTarget.classList.add('active');
+          document.querySelectorAll('#detailUnitToggleContainer [data-detail-unit]').forEach(b => {
+            if (b.getAttribute('data-detail-unit') === unit) b.classList.add('active');
+            else b.classList.remove('active');
+          });
+        });
+      });
+
+      document.querySelectorAll('#detailUnitToggleContainer [data-detail-unit]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const detailUnit = e.currentTarget.getAttribute('data-detail-unit');
+          this.filters.detailUnit = detailUnit;
+          document.querySelectorAll('#detailUnitToggleContainer [data-detail-unit]').forEach(b => b.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          this.setFilter({ page: 1 });
         });
       });
 
@@ -831,7 +846,7 @@
       if (!this.summary) return;
 
       const formatNum = (val) => new Intl.NumberFormat('id-ID').format(val);
-      const isVal = (this.filters.unit === 'value');
+      const isVal = (this.filters.detailUnit ? this.filters.detailUnit === 'value' : this.filters.unit === 'value');
 
       const elSKU = document.getElementById('metricTotalSKU');
       if (elSKU) elSKU.innerText = formatNum(this.summary.total_sku);
@@ -1111,7 +1126,7 @@
         if (thStatus) thStatus.innerText = 'Status Total';
       }
 
-      const isVal = (this.filters.unit === 'value');
+      const isVal = (this.filters.detailUnit ? this.filters.detailUnit === 'value' : this.filters.unit === 'value');
       const isGBFilterActive = Boolean(this.filters.selectedGBs && this.filters.selectedGBs.length > 0);
 
       const targetGBList = isGBFilterActive
@@ -1482,6 +1497,12 @@
       const tableBody = document.getElementById('tableBody');
       if (!tableBody || !this.doiData) return;
 
+      const currentDetailUnit = this.filters.detailUnit || this.filters.unit || 'value';
+      document.querySelectorAll('#detailUnitToggleContainer [data-detail-unit]').forEach(b => {
+        if (b.getAttribute('data-detail-unit') === currentDetailUnit) b.classList.add('active');
+        else b.classList.remove('active');
+      });
+
       const detailBadge = document.getElementById('detailPeriodBadge');
       if (detailBadge) {
         detailBadge.innerText = `Periode: ${formatPeriodFullLabel(this.filters.period)}`;
@@ -1541,7 +1562,7 @@
         return;
       }
 
-      const isVal = (this.filters.unit === 'value');
+      const isVal = (this.filters.detailUnit ? this.filters.detailUnit === 'value' : this.filters.unit === 'value');
       const stokMnjColStyle = (activeTab === 'kx') ? 'display:none;' : '';
       const stokKxColStyle = (activeTab === 'mnj') ? 'display:none;' : '';
       const combColStyle = (activeTab === 'mnj' || activeTab === 'kx') ? 'display:none;' : '';
@@ -1549,20 +1570,33 @@
       const doiKxColStyle = (activeTab === 'mnj') ? 'display:none;' : '';
       const doiTotalColStyle = (activeTab === 'mnj' || activeTab === 'kx') ? 'display:none;' : '';
 
-      // Sort by entity-specific selisih stock value descending (Rupiah value)
+      // Sort by entity-specific selisih stock descending (Qty or Value depending on detailUnit)
       this.doiData.data.sort((a, b) => {
         const ketA = (a.keterangan_produk || '').toLowerCase();
         const ketB = (b.keterangan_produk || '').toLowerCase();
         let valA, valB;
-        if (activeTab === 'mnj') {
-          valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_mnj_value || 0) : (a.selisih_value_mnj !== undefined ? a.selisih_value_mnj : (a.selisih_value || 0));
-          valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_mnj_value || 0) : (b.selisih_value_mnj !== undefined ? b.selisih_value_mnj : (b.selisih_value || 0));
-        } else if (activeTab === 'kx') {
-          valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_kx_value || 0) : (a.selisih_value_kx !== undefined ? a.selisih_value_kx : (a.selisih_value || 0));
-          valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_kx_value || 0) : (b.selisih_value_kx !== undefined ? b.selisih_value_kx : (b.selisih_value || 0));
+        if (isVal) {
+          if (activeTab === 'mnj') {
+            valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_mnj_value || 0) : (a.selisih_value_mnj !== undefined ? a.selisih_value_mnj : (a.selisih_value || 0));
+            valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_mnj_value || 0) : (b.selisih_value_mnj !== undefined ? b.selisih_value_mnj : (b.selisih_value || 0));
+          } else if (activeTab === 'kx') {
+            valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_kx_value || 0) : (a.selisih_value_kx !== undefined ? a.selisih_value_kx : (a.selisih_value || 0));
+            valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_kx_value || 0) : (b.selisih_value_kx !== undefined ? b.selisih_value_kx : (b.selisih_value || 0));
+          } else {
+            valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_total_value || 0) : (a.selisih_value || 0);
+            valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_total_value || 0) : (b.selisih_value || 0);
+          }
         } else {
-          valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_total_value || 0) : (a.selisih_value || 0);
-          valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_total_value || 0) : (b.selisih_value || 0);
+          if (activeTab === 'mnj') {
+            valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_mnj_qty || 0) : (a.selisih_qty_mnj !== undefined ? a.selisih_qty_mnj : (a.selisih_qty || 0));
+            valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_mnj_qty || 0) : (b.selisih_qty_mnj !== undefined ? b.selisih_qty_mnj : (b.selisih_qty || 0));
+          } else if (activeTab === 'kx') {
+            valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_kx_qty || 0) : (a.selisih_qty_kx !== undefined ? a.selisih_qty_kx : (a.selisih_qty || 0));
+            valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_kx_qty || 0) : (b.selisih_qty_kx !== undefined ? b.selisih_qty_kx : (b.selisih_qty || 0));
+          } else {
+            valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_total_qty || 0) : (a.selisih_qty || 0);
+            valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_total_qty || 0) : (b.selisih_qty || 0);
+          }
         }
         return valB - valA;
       });
