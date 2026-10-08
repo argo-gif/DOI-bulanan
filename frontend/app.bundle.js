@@ -821,8 +821,9 @@
     }
 
     async refreshData() {
+      let summaryRes, gbSummaryRes, catGbSummaryRes, trendRes, doiRes;
       try {
-        const [summaryRes, gbSummaryRes, catGbSummaryRes, trendRes, doiRes] = await Promise.all([
+        [summaryRes, gbSummaryRes, catGbSummaryRes, trendRes, doiRes] = await Promise.all([
           fetchSummary(this.filters),
           fetchGBSummary(this.filters),
           fetchCategoryGBSummary(this.filters),
@@ -837,18 +838,21 @@
         this.doiData = doiRes;
 
         this.updateApiStatus(true, 'API Live Connected');
-        this.renderSummaryCards();
-        this.renderTrendChart();
-        this.renderGBTable();
-        this.renderCatGBTable();
-        this.renderTable();
-        this.renderPagination();
       } catch (err) {
-        console.error('[DASHBOARD] Data refresh error:', err);
+        console.error('[DASHBOARD] API Network fetch error:', err);
         this.updateApiStatus(false, 'API Error');
         const errDetail = (err && err.message) ? err.message : String(err);
-        this.showError(`Terjadi kesalahan memuat data: ${errDetail}`);
+        this.showError(`Terjadi kesalahan memuat data API: ${errDetail}`);
+        return;
       }
+
+      // Safe rendering steps
+      try { this.renderSummaryCards(); } catch (e) { console.error('[DASHBOARD] renderSummaryCards error:', e); }
+      try { this.renderTrendChart(); } catch (e) { console.error('[DASHBOARD] renderTrendChart error:', e); }
+      try { this.renderGBTable(); } catch (e) { console.error('[DASHBOARD] renderGBTable error:', e); }
+      try { this.renderCatGBTable(); } catch (e) { console.error('[DASHBOARD] renderCatGBTable error:', e); }
+      try { this.renderTable(); } catch (e) { console.error('[DASHBOARD] renderTable error:', e); }
+      try { this.renderPagination(); } catch (e) { console.error('[DASHBOARD] renderPagination error:', e); }
     }
 
     renderSummaryCards() {
