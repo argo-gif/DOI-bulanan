@@ -41,7 +41,7 @@
 
     const params = new URLSearchParams({
       period: filters.period || '2026-09',
-      unit: filters.detailSelisihUnit || filters.unit || 'value',
+      unit: filters.unit || 'value',
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -64,7 +64,7 @@
       keterangan: ketVal,
       products: prodVal,
       health_status: filters.health_status || 'All',
-      unit: filters.detailSelisihUnit || filters.unit || 'value',
+      unit: filters.unit || 'value',
       view_mode: filters.activeTab || 'combined'
     });
     const res = await fetchWithRetry(`${API_BASE}/gb-summary?${params.toString()}`);
@@ -83,7 +83,7 @@
       keterangan: ketVal,
       products: prodVal,
       health_status: filters.health_status || 'All',
-      unit: filters.detailSelisihUnit || filters.unit || 'value',
+      unit: filters.unit || 'value',
       gb: gbVal,
       view_mode: filters.activeTab || 'combined'
     });
@@ -135,11 +135,11 @@
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
-      health_status: filters.health_status,
+      health_status: filters.health_status || 'All',
       avg_months: (filters.avg_months || 6).toString(),
       view_mode: filters.activeTab || 'combined',
-      page: filters.page.toString(),
-      page_size: filters.page_size.toString()
+      page: (filters.page || 1).toString(),
+      page_size: (filters.page_size || 15).toString()
     });
     const res = await fetchWithRetry(`${API_BASE}/doi-data?${params.toString()}`);
     if (!res.ok) throw new Error('Failed to fetch DOI data');
@@ -240,7 +240,9 @@
   class DashboardApp {
     constructor() {
       this.filters = {
-        activeTab: 'combined',  // 'combined', 'mnj', 'kx'
+        activeTab: 'combined',
+        detailStockUnit: 'value',
+        detailSelisihUnit: 'value',  // 'combined', 'mnj', 'kx'
         period: '2026-09',
         unit: 'value',          // DEFAULT VALUASI (RUPIAH)
         scale: 'compact',       // 'compact' or 'full'
