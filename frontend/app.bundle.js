@@ -859,6 +859,7 @@
       if (!this.summary) return;
 
       const formatNum = (val) => new Intl.NumberFormat('id-ID').format(val);
+      const isVal = (this.filters.unit === 'value');
       const isStockVal = (this.filters.detailStockUnit ? this.filters.detailStockUnit === 'value' : true);
       const isSelisihVal = (this.filters.detailSelisihUnit ? this.filters.detailSelisihUnit === 'value' : true);
 
@@ -1140,6 +1141,7 @@
         if (thStatus) thStatus.innerText = 'Status Total';
       }
 
+      const isVal = (this.filters.unit === 'value');
       const isStockVal = (this.filters.detailStockUnit ? this.filters.detailStockUnit === 'value' : true);
       const isSelisihVal = (this.filters.detailSelisihUnit ? this.filters.detailSelisihUnit === 'value' : true);
       const isGBFilterActive = Boolean(this.filters.selectedGBs && this.filters.selectedGBs.length > 0);
@@ -1643,13 +1645,13 @@
           doiMax = (item.doi_max_mnj !== undefined && item.doi_max_mnj !== null) ? item.doi_max_mnj : doiMax;
           actualDoi = doiMNJ;
           selDoi = item.selisih_doi_mnj !== undefined ? item.selisih_doi_mnj : 0.0;
-          selStok = isVal ? (item.selisih_value_mnj !== undefined ? item.selisih_value_mnj : 0.0) : (item.selisih_qty_mnj !== undefined ? item.selisih_qty_mnj : 0.0);
+          selStok = isSelisihVal ? (item.selisih_value_mnj !== undefined ? item.selisih_value_mnj : 0.0) : (item.selisih_qty_mnj !== undefined ? item.selisih_qty_mnj : 0.0);
           targetStatus = item.health_status_mnj || item.health_status_total;
         } else if (activeTab === 'kx') {
           doiMax = (item.doi_max_kx !== undefined && item.doi_max_kx !== null) ? item.doi_max_kx : doiMax;
           actualDoi = doiKX;
           selDoi = item.selisih_doi_kx !== undefined ? item.selisih_doi_kx : 0.0;
-          selStok = isVal ? (item.selisih_value_kx !== undefined ? item.selisih_value_kx : 0.0) : (item.selisih_qty_kx !== undefined ? item.selisih_qty_kx : 0.0);
+          selStok = isSelisihVal ? (item.selisih_value_kx !== undefined ? item.selisih_value_kx : 0.0) : (item.selisih_qty_kx !== undefined ? item.selisih_qty_kx : 0.0);
           targetStatus = item.health_status_kx || item.health_status_total;
         }
 
