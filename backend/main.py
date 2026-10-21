@@ -157,6 +157,7 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             "keterangan_options": keterangan_opts,
             "product_options": product_options,
             "cabang_options": cabang_opts,
+            "cabang_regions": data_engine.get_all_cabang_regions(),
             "avg_months_options": [1, 3, 6, 9, 12, 2024, 2025, 2026],
             "total_products": len(master)
         }

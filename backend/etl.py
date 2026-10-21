@@ -57,16 +57,36 @@ def parse_multi_param(val: Any) -> Set[str]:
         return set()
     return {x.strip() for x in val_str.split(",") if x.strip() and x.strip().lower() != "all"}
 
+CABANG_MERGE_MAP = {
+    "CABANG KARAWANG": "CABANG BEKASI",
+    "KARAWANG": "CABANG BEKASI",
+    "CABANG SINGKAWANG": "CABANG PONTIANAK",
+    "SINGKAWANG": "CABANG PONTIANAK",
+    "CABANG SURABAYA 3 /BARAT": "CABANG SURABAYA 2 /BERBEK",
+    "CABANG SURABAYA 3": "CABANG SURABAYA 2 /BERBEK",
+    "SURABAYA 3": "CABANG SURABAYA 2 /BERBEK",
+    "SURABAYA 3 /BARAT": "CABANG SURABAYA 2 /BERBEK",
+}
+
+def normalize_cabang_name(cab: Any) -> str:
+    """Normalizes cabang names by merging Karawang->Bekasi, Singkawang->Pontianak, Surabaya 3->Surabaya 2."""
+    if not cab:
+        return ""
+    c = str(cab).strip().upper()
+    return CABANG_MERGE_MAP.get(c, c)
+
 class DataEngine:
     def __init__(self, base_dir: str):
         self.base_dir = os.path.abspath(base_dir)
         self.master_file = os.path.join(self.base_dir, "Master produk.xlsx")
+        self.master_cabang_file = os.path.join(self.base_dir, "Master cabang.xlsx")
         self.mnj_file = os.path.join(base_dir, "Stok Akhir bulan MNJ.xlsx")
         self.kx_file = os.path.join(base_dir, "Stok Akhir bulan KX dan Produksi.xlsx")
         self.sales_file = os.path.join(base_dir, "Data sales.xlsx")
         self.dead_slow_file = os.path.join(base_dir, "08. Dead & Slow Moving Aug 26.xlsx")
 
         self.master_products: Dict[str, Dict[str, Any]] = {}
+        self.master_cabang: Dict[str, str] = {}
         self.old_code_map: Dict[str, str] = {}
         self.principal_code_map: Dict[str, str] = {}
         self.available_periods: List[str] = []
@@ -201,12 +221,52 @@ class DataEngine:
             return self.principal_code_map[code]
         return None
 
-    ETL_VERSION = "2.4.0"
+    def load_master_cabang(self) -> Dict[str, str]:
+        """Loads Master cabang.xlsx and builds lookup for branch region: 'LPJ' (90d) or 'PJ' (60d)."""
+        if self.master_cabang:
+            return self.master_cabang
+        if not os.path.exists(self.master_cabang_file):
+            return {}
+        wb = openpyxl.load_workbook(self.master_cabang_file, read_only=True, data_only=True)
+        sheet = wb.active
+        mapping = {}
+        for row in sheet.iter_rows(min_row=2, values_only=True):
+            if row and row[0]:
+                raw_c = str(row[0]).strip().upper()
+                norm_c = normalize_cabang_name(raw_c)
+                ket = str(row[1]).strip().upper() if len(row) > 1 and row[1] else "PJ"
+                mapping[norm_c] = ket
+                if raw_c not in mapping:
+                    mapping[raw_c] = ket
+        wb.close()
+        if "KANTOR PUSAT" not in mapping:
+            mapping["KANTOR PUSAT"] = "PJ"
+        self.master_cabang = mapping
+        return self.master_cabang
+
+    def get_cabang_region(self, cabang: str) -> str:
+        """Returns 'LPJ' or 'PJ' based on Master cabang.xlsx. Defaults to 'PJ'."""
+        if not self.master_cabang:
+            self.load_master_cabang()
+        norm_c = normalize_cabang_name(cabang)
+        return self.master_cabang.get(norm_c, self.master_cabang.get(str(cabang).strip().upper(), "PJ"))
+
+    def get_cabang_over_doi(self, cabang: str) -> float:
+        """Returns Overstock threshold: 90.0 for LPJ, 60.0 for PJ."""
+        return 90.0 if self.get_cabang_region(cabang) == "LPJ" else 60.0
+
+    def get_all_cabang_regions(self) -> Dict[str, str]:
+        """Returns normalized map of all available cabangs and their region (LPJ/PJ)."""
+        if not self.master_cabang:
+            self.load_master_cabang()
+        return dict(self.master_cabang)
+
+    ETL_VERSION = "2.5.0"
 
     def _get_cache_checksum(self) -> str:
         h = hashlib.md5()
         h.update(self.ETL_VERSION.encode("utf-8"))
-        for fp in [self.master_file, self.mnj_file, self.kx_file, self.sales_file, self.dead_slow_file]:
+        for fp in [self.master_file, self.mnj_file, self.kx_file, self.sales_file, self.dead_slow_file, self.master_cabang_file]:
             abs_fp = os.path.abspath(fp)
             if os.path.exists(abs_fp):
                 stat = os.stat(abs_fp)
@@ -218,6 +278,7 @@ class DataEngine:
         if self._is_preloaded:
             return
 
+        self.load_master_cabang()
         cache_file = os.path.join(self.base_dir, "backend", ".data_cache.pkl")
         current_checksum = self._get_cache_checksum()
 
@@ -263,7 +324,7 @@ class DataEngine:
                 if not target_code:
                     continue
 
-                cabang = str(row[2]).strip() if row[2] else ""
+                cabang = normalize_cabang_name(str(row[2])) if row[2] else ""
                 qty_baik = float(row[6]) if row[6] is not None else 0.0
                 qty_bdp = float(row[8]) if row[8] is not None else 0.0
 
@@ -342,9 +403,17 @@ class DataEngine:
                     except (ValueError, TypeError):
                         qty = 0.0
 
+                    cabang = normalize_cabang_name(str(row[3])) if row[3] else ""
                     if month not in self._sales_cache:
                         self._sales_cache[month] = {}
                     self._sales_cache[month][target_code] = self._sales_cache[month].get(target_code, 0.0) + qty
+
+                    if cabang:
+                        if month not in self._sales_cabang_cache:
+                            self._sales_cabang_cache[month] = {}
+                        if cabang not in self._sales_cabang_cache[month]:
+                            self._sales_cabang_cache[month][cabang] = {}
+                        self._sales_cabang_cache[month][cabang][target_code] = self._sales_cabang_cache[month][cabang].get(target_code, 0.0) + qty
                     sheet_rows += 1
                 print(f"[ENGINE]     -> Sheet '{sname}' selesai ({sheet_rows:,} baris produk valid).", flush=True)
             wb.close()
@@ -361,7 +430,7 @@ class DataEngine:
                 raw_code = str(row[3]).strip() if row[3] else str(row[4]).strip()
                 target_code = self.resolve_product_code(raw_code) or raw_code
 
-                cabang = str(row[0]).strip() if row[0] else ""
+                cabang = normalize_cabang_name(str(row[0])) if row[0] else ""
                 wilayah = str(row[1]).strip() if row[1] else ""
 
                 stok_qty = float(row[19]) if row[19] is not None else 0.0
@@ -530,9 +599,9 @@ class DataEngine:
 
         selected_cabs = []
         if isinstance(cabang, str) and cabang.strip().lower() != "all":
-            selected_cabs = [c.strip() for c in cabang.split(",") if c.strip() and c.strip().lower() != "all"]
+            selected_cabs = list({normalize_cabang_name(c.strip()) for c in cabang.split(",") if c.strip() and c.strip().lower() != "all"})
         elif isinstance(cabang, (list, set)):
-            selected_cabs = [c.strip() for c in cabang if c.strip() and c.strip().lower() != "all"]
+            selected_cabs = list({normalize_cabang_name(c.strip()) for c in cabang if c.strip() and c.strip().lower() != "all"})
 
         window = self.get_period_months_window(target_period, avg_months)
         sales_sum: Dict[str, float] = {}
@@ -566,7 +635,7 @@ class DataEngine:
         return avg_sales
 
     def get_available_cabangs(self) -> List[str]:
-        """Returns sorted unique list of all available cabang names."""
+        """Returns sorted unique list of all available cabang names (with merges applied)."""
         if hasattr(self, "_available_cabangs") and self._available_cabangs:
             return self._available_cabangs
         cabangs = set()
@@ -574,11 +643,15 @@ class DataEngine:
             for c in cab_list:
                 cab = c.get("cabang")
                 if cab:
-                    cabangs.add(cab.strip())
+                    norm = normalize_cabang_name(cab.strip())
+                    if norm:
+                        cabangs.add(norm)
         for p_dict in self._mnj_cabang_cache.values():
             for cab in p_dict.keys():
                 if cab:
-                    cabangs.add(cab.strip())
+                    norm = normalize_cabang_name(cab.strip())
+                    if norm:
+                        cabangs.add(norm)
         self._available_cabangs = sorted(list(cabangs))
         return self._available_cabangs
 
@@ -592,9 +665,9 @@ class DataEngine:
 
         # Parse Cabang filter
         if isinstance(cabang, str):
-            selected_cabs = [c.strip() for c in cabang.split(",") if c.strip() and c.strip().lower() != "all"]
+            selected_cabs = list({normalize_cabang_name(c.strip()) for c in cabang.split(",") if c.strip() and c.strip().lower() != "all"})
         elif isinstance(cabang, (list, set)):
-            selected_cabs = [c.strip() for c in cabang if c.strip() and c.strip().lower() != "all"]
+            selected_cabs = list({normalize_cabang_name(c.strip()) for c in cabang if c.strip() and c.strip().lower() != "all"})
         else:
             selected_cabs = []
         avail_cab_map = {c.strip().lower(): c.strip() for c in self.get_available_cabangs()}
@@ -782,14 +855,26 @@ class DataEngine:
                 stok_min_qty_mnj = (doi_min_mnj / 30.0) * avg_sales_qty
                 selisih_val_mnj = round(stok_mnj_value - stok_min_val_mnj, 2)
                 selisih_qty_mnj = round(stok_mnj_qty - stok_min_qty_mnj, 2)
-            elif is_cabang_filtered and doi_mnj > 90.0:
-                # Level Cabang: Overstock dibuat di atas 90 hari (90 < DOI <= 180 hari)
-                health_status_mnj = "Overstock"
-                selisih_doi_mnj = round(doi_mnj - 90.0, 1)
-                stok_max_val_mnj = (90.0 / 30.0) * avg_sales_value
-                stok_max_qty_mnj = (90.0 / 30.0) * avg_sales_qty
-                selisih_val_mnj = round(stok_mnj_value - stok_max_val_mnj, 2)
-                selisih_qty_mnj = round(stok_mnj_qty - stok_max_qty_mnj, 2)
+            elif is_cabang_filtered:
+                # Level Cabang: LPJ menggunakan DOI 90, PJ menggunakan DOI 60
+                if len(selected_cabs) == 1:
+                    over_thresh_mnj = self.get_cabang_over_doi(selected_cabs[0])
+                else:
+                    stk_max_tot = sum((self.get_cabang_over_doi(c) / 30.0) * (self._sales_cabang_cache.get(selected_period, {}).get(c, {}).get(pcode, 0.0)) for c in selected_cabs)
+                    over_thresh_mnj = (stk_max_tot / avg_sales_qty * 30.0) if avg_sales_qty > 0 else 90.0
+
+                if doi_mnj > over_thresh_mnj:
+                    health_status_mnj = "Overstock"
+                    selisih_doi_mnj = round(doi_mnj - over_thresh_mnj, 1)
+                    stok_max_val_mnj = (over_thresh_mnj / 30.0) * avg_sales_value
+                    stok_max_qty_mnj = (over_thresh_mnj / 30.0) * avg_sales_qty
+                    selisih_val_mnj = round(stok_mnj_value - stok_max_val_mnj, 2)
+                    selisih_qty_mnj = round(stok_mnj_qty - stok_max_qty_mnj, 2)
+                else:
+                    health_status_mnj = "Normal"
+                    selisih_doi_mnj = 0.0
+                    selisih_val_mnj = 0.0
+                    selisih_qty_mnj = 0.0
             elif (not is_cabang_filtered) and doi_max_mnj > 0 and doi_mnj > doi_max_mnj:
                 # Level Nasional: Overstock dihitung seperti format semula
                 health_status_mnj = "Overstock"
@@ -1406,11 +1491,12 @@ class DataEngine:
                             has_zero_sales_3m = (len(sales_3m) == 3) and all(s <= 0 for s in sales_3m)
                             c_doi = (c_curr_stock / c_avg_sales * 30.0) if c_avg_sales > 0 else 0.0
 
+                            c_thresh = self.get_cabang_over_doi(c)
                             if (has_stock_3m and has_zero_sales_3m) or (c_avg_sales > 0 and c_doi > 180.0):
                                 tot_slow_qty += c_curr_stock
                                 tot_slow_val += stok_val
-                            elif c_doi > 90.0:
-                                s_max_qty = (90.0 / 30.0) * c_avg_sales
+                            elif c_doi > c_thresh:
+                                s_max_qty = (c_thresh / 30.0) * c_avg_sales
                                 over_q = c_curr_stock - s_max_qty
                                 tot_over_qty += over_q
                                 tot_over_val += over_q * h_dasar
@@ -1681,6 +1767,7 @@ class DataEngine:
             has_stock_3m = (len(stok_3m) == 3) and all(s > 0 for s in stok_3m)
             has_zero_sales_3m = (len(sales_3m) == 3) and all(s <= 0 for s in sales_3m)
 
+            c_thresh = self.get_cabang_over_doi(c)
             if is_streamline:
                 status_cabang = "Streamline"
             elif is_festive:
@@ -1697,12 +1784,16 @@ class DataEngine:
                 slow_moving_qty += c_curr_stock
             elif c_doi < 15.0:
                 status_cabang = "Understock"
+            elif c_doi > c_thresh:
+                status_cabang = "Overstock"
             else:
                 status_cabang = "Normal"
 
             cabang_list.append({
                 "cabang": c,
                 "wilayah": wilayah_map.get(c, ""),
+                "region": self.get_cabang_region(c),
+                "over_threshold": c_thresh,
                 "stok_baik": c_curr_baik,
                 "stok_bdp": c_curr_bdp,
                 "stok_qty": c_curr_stock,

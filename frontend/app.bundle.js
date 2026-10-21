@@ -510,10 +510,15 @@
         const val = typeof opt === 'object' ? opt.code : opt;
         const displayText = typeof opt === 'object' ? opt.label : opt;
         const isChecked = selectedList.includes(val);
+        const reg = (containerId === 'cabangOptionsContainer' && this.metadata && this.metadata.cabang_regions) ? this.metadata.cabang_regions[val] : '';
+        const regBadge = reg ? `<span style="font-size: 10px; font-weight: 700; padding: 1.5px 6px; border-radius: 4px; background: ${reg === 'LPJ' ? '#fef3c7' : '#e0e7ff'}; color: ${reg === 'LPJ' ? '#b45309' : '#3730a3'}; margin-left: 6px;">${reg} (${reg === 'LPJ' ? '90d' : '60d'})</span>` : '';
         return `
           <label class="multiselect-option-label" data-val="${val}" data-search="${displayText.toLowerCase()}">
             <input type="checkbox" value="${val}" ${isChecked ? 'checked' : ''} />
-            <span>${displayText}</span>
+            <span style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+              <span>${displayText}</span>
+              ${regBadge}
+            </span>
           </label>
         `;
       }).join('');
@@ -890,14 +895,42 @@
 
       if (tab === 'mnj') {
         if (isCabangFiltered) {
+          let overDaysText = '> 90 Hari';
+          let normDaysText = '15 – 90 Hari';
+          let overSubText = 'Overstock (> 90 Hari)';
+
+          if (this.filters.selectedCabangs.length === 1) {
+            const cName = this.filters.selectedCabangs[0];
+            const reg = (this.metadata && this.metadata.cabang_regions) ? this.metadata.cabang_regions[cName] : 'PJ';
+            const thresh = (reg === 'LPJ') ? 90 : 60;
+            overDaysText = `> ${thresh} Hari (${reg})`;
+            normDaysText = `15 – ${thresh} Hari`;
+            overSubText = `Overstock (> ${thresh} Hari - ${reg})`;
+          } else if (this.filters.selectedCabangs.length > 1) {
+            const regs = new Set(this.filters.selectedCabangs.map(c => (this.metadata && this.metadata.cabang_regions) ? this.metadata.cabang_regions[c] : 'PJ'));
+            if (regs.size === 1 && regs.has('LPJ')) {
+              overDaysText = '> 90 Hari (LPJ)';
+              normDaysText = '15 – 90 Hari';
+              overSubText = 'Overstock (> 90 Hari - LPJ)';
+            } else if (regs.size === 1 && regs.has('PJ')) {
+              overDaysText = '> 60 Hari (PJ)';
+              normDaysText = '15 – 60 Hari';
+              overSubText = 'Overstock (> 60 Hari - PJ)';
+            } else {
+              overDaysText = '> 90d LPJ / > 60d PJ';
+              normDaysText = '15 – 60/90 Hari';
+              overSubText = 'Overstock (LPJ > 90d, PJ > 60d)';
+            }
+          }
+
           if (cardDead) cardDead.style.display = '';
           if (cardSlow) cardSlow.style.display = '';
           if (cardOver) {
             cardOver.style.display = '';
             const descOver = cardOver.querySelector('.status-card-desc');
-            if (descOver) descOver.innerText = '> 90 Hari';
+            if (descOver) descOver.innerText = overDaysText;
           }
-          if (descNorm) descNorm.innerText = '15 – 90 Hari';
+          if (descNorm) descNorm.innerText = normDaysText;
           if (thDead) thDead.style.display = '';
           if (thSlow) thSlow.style.display = '';
 
@@ -909,21 +942,26 @@
           if (trendToggle) trendToggle.style.display = 'flex';
 
           if (trendChartTitle) trendChartTitle.innerHTML = `<span>🏢</span> Trend Evaluasi Stok MNJ: Dead Stock, Slow Moving & Overstock (${cabNames})`;
-          if (trendSubtitle) trendSubtitle.innerText = `Visualisasi pergerakan tren Dead Stock, Slow Moving, dan Overstock (> 90 Hari) untuk ${cabNames} per bulan.`;
+          if (trendSubtitle) trendSubtitle.innerText = `Visualisasi pergerakan tren Dead Stock, Slow Moving, dan ${overSubText} untuk ${cabNames} per bulan.`;
 
           if (gbTitle) gbTitle.innerHTML = `<span>🏢</span> Ringkasan DOI MNJ Per Group Business (GB) - ${cabNames} ${gbBadge}`;
-          if (gbSub) gbSub.innerText = `Perbandingan stok cabang (${cabNames}), realisasi DOI, Max DOI MNJ (Master), Dead Stock, Slow Moving, dan Overstock per GB.`;
+          if (gbSub) gbSub.innerText = `Perbandingan stok cabang (${cabNames}), realisasi DOI, Max DOI MNJ (Master), Dead Stock, Slow Moving, dan ${overSubText} per GB.`;
 
           if (catGbTitle) catGbTitle.innerHTML = `<span>📊</span> Matrix Impact Selisih DOI MNJ - ${cabNames} ${catGbBadge}`;
-          if (catGbSub) catGbSub.innerText = `Matrix rincian dampak Selisih DOI MNJ untuk cabang (${cabNames}) per Status Evaluasi (Dead Stock, Slow Moving, Overstock > 90 Hari, Understock < 15 Hari, Streamline, Festive, Produk Baru).`;
+          if (catGbSub) catGbSub.innerText = `Matrix rincian dampak Selisih DOI MNJ untuk cabang (${cabNames}) per Status Evaluasi (Dead Stock, Slow Moving, ${overSubText}, Understock < 15 Hari, Streamline, Festive, Produk Baru).`;
 
           if (detailTitle) detailTitle.innerHTML = `<span>📋</span> Detail Evaluasi DOI MNJ - ${cabNames} ${detailBadge}`;
-          if (detailSub) detailSub.innerText = `Rincian evaluasi stok cabang (${cabNames}). Tampil Dead Stock (6 bln 0 sales), Slow Moving (3 bln / DOI > 180d), Overstock (> 90 Hari), & Understock (< 15 Hari).`;
+          if (detailSub) detailSub.innerText = `Rincian evaluasi stok cabang (${cabNames}). Tampil Dead Stock (6 bln 0 sales), Slow Moving (3 bln / DOI > 180d), ${overSubText}, & Understock (< 15 Hari).`;
         } else {
           // Level Nasional: format seperti sebelum ada dead stok dan slow
           if (cardDead) cardDead.style.display = 'none';
           if (cardSlow) cardSlow.style.display = 'none';
-          if (cardOver) cardOver.style.display = '';
+          if (cardOver) {
+            cardOver.style.display = '';
+            const descOver = cardOver.querySelector('.status-card-desc');
+            if (descOver) descOver.innerText = '> 90d LPJ / > 60d PJ';
+          }
+          if (descNorm) descNorm.innerText = '15 – 60/90 Hari';
           if (thDead) thDead.style.display = 'none';
           if (thSlow) thSlow.style.display = 'none';
 
@@ -939,20 +977,19 @@
           }
 
           if (trendChartTitle) trendChartTitle.innerHTML = `<span>🏢</span> Trend Evaluasi Stok MNJ: Dead Stock, Slow Moving & Overstock (Konsolidasi Nasional)`;
-          if (trendSubtitle) trendSubtitle.innerText = 'Visualisasi pergerakan tren Dead Stock, Slow Moving, dan Overstock (> 90 Hari) nasional per bulan.';
+          if (trendSubtitle) trendSubtitle.innerText = 'Visualisasi pergerakan tren Dead Stock, Slow Moving, dan Overstock (LPJ > 90d, PJ > 60d) nasional per bulan.';
 
           if (gbTitle) gbTitle.innerHTML = `<span>🏢</span> Ringkasan DOI MNJ Per Group Business (GB) ${gbBadge}`;
           if (gbSub) gbSub.innerText = 'Perbandingan stok, realisasi DOI, Max DOI MNJ (Master), dan status understock/overstock nasional per GB.';
 
           if (catGbTitle) catGbTitle.innerHTML = `<span>📊</span> Matrix Impact Selisih DOI MNJ Per Status & Group Business ${catGbBadge}`;
-          if (catGbSub) catGbSub.innerText = 'Matrix rincian dampak Selisih DOI MNJ per Status Evaluasi Nasional (Understock < 15 Hari, Normal, Overstock > Max DOI MNJ, Streamline, Festive, Produk Baru).';
+          if (catGbSub) catGbSub.innerText = 'Matrix rincian dampak Selisih DOI MNJ per Status Evaluasi Nasional (Understock < 15 Hari, Normal, Overstock [LPJ > 90d, PJ > 60d], Streamline, Festive, Produk Baru).';
 
           if (detailTitle) detailTitle.innerHTML = `<span>📋</span> Detail Produk & Evaluasi Realisasi DOI MNJ (Nasional) ${detailBadge}`;
-          if (detailSub) detailSub.innerText = 'Rincian evaluasi DOI konsolidasi nasional distributor MNJ per produk. Threshold Understock < 15 Hari, Overstock > Max DOI MNJ.';
+          if (detailSub) detailSub.innerText = 'Rincian evaluasi DOI konsolidasi nasional distributor MNJ per produk. Threshold Overstock (LPJ > 90d, PJ > 60d), Understock < 15 Hari.';
         }
 
         if (descUnder) descUnder.innerText = '< 15 Hari DOI';
-        if (descNorm) descNorm.innerText = '15 Hari – Max DOI';
       } else if (tab === 'kx') {
         if (cardDead) cardDead.style.display = 'none';
         if (cardSlow) cardSlow.style.display = 'none';
@@ -1166,6 +1203,17 @@
           const isMetricDOI = (this.filters.trendMetric !== 'value');
           const totalLegendText = isMetricDOI ? 'DOI Total MNJ' : (this.filters.unit === 'qty' ? 'Total Stok MNJ (Unit)' : 'Valuasi Total MNJ (Rp)');
 
+          let overstockLegendText = 'Overstock (LPJ > 90d, PJ > 60d)';
+          if (this.filters.selectedCabangs && this.filters.selectedCabangs.length === 1) {
+            const cName = this.filters.selectedCabangs[0];
+            const reg = (this.metadata && this.metadata.cabang_regions) ? this.metadata.cabang_regions[cName] : 'PJ';
+            overstockLegendText = (reg === 'LPJ') ? 'Overstock (> 90 Hari - LPJ)' : 'Overstock (> 60 Hari - PJ)';
+          } else if (this.filters.selectedCabangs && this.filters.selectedCabangs.length > 1) {
+            const regs = new Set(this.filters.selectedCabangs.map(c => (this.metadata && this.metadata.cabang_regions) ? this.metadata.cabang_regions[c] : 'PJ'));
+            if (regs.size === 1 && regs.has('LPJ')) overstockLegendText = 'Overstock (> 90 Hari - LPJ)';
+            else if (regs.size === 1 && regs.has('PJ')) overstockLegendText = 'Overstock (> 60 Hari - PJ)';
+          }
+
           legendContainer.innerHTML = `
             <button type="button" class="trend-legend-pill" data-toggle-series="total" style="display: flex; align-items: center; gap: 6px; background: ${sVis.total ? '#f5f3ff' : '#f8fafc'}; border: 1.5px solid ${sVis.total ? '#8b5cf6' : '#cbd5e1'}; padding: 4px 10px; border-radius: 20px; cursor: pointer; opacity: ${sVis.total ? '1' : '0.5'}; transition: all 0.2s ease;">
               <span style="width: 10px; height: 10px; border-radius: 50%; background: #7c3aed; display: inline-block;"></span>
@@ -1181,7 +1229,7 @@
             </button>
             <button type="button" class="trend-legend-pill" data-toggle-series="over" style="display: flex; align-items: center; gap: 6px; background: ${sVis.over ? '#f0f9ff' : '#f8fafc'}; border: 1.5px solid ${sVis.over ? '#0ea5e9' : '#cbd5e1'}; padding: 4px 10px; border-radius: 20px; cursor: pointer; opacity: ${sVis.over ? '1' : '0.5'}; transition: all 0.2s ease;">
               <span style="width: 10px; height: 10px; border-radius: 50%; background: #0284c7; display: inline-block;"></span>
-              <span style="font-size: 12px; font-weight: 700; color: ${sVis.over ? '#0369a1' : '#64748b'}; text-decoration: ${sVis.over ? 'none' : 'line-through'};">Overstock (&gt; 90 Hari)</span>
+              <span style="font-size: 12px; font-weight: 700; color: ${sVis.over ? '#0369a1' : '#64748b'}; text-decoration: ${sVis.over ? 'none' : 'line-through'};">${overstockLegendText}</span>
             </button>
           `;
 
@@ -1248,7 +1296,7 @@
             ? (this.filters.selectedCabangs.length > 2 ? `${this.filters.selectedCabangs.length} Cabang Terpilih` : this.filters.selectedCabangs.join(', '))
             : 'Konsolidasi Seluruh Cabang (Nasional)';
           const metricText = (this.filters.trendMetric === 'value') ? 'Metrik Valuasi Stok' : 'Metrik Realisasi DOI (Hari)';
-          subtitleEl.innerHTML = `Perbandingan pergerakan Total Realisasi Stok MNJ vs Kategori Surplus (Dead Stock, Slow Moving, &amp; Overstock &gt; 90 Hari) — <strong style="color: var(--accent-cyan);">${cabLabel}</strong> [${metricText}] — <span>${filterLabel}</span>.`;
+          subtitleEl.innerHTML = `Perbandingan pergerakan Total Realisasi Stok MNJ vs Kategori Surplus (Dead Stock, Slow Moving, &amp; Overstock [LPJ &gt; 90d, PJ &gt; 60d]) — <strong style="color: var(--accent-cyan);">${cabLabel}</strong> [${metricText}] — <span>${filterLabel}</span>.`;
         } else {
           subtitleEl.innerHTML = `Visualisasi perbandingan tren pergerakan DOI historis 1 tahun terakhir — <strong style="color: var(--accent-cyan);">${filterLabel}</strong>.`;
         }
@@ -2524,7 +2572,7 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
                   <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; position: sticky; top: 0; z-index: 2;">
                     <th style="padding: 8px 12px;">No</th>
                     <th style="padding: 8px 12px;">Cabang</th>
-                    <th style="padding: 8px 12px;">Wilayah</th>
+                    <th style="padding: 8px 12px;">Wilayah / Region</th>
                     <th style="padding: 8px 12px;">Status Cabang</th>
                     <th style="padding: 8px 12px; text-align: right;">Stok Baik</th>
                     <th style="padding: 8px 12px; text-align: right;">BDP</th>
@@ -2540,12 +2588,16 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
                     let rowBg = '#ffffff';
                     if (c.status_cabang === 'Dead Stock') rowBg = '#fff1f2';
                     else if (c.status_cabang === 'Slow Moving') rowBg = '#fff7ed';
+                    else if (c.status_cabang === 'Overstock') rowBg = '#fefce8';
+
+                    const reg = c.region || '';
+                    const regBadge = reg ? `<span style="font-size: 10px; font-weight: 700; padding: 1.5px 5px; border-radius: 4px; background: ${reg === 'LPJ' ? '#fef3c7' : '#e0e7ff'}; color: ${reg === 'LPJ' ? '#b45309' : '#3730a3'}; margin-left: 4px;">${reg} (${reg === 'LPJ' ? '90d' : '60d'})</span>` : '';
 
                     return `
                       <tr style="border-bottom: 1px solid #f1f5f9; background: ${rowBg};">
                         <td style="padding: 8px 12px; color: #94a3b8;">${idx + 1}</td>
                         <td style="padding: 8px 12px; font-weight: 700; color: #0f172a;">${c.cabang}</td>
-                        <td style="padding: 8px 12px; color: #64748b;">${c.wilayah || '-'}</td>
+                        <td style="padding: 8px 12px; color: #64748b;">${c.wilayah || '-'}${regBadge}</td>
                         <td style="padding: 8px 12px;">${stBadge}</td>
                         <td style="padding: 8px 12px; text-align: right; color: #475569;">${formatNum(c.stok_baik || 0)}</td>
                         <td style="padding: 8px 12px; text-align: right; color: ${c.stok_bdp > 0 ? '#d97706' : '#94a3b8'}; font-weight: ${c.stok_bdp > 0 ? '700' : '400'};">${formatNum(c.stok_bdp || 0)}</td>
