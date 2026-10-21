@@ -2012,13 +2012,16 @@ class DataEngine:
 
     def get_upb_trend(
         self,
+        period: str = "All",
+        until_period: Optional[str] = None,
+        limit_months: int = 12,
         cabang: str = "All",
         gb: str = "All",
         category: str = "All",
         product: str = "All",
         unit: str = "value"
     ) -> List[Dict[str, Any]]:
-        """Calculates monthly UPB trend across all 21 available transaction periods."""
+        """Calculates monthly UPB trend (defaults to 1 year / 12 months backwards from active period)."""
         filtered = self._filter_upb_records(period="All", cabang=cabang, gb=gb, category=category, product=product)
 
         trend_map = {}
@@ -2048,6 +2051,12 @@ class DataEngine:
 
         # Ensure all available periods are represented in chronological order
         all_periods = sorted(list(set(r["trans_period"] for r in self._upb_records)))
+        target_p = until_period or period
+        if target_p and target_p != "All":
+            all_periods = [p for p in all_periods if p <= target_p]
+        if limit_months and limit_months > 0:
+            all_periods = all_periods[-limit_months:]
+
         series = []
         for p in all_periods:
             d = trend_map.get(p, {
@@ -2064,6 +2073,7 @@ class DataEngine:
             series.append({
                 "period": p,
                 "label": format_period_label(p),
+                "period_label": format_period_label(p),
                 "total": round(tot, 2),
                 "total_val": round(d["total_val"], 2),
                 "total_qty": round(d["total_qty"], 2),
@@ -2072,9 +2082,11 @@ class DataEngine:
                 "above_3": round(abv, 2),
                 "plus_minus_3_val": round(d["pm3_val"], 2),
                 "below_3_val": round(d["bel_val"], 2),
+                "below_minus_3_val": round(d["bel_val"], 2),
                 "above_3_val": round(d["abv_val"], 2),
                 "plus_minus_3_qty": round(d["pm3_qty"], 2),
                 "below_3_qty": round(d["bel_qty"], 2),
+                "below_minus_3_qty": round(d["bel_qty"], 2),
                 "above_3_qty": round(d["abv_qty"], 2),
             })
         return series

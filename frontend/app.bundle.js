@@ -291,6 +291,8 @@
       ? filters.selectedCabangs.join(',')
       : (filters.cabang || 'All');
     const params = new URLSearchParams({
+      period: filters.period || '2026-09',
+      limit_months: '12',
       unit: filters.unit || 'value',
       cabang: cabVal,
       category: filters.category || 'All'
@@ -3085,14 +3087,30 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
       const isQty = (this.upbFilters.trendMetric === 'qty');
       const sVis = this.upbTrendSeriesVisibility || { total: true, pm3: true, abv: true, bel: true };
 
-      // Calculate max value among active series
+      const getNum = (v) => {
+        if (typeof v === 'number' && !isNaN(v)) return v;
+        const parsed = parseFloat(v);
+        return (!isNaN(parsed)) ? parsed : 0;
+      };
+
+      const seriesConfig = [
+        { key: 'total', name: 'Total UPB', color: '#7c3aed', getVal: d => isQty ? getNum(d.total_qty) : getNum(d.total_val || d.total), strokeWidth: 3 },
+        { key: 'pm3', name: 'Expired ± 3 Bulan', color: '#d97706', getVal: d => isQty ? getNum(d.plus_minus_3_qty) : getNum(d.plus_minus_3_val || d.plus_minus_3), strokeWidth: 2.5 },
+        { key: 'bel', name: 'Expired < -3 Bulan', color: '#dc2626', getVal: d => isQty ? (getNum(d.below_minus_3_qty) || getNum(d.below_3_qty)) : (getNum(d.below_minus_3_val) || getNum(d.below_3_val) || getNum(d.below_3)), strokeWidth: 2.5 },
+        { key: 'abv', name: 'Expired > 3 Bulan', color: '#0284c7', getVal: d => isQty ? getNum(d.above_3_qty) : getNum(d.above_3_val || d.above_3), strokeWidth: 2.2 }
+      ];
+
+      // Calculate max value among active series safely
       let maxVal = 100;
       data.forEach(d => {
-        if (sVis.total) maxVal = Math.max(maxVal, isQty ? d.total_qty : d.total_val);
-        if (sVis.pm3) maxVal = Math.max(maxVal, isQty ? d.plus_minus_3_qty : d.plus_minus_3_val);
-        if (sVis.abv) maxVal = Math.max(maxVal, isQty ? d.above_3_qty : d.above_3_val);
-        if (sVis.bel) maxVal = Math.max(maxVal, isQty ? d.below_minus_3_qty : d.below_minus_3_val);
+        seriesConfig.forEach(s => {
+          if (sVis[s.key]) {
+            const val = s.getVal(d);
+            if (val > maxVal) maxVal = val;
+          }
+        });
       });
+      if (isNaN(maxVal) || maxVal <= 0) maxVal = 1000;
       maxVal = maxVal * 1.15; // 15% headroom
 
       const width = Math.max(container.clientWidth || 960, 600);
@@ -3104,7 +3122,7 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
 
       const plotW = width - padLeft - padRight;
       const plotH = height - padTop - padBottom;
-      const stepX = plotW / (data.length - 1);
+      const stepX = data.length > 1 ? (plotW / (data.length - 1)) : plotW;
 
       const getY = (val) => padTop + plotH - ((val / maxVal) * plotH);
       const formatY = (v) => {
@@ -3135,33 +3153,29 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
       let xLabelsSvg = '';
       data.forEach((d, i) => {
         const xPos = padLeft + i * stepX;
-        const shortLbl = d.period_label ? d.period_label.replace(' 20', ' \'') : d.period;
+        const rawLbl = d.label || d.period_label || d.period;
+        const shortLbl = rawLbl.replace(' 20', ' \'');
         xLabelsSvg += `
           <line x1="${xPos}" y1="${height - padBottom}" x2="${xPos}" y2="${height - padBottom + 5}" stroke="#cbd5e1" stroke-width="1" />
           <text x="${xPos}" y="${height - padBottom + 18}" font-size="10.5" font-weight="600" fill="#64748b" text-anchor="middle" transform="rotate(-30 ${xPos} ${height - padBottom + 18})">${shortLbl}</text>
         `;
       });
 
-      // Generate paths for series
-      const seriesConfig = [
-        { key: 'total', name: 'Total UPB', color: '#7c3aed', valKey: isQty ? 'total_qty' : 'total_val', strokeWidth: 3 },
-        { key: 'pm3', name: 'Expired ± 3 Bulan', color: '#d97706', valKey: isQty ? 'plus_minus_3_qty' : 'plus_minus_3_val', strokeWidth: 2.5 },
-        { key: 'bel', name: 'Expired < -3 Bulan', color: '#dc2626', valKey: isQty ? 'below_minus_3_qty' : 'below_minus_3_val', strokeWidth: 2.5 },
-        { key: 'abv', name: 'Expired > 3 Bulan', color: '#0284c7', valKey: isQty ? 'above_3_qty' : 'above_3_val', strokeWidth: 2.2 }
-      ];
-
       let seriesSvg = '';
       let pointsSvg = '';
 
       seriesConfig.forEach(s => {
         if (!sVis[s.key]) return;
-        const pts = data.map((d, i) => ({
-          x: padLeft + i * stepX,
-          y: getY(d[s.valKey] || 0),
-          val: d[s.valKey] || 0,
-          period: d.period_label || d.period,
-          raw: d
-        }));
+        const pts = data.map((d, i) => {
+          const val = s.getVal(d);
+          return {
+            x: padLeft + i * stepX,
+            y: getY(val),
+            val: val,
+            period: d.period_label || d.label || d.period,
+            raw: d
+          };
+        });
 
         // Area & Line Path
         let lineD = `M ${pts[0].x} ${pts[0].y}`;
@@ -3182,11 +3196,11 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
             period: p.period,
             val: p.val,
             isQty: isQty,
-            totalVal: p.raw.total_val,
-            totalQty: p.raw.total_qty,
-            pm3Val: p.raw.plus_minus_3_val,
-            abvVal: p.raw.above_3_val,
-            belVal: p.raw.below_minus_3_val
+            totalVal: p.raw.total_val || p.raw.total || 0,
+            totalQty: p.raw.total_qty || 0,
+            pm3Val: p.raw.plus_minus_3_val || p.raw.plus_minus_3 || 0,
+            abvVal: p.raw.above_3_val || p.raw.above_3 || 0,
+            belVal: p.raw.below_minus_3_val || p.raw.below_3_val || p.raw.below_3 || 0
           }));
           pointsSvg += `
             <circle cx="${p.x}" cy="${p.y}" r="4" fill="#ffffff" stroke="${s.color}" stroke-width="2.5" class="trend-pt" data-pt="${tooltipContent}" style="cursor: pointer; transition: all 0.2s ease;" />

@@ -757,12 +757,16 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(res).encode("utf-8"))
 
     def handle_upb_trend(self, get_param):
+        period = get_param("period", get_param("until_period", "2026-09"))
+        limit_months = int(get_param("limit_months", "12"))
         unit = get_param("unit", "value")
         cabang = get_param("cabang", "All")
         gb = get_param("gb", "All")
         category = get_param("category", "All")
         products = get_param("products", "All")
-        res = data_engine.get_upb_trend(cabang=cabang, gb=gb, category=category, product=products, unit=unit)
+        res = data_engine.get_upb_trend(
+            period=period, limit_months=limit_months, cabang=cabang, gb=gb, category=category, product=products, unit=unit
+        )
         self._set_headers(200)
         self.wfile.write(json.dumps(res).encode("utf-8"))
 
