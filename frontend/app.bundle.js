@@ -312,7 +312,7 @@
       unit: filters.unit || 'value',
       cabang: cabVal,
       category: filters.category || 'All',
-      limit: '60'
+      limit: '100'
     });
     const res = await fetchWithRetry(`${API_BASE}/upb-treemap?${params.toString()}`);
     if (!res.ok) throw new Error('Failed to fetch UPB treemap');
@@ -392,6 +392,7 @@
         trendMetric: 'value'
       };
       this.upbTrendSeriesVisibility = { total: true, pm3: true, abv: true, bel: true };
+      this.upbTreemapParetoFilter = 'all'; // 'all' | 'pareto'
       this.upbSummary = null;
       this.upbTrendData = null;
       this.upbTreemapData = null;
@@ -1025,6 +1026,23 @@
           this.fetchUpbTreemapAndRender();
         });
       });
+
+      const btnParetoAll = document.getElementById('btnParetoAll');
+      const btnParetoOnly = document.getElementById('btnParetoOnly');
+      if (btnParetoAll && btnParetoOnly) {
+        btnParetoAll.addEventListener('click', () => {
+          btnParetoAll.classList.add('active');
+          btnParetoOnly.classList.remove('active');
+          this.upbTreemapParetoFilter = 'all';
+          this.renderUpbTreemap();
+        });
+        btnParetoOnly.addEventListener('click', () => {
+          btnParetoOnly.classList.add('active');
+          btnParetoAll.classList.remove('active');
+          this.upbTreemapParetoFilter = 'pareto';
+          this.renderUpbTreemap();
+        });
+      }
 
       const btnResetTreemap = document.getElementById('btnResetTreemapFilter');
       if (btnResetTreemap) {
@@ -3365,14 +3383,50 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
       const data = this.upbTreemapData;
       if (!data || !data.nodes || data.nodes.length === 0) {
         container.innerHTML = '<div style="padding: 60px; text-align: center; color: #64748b; font-weight: 600;">Tidak ada data UPB yang sesuai dengan filter.</div>';
+        const paretoBar = document.getElementById('upbTreemapParetoBar');
+        if (paretoBar) paretoBar.style.display = 'none';
         return;
+      }
+
+      // Update Pareto Explanation Bar
+      const paretoBar = document.getElementById('upbTreemapParetoBar');
+      const paretoText = document.getElementById('upbParetoText');
+      const paretoTagBadge = document.getElementById('paretoTagBadge');
+      if (paretoBar && paretoText && data.pareto_summary) {
+        paretoBar.style.display = 'flex';
+        paretoText.innerHTML = data.pareto_summary.description || 'Analisis Pareto (Aturan 80/20) menunjukkan kelompok entitas dominan.';
+        if (paretoTagBadge) {
+          paretoTagBadge.innerText = `Top ${data.pareto_summary.pareto_pct || 80}% Valuasi`;
+        }
+      }
+
+      // Filter nodes if user selected "⭐ Pareto 80% Saja"
+      let nodesToRender = data.nodes;
+      if (this.upbTreemapParetoFilter === 'pareto') {
+        const paretoNodes = data.nodes.filter(n => n.is_pareto);
+        if (paretoNodes.length > 0) {
+          nodesToRender = paretoNodes;
+        }
+      }
+
+      // Sync active state on Pareto toggle buttons
+      const btnParetoAll = document.getElementById('btnParetoAll');
+      const btnParetoOnly = document.getElementById('btnParetoOnly');
+      if (btnParetoAll && btnParetoOnly) {
+        if (this.upbTreemapParetoFilter === 'pareto') {
+          btnParetoOnly.classList.add('active');
+          btnParetoAll.classList.remove('active');
+        } else {
+          btnParetoAll.classList.add('active');
+          btnParetoOnly.classList.remove('active');
+        }
       }
 
       const width = Math.max(container.clientWidth || 960, 500);
       const height = 480;
       container.style.height = `${height}px`;
 
-      const rects = this.computeTreemapLayout(data.nodes, width, height);
+      const rects = this.computeTreemapLayout(nodesToRender, width, height);
       const dimension = data.dimension || 'cabang';
 
       const tileGradients = [
@@ -3406,7 +3460,9 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
 
         const isSmall = (r.w < 70 || r.h < 45);
         const isTiny = (r.w < 50 || r.h < 30);
-        const pctText = `${r.val_pct || 0}%`;
+        const isPareto = Boolean(r.is_pareto);
+        const pctVal = r.pct !== undefined ? r.pct : (r.val_pct !== undefined ? r.val_pct : 0);
+        const pctText = `${Number(pctVal).toFixed(1)}%`;
 
         // Mini Category Breakdown Bar inside tile
         let miniBarHtml = '';
@@ -3428,11 +3484,14 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
         const rawDataStr = encodeURIComponent(JSON.stringify(r));
 
         html += `
-          <div class="treemap-tile" data-tile="${rawDataStr}" style="left: ${r.x.toFixed(1)}px; top: ${r.y.toFixed(1)}px; width: ${Math.max(1, r.w - 2).toFixed(1)}px; height: ${Math.max(1, r.h - 2).toFixed(1)}px; background: ${bg}; padding: ${isSmall ? '4px' : '8px'};">
+          <div class="treemap-tile ${isPareto ? 'is-pareto' : 'is-non-pareto'}" data-tile="${rawDataStr}" style="left: ${r.x.toFixed(1)}px; top: ${r.y.toFixed(1)}px; width: ${Math.max(1, r.w - 2).toFixed(1)}px; height: ${Math.max(1, r.h - 2).toFixed(1)}px; background: ${bg}; padding: ${isSmall ? '4px' : '8px'};">
             ${isTiny ? '' : `
               <div class="treemap-tile-header">
                 <span class="treemap-tile-title" style="font-size: ${isSmall ? '10px' : '12px'};">${r.name}</span>
-                ${r.w >= 90 ? `<span class="treemap-tile-badge">${pctText}</span>` : ''}
+                <div style="display: flex; gap: 4px; align-items: center; flex-shrink: 0;">
+                  ${isPareto && r.w >= 115 && r.h >= 50 ? `<span class="treemap-pareto-tag">⭐ Pareto</span>` : ''}
+                  ${r.w >= 65 ? `<span class="treemap-tile-badge ${isPareto ? 'badge-pareto' : ''}">${pctText}</span>` : ''}
+                </div>
               </div>
               <div class="treemap-tile-val" style="font-size: ${isSmall ? '11px' : '13px'};">${formatCompact(r.val)}</div>
               ${miniBarHtml}
@@ -3471,21 +3530,28 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
             `;
           }
 
+          const rawPct = raw.pct !== undefined ? raw.pct : (raw.val_pct || 0);
+
           tooltip.innerHTML = `
-            <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 4px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
-              ${dimension === 'cabang' ? '🏢 Cabang: ' : (dimension === 'item' ? '📦 Produk: ' : '⏳ ')}${raw.name}
+            <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+              <span>${dimension === 'cabang' ? '🏢 Cabang: ' : (dimension === 'item' ? '📦 Produk: ' : '⏳ ')}${raw.name}</span>
+              ${raw.is_pareto ? '<span style="background: #fef3c7; color: #b45309; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; border: 1px solid #fde68a; white-space: nowrap;">⭐ PARETO 80%</span>' : '<span style="background: #f1f5f9; color: #64748b; font-size: 10px; padding: 2px 6px; border-radius: 4px; white-space: nowrap;">Non-Pareto</span>'}
             </div>
-            <div style="font-size: 12px; margin-bottom: 2px; display: flex; justify-content: space-between; gap: 12px;">
+            <div style="font-size: 12px; margin-bottom: 3px; display: flex; justify-content: space-between; gap: 12px;">
               <span style="color: #64748b;">Valuasi UPB:</span>
               <strong style="color: #0f172a;">${formatCurrency(raw.val)}</strong>
             </div>
-            <div style="font-size: 12px; margin-bottom: 2px; display: flex; justify-content: space-between; gap: 12px;">
+            <div style="font-size: 12px; margin-bottom: 3px; display: flex; justify-content: space-between; gap: 12px;">
               <span style="color: #64748b;">Volume:</span>
               <strong style="color: #0f172a;">${new Intl.NumberFormat('id-ID').format(raw.qty || 0)} Unit</strong>
             </div>
-            <div style="font-size: 12px; display: flex; justify-content: space-between; gap: 12px;">
-              <span style="color: #64748b;">Share Total:</span>
-              <strong style="color: #6d28d9;">${raw.val_pct || 0}%</strong>
+            <div style="font-size: 12px; margin-bottom: 3px; display: flex; justify-content: space-between; gap: 12px;">
+              <span style="color: #64748b;">Kontribusi (Share):</span>
+              <strong style="color: #2563eb;">${Number(rawPct).toFixed(1)}%</strong>
+            </div>
+            <div style="font-size: 12px; margin-bottom: 4px; display: flex; justify-content: space-between; gap: 12px;">
+              <span style="color: #64748b;">Kumulatif Pareto:</span>
+              <strong style="${raw.is_pareto ? 'color: #d97706;' : 'color: #64748b;'}">${raw.cum_pct || 0}% ${raw.rank ? `(Peringkat #${raw.rank})` : ''}</strong>
             </div>
             ${catBreakdownHtml}
             <div style="margin-top: 8px; font-size: 10.5px; color: #0284c7; font-weight: 600; text-align: center; background: #f0f9ff; padding: 4px; border-radius: 4px;">

@@ -1266,4 +1266,53 @@ body {
   line-height: 1.5;
 }
 
+/* Treemap Pareto Styles */
+.pareto-info-bar {
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.08);
+  transition: all 0.25s ease;
+}
+
+.treemap-tile.is-pareto {
+  border: 2px solid #facc15;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), inset 0 0 0 1px rgba(250, 204, 21, 0.45);
+}
+
+.treemap-tile.is-pareto:hover {
+  border-color: #fef08a;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28), inset 0 0 0 1.5px #facc15;
+}
+
+.treemap-tile.is-non-pareto {
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  opacity: 0.92;
+}
+
+.treemap-tile.is-non-pareto:hover {
+  opacity: 1;
+}
+
+.treemap-tile-badge.badge-pareto {
+  background: rgba(217, 119, 6, 0.92);
+  color: #ffffff;
+  border: 1px solid rgba(254, 240, 138, 0.7);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  font-weight: 800;
+}
+
+.treemap-pareto-tag {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 1.5px 5.5px;
+  border-radius: 4px;
+  background: #f59e0b;
+  color: #ffffff;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+
 

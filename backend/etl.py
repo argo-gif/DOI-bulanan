@@ -2139,20 +2139,30 @@ class DataEngine:
                     cab_map[c]["abv_qty"] += q
 
             sorted_cabs = sorted(cab_map.items(), key=lambda x: (x[1]["val"] if unit == "value" else x[1]["qty"]), reverse=True)
-            for c, d in sorted_cabs:
+            cum_metric = 0.0
+            for rank, (c, d) in enumerate(sorted_cabs, 1):
                 metric_val = d["val"] if unit == "value" else d["qty"]
                 dom_cat = "plus_minus_3"
                 if d["bel_val"] > d["pm3_val"] and d["bel_val"] > d["abv_val"]:
                     dom_cat = "below_-3"
                 elif d["abv_val"] > d["pm3_val"] and d["abv_val"] > d["bel_val"]:
                     dom_cat = "above_3"
+                pct = round((metric_val / total_metric * 100.0) if total_metric > 0 else 0.0, 1)
+                prev_cum = cum_metric
+                cum_metric += (metric_val / total_metric * 100.0) if total_metric > 0 else 0.0
+                is_pareto = (prev_cum < 80.0) or (rank == 1)
                 nodes.append({
                     "id": c,
                     "name": c,
+                    "rank": rank,
                     "value": round(metric_val, 2),
                     "val": round(d["val"], 2),
                     "qty": round(d["qty"], 2),
-                    "pct": round((metric_val / total_metric * 100.0) if total_metric > 0 else 0.0, 1),
+                    "pct": pct,
+                    "val_pct": pct,
+                    "cum_pct": round(min(100.0, cum_metric), 1),
+                    "is_pareto": is_pareto,
+                    "pareto_class": "Pareto 80%" if is_pareto else "Non-Pareto (20%)",
                     "distinct_items": len(d["items"]),
                     "dominant_category": dom_cat,
                     "category_breakdown": {
@@ -2200,7 +2210,23 @@ class DataEngine:
                     item_map[pcode]["abv_qty"] += q
 
             sorted_items = sorted(item_map.items(), key=lambda x: (x[1]["val"] if unit == "value" else x[1]["qty"]), reverse=True)
-            top_items = sorted_items[:limit]
+            cum_metric = 0.0
+            item_pareto_map = {}
+            for rank, (pcode, d) in enumerate(sorted_items, 1):
+                metric_val = d["val"] if unit == "value" else d["qty"]
+                pct = round((metric_val / total_metric * 100.0) if total_metric > 0 else 0.0, 1)
+                prev_cum = cum_metric
+                cum_metric += (metric_val / total_metric * 100.0) if total_metric > 0 else 0.0
+                is_pareto = (prev_cum < 80.0) or (rank == 1)
+                item_pareto_map[pcode] = {
+                    "rank": rank,
+                    "pct": pct,
+                    "cum_pct": round(min(100.0, cum_metric), 1),
+                    "is_pareto": is_pareto
+                }
+
+            effective_limit = max(limit, 100) if limit <= 60 else limit
+            top_items = sorted_items[:effective_limit]
             for pcode, d in top_items:
                 metric_val = d["val"] if unit == "value" else d["qty"]
                 dom_cat = "plus_minus_3"
@@ -2208,16 +2234,22 @@ class DataEngine:
                     dom_cat = "below_-3"
                 elif d["abv_val"] > d["pm3_val"] and d["abv_val"] > d["bel_val"]:
                     dom_cat = "above_3"
+                p_info = item_pareto_map.get(pcode, {"rank": 1, "pct": 0.0, "cum_pct": 100.0, "is_pareto": False})
                 nodes.append({
                     "id": pcode,
                     "name": f"{pcode} - {d['name']}",
                     "product_code": pcode,
                     "product_name": d["name"],
                     "gb": d["gb"],
+                    "rank": p_info["rank"],
                     "value": round(metric_val, 2),
                     "val": round(d["val"], 2),
                     "qty": round(d["qty"], 2),
-                    "pct": round((metric_val / total_metric * 100.0) if total_metric > 0 else 0.0, 1),
+                    "pct": p_info["pct"],
+                    "val_pct": p_info["pct"],
+                    "cum_pct": p_info["cum_pct"],
+                    "is_pareto": p_info["is_pareto"],
+                    "pareto_class": "Pareto 80%" if p_info["is_pareto"] else "Non-Pareto (20%)",
                     "distinct_cabangs": len(d["cabangs"]),
                     "dominant_category": dom_cat,
                     "category_breakdown": {
@@ -2241,11 +2273,21 @@ class DataEngine:
                 ("below_-3", "Expired < -3 Bulan (Sudah Lewat Jauh)", "#ef4444"),
                 ("above_3", "Expired > 3 Bulan (Masa Depan)", "#0284c7")
             ]
+            cat_list = []
             for cat_key, cat_name, color in cat_defs:
                 c_records = [r for r in filtered if r["exp_category"] == cat_key]
                 c_val = sum(r["val"] for r in c_records)
                 c_qty = sum(r["qty"] for r in c_records)
                 metric_val = c_val if unit == "value" else c_qty
+                cat_list.append((cat_key, cat_name, color, c_records, c_val, c_qty, metric_val))
+
+            cat_list.sort(key=lambda x: x[6], reverse=True)
+            cum_metric = 0.0
+            for rank, (cat_key, cat_name, color, c_records, c_val, c_qty, metric_val) in enumerate(cat_list, 1):
+                pct = round((metric_val / total_metric * 100.0) if total_metric > 0 else 0.0, 1)
+                prev_cum = cum_metric
+                cum_metric += (metric_val / total_metric * 100.0) if total_metric > 0 else 0.0
+                is_pareto = (prev_cum < 80.0) or (rank == 1)
 
                 # Sub-breakdown top 8 cabangs
                 cab_sub = {}
@@ -2264,7 +2306,8 @@ class DataEngine:
                         "value": round(d["val" if unit == "value" else "qty"], 2),
                         "val": round(d["val"], 2),
                         "qty": round(d["qty"], 2),
-                        "pct": round((d["val" if unit == "value" else "qty"] / metric_val * 100.0) if metric_val > 0 else 0.0, 1)
+                        "pct": round((d["val" if unit == "value" else "qty"] / metric_val * 100.0) if metric_val > 0 else 0.0, 1),
+                        "val_pct": round((d["val" if unit == "value" else "qty"] / metric_val * 100.0) if metric_val > 0 else 0.0, 1),
                     }
                     for c, d in top_c
                 ]
@@ -2273,13 +2316,50 @@ class DataEngine:
                     "id": cat_key,
                     "name": cat_name,
                     "color": color,
+                    "rank": rank,
                     "value": round(metric_val, 2),
                     "val": round(c_val, 2),
                     "qty": round(c_qty, 2),
-                    "pct": round((metric_val / total_metric * 100.0) if total_metric > 0 else 0.0, 1),
+                    "pct": pct,
+                    "val_pct": pct,
+                    "cum_pct": round(min(100.0, cum_metric), 1),
+                    "is_pareto": is_pareto,
+                    "pareto_class": "Pareto 80%" if is_pareto else "Non-Pareto (20%)",
                     "rows": len(c_records),
                     "children": children
                 })
+
+        # Calculate Pareto summary
+        pareto_nodes = [n for n in nodes if n.get("is_pareto")]
+        dim_label = "Cabang" if dimension == "cabang" else ("Produk" if dimension == "item" else "Kategori")
+        total_entities = len(nodes)
+        if dimension == "item":
+            total_entities = len(item_map)
+            all_pareto_count = len([x for x in item_pareto_map.values() if x["is_pareto"]])
+        else:
+            all_pareto_count = len(pareto_nodes)
+
+        pareto_val = sum(n["val"] for n in pareto_nodes)
+        pareto_qty = sum(n["qty"] for n in pareto_nodes)
+        pareto_pct = round((pareto_val / total_val * 100.0) if total_val > 0 else 0.0, 1)
+
+        def _fmt_compact(v: float) -> str:
+            if v >= 1e9:
+                return f"Rp {v / 1e9:.2f} M"
+            if v >= 1e6:
+                return f"Rp {v / 1e6:.1f} Jt"
+            return f"Rp {v:,.0f}"
+
+        pareto_summary = {
+            "pareto_count": all_pareto_count,
+            "total_entities": total_entities,
+            "nodes_shown": len(nodes),
+            "pareto_val": round(pareto_val, 2),
+            "pareto_qty": round(pareto_qty, 2),
+            "pareto_pct": pareto_pct,
+            "dimension": dimension,
+            "description": f"<strong>{all_pareto_count} dari {total_entities} {dim_label}</strong> menyumbang <strong>{pareto_pct}%</strong> ({_fmt_compact(pareto_val)}) dari total nilai UPB. Fokus pengendalian pada grup ini untuk dampak maksimal."
+        }
 
         return {
             "dimension": dimension,
@@ -2288,6 +2368,7 @@ class DataEngine:
             "total_value": round(total_metric, 2),
             "total_val": round(total_val, 2),
             "total_qty": round(total_qty, 2),
+            "pareto_summary": pareto_summary,
             "nodes": nodes
         }
 
