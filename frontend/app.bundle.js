@@ -2,10 +2,10 @@
 (function() {
   let API_BASE = '/api/v1';
   if (typeof window !== 'undefined') {
-    if (window.location.origin && window.location.origin.startsWith('http')) {
-      API_BASE = window.location.origin.replace(/\/$/, '') + '/api/v1';
-    } else {
+    if (window.location.protocol === 'file:' || (window.location.port && window.location.port !== '8000')) {
       API_BASE = 'http://localhost:8000/api/v1';
+    } else {
+      API_BASE = '/api/v1';
     }
   }
 
@@ -35,13 +35,15 @@
   }
 
   async function fetchSummary(filters) {
+    const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0) ? filters.selectedCabangs.join(',') : 'All';
     const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0) ? filters.selectedGBs.join(',') : 'All';
     const ketVal = (filters.selectedKets && filters.selectedKets.length > 0) ? filters.selectedKets.join(',') : 'All';
     const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0) ? filters.selectedProducts.join(',') : 'All';
 
     const params = new URLSearchParams({
-      period: filters.period || '2026-10',
+      period: filters.period || '2026-09',
       unit: filters.unit || 'value',
+      cabang: cabVal,
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -55,12 +57,14 @@
   }
 
   async function fetchGBSummary(filters) {
+    const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0) ? filters.selectedCabangs.join(',') : 'All';
     const ketVal = (filters.selectedKets && filters.selectedKets.length > 0) ? filters.selectedKets.join(',') : 'All';
     const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0) ? filters.selectedProducts.join(',') : 'All';
 
     const params = new URLSearchParams({
-      period: filters.period || '2026-10',
+      period: filters.period || '2026-09',
       avg_months: (filters.avg_months || 6).toString(),
+      cabang: cabVal,
       keterangan: ketVal,
       products: prodVal,
       health_status: filters.health_status || 'All',
@@ -73,13 +77,15 @@
   }
 
   async function fetchCategoryGBSummary(filters) {
+    const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0) ? filters.selectedCabangs.join(',') : 'All';
     const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0) ? filters.selectedGBs.join(',') : 'All';
     const ketVal = (filters.selectedKets && filters.selectedKets.length > 0) ? filters.selectedKets.join(',') : 'All';
     const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0) ? filters.selectedProducts.join(',') : 'All';
 
     const params = new URLSearchParams({
-      period: filters.period || '2026-10',
+      period: filters.period || '2026-09',
       avg_months: (filters.avg_months || 6).toString(),
+      cabang: cabVal,
       keterangan: ketVal,
       products: prodVal,
       health_status: filters.health_status || 'All',
@@ -106,18 +112,21 @@
   }
 
   async function fetchDOITrend(filters) {
+    const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0) ? filters.selectedCabangs.join(',') : 'All';
     const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0) ? filters.selectedGBs.join(',') : 'All';
     const ketVal = (filters.selectedKets && filters.selectedKets.length > 0) ? filters.selectedKets.join(',') : 'All';
     const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0) ? filters.selectedProducts.join(',') : 'All';
 
     const params = new URLSearchParams({
+      cabang: cabVal,
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
       health_status: filters.health_status || 'All',
-      period: filters.period || '2026-10',
+      period: filters.period || '2026-09',
       avg_months: (filters.avg_months || 6).toString(),
-      unit: filters.unit || 'value'
+      unit: filters.unit || 'value',
+      view_mode: filters.activeTab || 'combined'
     });
     const res = await fetchWithRetry(`${API_BASE}/doi-trend?${params.toString()}`);
     if (!res.ok) throw new Error('Failed to fetch DOI trend');
@@ -125,13 +134,15 @@
   }
 
   async function fetchDOIData(filters) {
+    const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0) ? filters.selectedCabangs.join(',') : 'All';
     const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0) ? filters.selectedGBs.join(',') : 'All';
     const ketVal = (filters.selectedKets && filters.selectedKets.length > 0) ? filters.selectedKets.join(',') : 'All';
     const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0) ? filters.selectedProducts.join(',') : 'All';
 
     const params = new URLSearchParams({
-      period: filters.period || '2026-10',
+      period: filters.period || '2026-09',
       unit: filters.detailSelisihUnit || filters.unit || 'value',
+      cabang: cabVal,
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -147,13 +158,15 @@
   }
 
   function getExportUrl(filters) {
+    const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0) ? filters.selectedCabangs.join(',') : 'All';
     const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0) ? filters.selectedGBs.join(',') : 'All';
     const ketVal = (filters.selectedKets && filters.selectedKets.length > 0) ? filters.selectedKets.join(',') : 'All';
     const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0) ? filters.selectedProducts.join(',') : 'All';
 
     const params = new URLSearchParams({
-      period: filters.period || '2026-10',
+      period: filters.period || '2026-09',
       unit: filters.detailSelisihUnit || filters.unit || 'value',
+      cabang: cabVal,
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -165,13 +178,15 @@
   }
 
   function getExportExcelUrl(filters) {
+    const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0) ? filters.selectedCabangs.join(',') : 'All';
     const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0) ? filters.selectedGBs.join(',') : 'All';
     const ketVal = (filters.selectedKets && filters.selectedKets.length > 0) ? filters.selectedKets.join(',') : 'All';
     const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0) ? filters.selectedProducts.join(',') : 'All';
 
     const params = new URLSearchParams({
-      period: filters.period || '2026-10',
+      period: filters.period || '2026-09',
       unit: filters.detailSelisihUnit || filters.unit || 'value',
+      cabang: cabVal,
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -183,13 +198,15 @@
   }
 
   function getExportPPTUrl(filters) {
+    const cabVal = Array.isArray(filters.selectedCabangs) && filters.selectedCabangs.length > 0 ? filters.selectedCabangs.join(',') : 'All';
     const gbVal = Array.isArray(filters.selectedGBs) && filters.selectedGBs.length > 0 ? filters.selectedGBs.join(',') : 'All';
     const ketVal = Array.isArray(filters.selectedKets) && filters.selectedKets.length > 0 ? filters.selectedKets.join(',') : 'All';
     const prodVal = Array.isArray(filters.selectedItems) && filters.selectedItems.length > 0 ? filters.selectedItems.join(',') : 'All';
 
     const params = new URLSearchParams({
-      period: filters.period || '2026-10',
+      period: filters.period || '2026-09',
       unit: filters.detailSelisihUnit || filters.unit || 'value',
+      cabang: cabVal,
       gb: gbVal,
       keterangan: ketVal,
       products: prodVal,
@@ -204,7 +221,15 @@
     let badgeClass = 'badge-normal';
     let dotColor = '#16a34a';
     let customStyle = '';
-    if (status === 'Understock') {
+    if (status === 'Dead Stock') {
+      badgeClass = 'badge-dead';
+      dotColor = '#be123c';
+      customStyle = 'background: #ffe4e6; color: #be123c; border: 1px solid #fda4af; font-weight: 700;';
+    } else if (status === 'Slow Moving') {
+      badgeClass = 'badge-slow';
+      dotColor = '#ea580c';
+      customStyle = 'background: #ffedd5; color: #ea580c; border: 1px solid #fdba74; font-weight: 700;';
+    } else if (status === 'Understock') {
       badgeClass = 'badge-understock';
       dotColor = '#dc2626';
     } else if (status === 'Overstock') {
@@ -213,11 +238,15 @@
     } else if (status === 'Streamline') {
       badgeClass = 'badge-streamline';
       dotColor = '#9d174d';
-      customStyle = 'background: #fce7f3; color: #9d174d; border: 1px solid #fbcfe8;';
+      customStyle = 'background: #fef3c7; color: #b45309; border: 1px solid #fde68a;';
     } else if (status === 'Festive') {
       badgeClass = 'badge-festive';
       dotColor = '#be185d';
       customStyle = 'background: #fce7f3; color: #be185d; border: 1px solid #fbcfe8;';
+    } else if (status === 'Produk Baru' || status === 'Produk baru') {
+      badgeClass = 'badge-pb';
+      dotColor = '#0284c7';
+      customStyle = 'background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; font-weight: 700;';
     }
     const styleAttr = customStyle ? `style="${customStyle}"` : '';
     return `<span class="badge ${badgeClass}" ${styleAttr}><span class="badge-dot" style="background:${dotColor};"></span>${status}</span>`;
@@ -243,10 +272,12 @@
         activeTab: 'combined',
         detailStockUnit: 'value',
         detailSelisihUnit: 'value',  // 'combined', 'mnj', 'kx'
-        period: '2026-10',
+        period: '2026-09',
         unit: 'value',          // DEFAULT VALUASI (RUPIAH)
         scale: 'compact',       // 'compact' or 'full'
         trendMode: 'total',     // 'total', 'mnj', 'kx'
+        trendMetric: 'doi',     // 'doi' (Hari) or 'value' (Rupiah/Qty)
+        selectedCabangs: [],    // [] means All (Level Nasional)
         selectedGBs: [],        // [] means All
         selectedKets: [],       // [] means All
         selectedProducts: [],   // [] means All Items
@@ -262,6 +293,7 @@
       this.gbSummary = null;
       this.trendData = null;
       this.doiData = null;
+      this.trendSeriesVisibility = { total: true, dead: true, slow: true, over: true };
 
       this.init();
     }
@@ -272,7 +304,7 @@
         if (this.metadata && this.metadata.periods && this.metadata.periods.length > 0) {
           this.filters.period = this.metadata.periods[0];
         } else {
-          this.filters.period = '2026-10';
+          this.filters.period = '2026-09';
         }
         this.updateApiStatus(true, 'API Live Connected');
         this.populateFilterDropdowns();
@@ -281,7 +313,7 @@
       } catch (err) {
         console.error('[DASHBOARD] Initialization error:', err);
         this.updateApiStatus(false, 'API Disconnected');
-        this.filters.period = '2026-10';
+        this.filters.period = '2026-09';
         this.populateFilterDropdowns();
         this.bindEvents();
         await this.refreshData();
@@ -320,7 +352,7 @@
       if (periodSelect) {
         const periods = (this.metadata && this.metadata.periods && this.metadata.periods.length > 0)
           ? this.metadata.periods
-          : ['2026-10', '2026-09', '2026-08', '2026-07', '2026-06', '2026-05', '2026-04', '2026-03', '2026-02', '2026-01'];
+          : ['2026-09', '2026-08', '2026-07', '2026-06', '2026-05', '2026-04', '2026-03', '2026-02', '2026-01'];
 
         periodSelect.innerHTML = periods
           .map(p => {
@@ -389,6 +421,25 @@
       this.filters.selectedProducts = this.filters.selectedProducts.filter(code => availableProducts.some(p => p.code === code));
 
       // E. Render Multi-Select Lists
+      const allCabangs = (this.metadata && this.metadata.cabang_options && this.metadata.cabang_options.length > 0)
+        ? this.metadata.cabang_options
+        : [];
+
+      this.renderMultiSelectOptions(
+        'cabangOptionsContainer',
+        allCabangs,
+        this.filters.selectedCabangs,
+        'cabangMultiLabel',
+        'Semua Cabang (Nasional)',
+        'Cabang',
+        (updatedList) => {
+          this.filters.selectedCabangs = updatedList;
+          this.updateTabUI(this.filters.activeTab);
+          this.setFilter({ page: 1 });
+        },
+        'cabangSearchInput'
+      );
+
       this.renderMultiSelectOptions(
         'gbOptionsContainer',
         availableGBs,
@@ -560,6 +611,16 @@
         });
       });
 
+      document.querySelectorAll('#trendMetricToggleContainer [data-trend-metric]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const metric = e.currentTarget.getAttribute('data-trend-metric');
+          this.filters.trendMetric = metric;
+          document.querySelectorAll('#trendMetricToggleContainer [data-trend-metric]').forEach(b => b.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          this.renderTrendChart();
+        });
+      });
+
       document.querySelectorAll('[data-trend-mode]').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const mode = e.currentTarget.getAttribute('data-trend-mode');
@@ -587,6 +648,43 @@
         });
       }
 
+      // Cabang Multi-Select Toggle & Actions
+      const cabBtn = document.getElementById('cabangMultiBtn');
+      const cabDropdown = document.getElementById('cabangMultiDropdown');
+      if (cabBtn && cabDropdown) {
+        cabBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          cabDropdown.classList.toggle('open');
+          const gbDropdown = document.getElementById('gbMultiDropdown');
+          if (gbDropdown) gbDropdown.classList.remove('open');
+          const ketDropdown = document.getElementById('ketMultiDropdown');
+          if (ketDropdown) ketDropdown.classList.remove('open');
+          const itemDropdown = document.getElementById('itemMultiDropdown');
+          if (itemDropdown) itemDropdown.classList.remove('open');
+        });
+      }
+
+      const cabSelectAll = document.getElementById('cabangSelectAll');
+      if (cabSelectAll) {
+        cabSelectAll.addEventListener('click', () => {
+          const availableCabangs = (this.metadata && this.metadata.cabang_options) ? this.metadata.cabang_options : [];
+          this.filters.selectedCabangs = [...availableCabangs];
+          this.populateFilterDropdowns();
+          this.updateTabUI(this.filters.activeTab);
+          this.setFilter({ page: 1 });
+        });
+      }
+
+      const cabClearAll = document.getElementById('cabangClearAll');
+      if (cabClearAll) {
+        cabClearAll.addEventListener('click', () => {
+          this.filters.selectedCabangs = [];
+          this.populateFilterDropdowns();
+          this.updateTabUI(this.filters.activeTab);
+          this.setFilter({ page: 1 });
+        });
+      }
+
       // GB Multi-Select Toggle & Actions
       const gbBtn = document.getElementById('gbMultiBtn');
       const gbDropdown = document.getElementById('gbMultiDropdown');
@@ -594,6 +692,7 @@
         gbBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           gbDropdown.classList.toggle('open');
+          if (cabDropdown) cabDropdown.classList.remove('open');
           const ketDropdown = document.getElementById('ketMultiDropdown');
           if (ketDropdown) ketDropdown.classList.remove('open');
           const itemDropdown = document.getElementById('itemMultiDropdown');
@@ -627,6 +726,7 @@
         ketBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           ketDropdown.classList.toggle('open');
+          if (cabDropdown) cabDropdown.classList.remove('open');
           if (gbDropdown) gbDropdown.classList.remove('open');
           const itemDropdown = document.getElementById('itemMultiDropdown');
           if (itemDropdown) itemDropdown.classList.remove('open');
@@ -659,6 +759,7 @@
         itemBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           itemDropdown.classList.toggle('open');
+          if (cabDropdown) cabDropdown.classList.remove('open');
           if (gbDropdown) gbDropdown.classList.remove('open');
           if (ketDropdown) ketDropdown.classList.remove('open');
         });
@@ -685,6 +786,7 @@
 
       // Close popovers on click outside
       document.addEventListener('click', (e) => {
+        if (cabDropdown && !cabDropdown.contains(e.target)) cabDropdown.classList.remove('open');
         if (gbDropdown && !gbDropdown.contains(e.target)) gbDropdown.classList.remove('open');
         if (ketDropdown && !ketDropdown.contains(e.target)) ketDropdown.classList.remove('open');
         if (itemDropdown && !itemDropdown.contains(e.target)) itemDropdown.classList.remove('open');
@@ -776,19 +878,101 @@
       const catGbBadge = `<span id="catGbPeriodBadge" style="font-size: 12px; font-weight: 600; color: #0284c7; background: #e0f2fe; padding: 2px 10px; border-radius: 12px; border: 1px solid #bae6fd; margin-left: 4px;">Periode: ${periodLabel}</span>`;
       const detailBadge = `<span id="detailPeriodBadge" style="font-size: 11px; font-weight: 600; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 12px; border: 1px solid #bae6fd; margin-left: 4px;">Periode: ${periodLabel}</span>`;
 
+      const cardDead = document.getElementById('cardDeadStock');
+      const cardSlow = document.getElementById('cardSlowMoving');
+      const cardOver = document.getElementById('cardOverstock');
+      const descUnder = document.getElementById('descUnderstock');
+      const descNorm = document.getElementById('descNormal');
+      const thDead = document.getElementById('detailThDeadStock');
+      const thSlow = document.getElementById('detailThSlowMoving');
+
+      const isCabangFiltered = Boolean(this.filters.selectedCabangs && this.filters.selectedCabangs.length > 0);
+
       if (tab === 'mnj') {
-        if (trendChartTitle) trendChartTitle.innerHTML = `<span>🏢</span> Trend Pergerakan DOI MNJ (Distributor Khusus)`;
-        if (trendSubtitle) trendSubtitle.innerText = 'Visualisasi pergerakan level kesehatan DOI Distributor MNJ per bulan.';
+        if (isCabangFiltered) {
+          if (cardDead) cardDead.style.display = '';
+          if (cardSlow) cardSlow.style.display = '';
+          if (cardOver) {
+            cardOver.style.display = '';
+            const descOver = cardOver.querySelector('.status-card-desc');
+            if (descOver) descOver.innerText = '> 90 Hari';
+          }
+          if (descNorm) descNorm.innerText = '15 – 90 Hari';
+          if (thDead) thDead.style.display = '';
+          if (thSlow) thSlow.style.display = '';
 
-        if (gbTitle) gbTitle.innerHTML = `<span>🏢</span> Ringkasan DOI MNJ Per Group Business (GB) ${gbBadge}`;
-        if (gbSub) gbSub.innerText = 'Perbandingan stok, realisasi DOI, Max DOI MNJ (Master), dan status understock/overstock khusus Distributor MNJ per GB.';
+          const cabNames = this.filters.selectedCabangs.length > 2 
+            ? `${this.filters.selectedCabangs.length} Cabang Terpilih` 
+            : this.filters.selectedCabangs.join(', ');
 
-        if (catGbTitle) catGbTitle.innerHTML = `<span>📊</span> Matrix Impact Selisih DOI MNJ Per Status & Group Business ${catGbBadge}`;
-        if (catGbSub) catGbSub.innerText = 'Matrix rincian dampak Selisih DOI MNJ per Status Evaluasi (Understock < 15 Hari, Normal, Overstock > Max DOI MNJ).';
+          const trendToggle = document.getElementById('trendMetricToggleContainer');
+          if (trendToggle) trendToggle.style.display = 'flex';
 
-        if (detailTitle) detailTitle.innerHTML = `<span>📋</span> Detail Produk & Evaluasi Realisasi DOI MNJ (Distributor) ${detailBadge}`;
-        if (detailSub) detailSub.innerText = 'Rincian evaluasi DOI khusus distributor MNJ per produk. Threshold Understock < 15 Hari.';
+          if (trendChartTitle) trendChartTitle.innerHTML = `<span>🏢</span> Trend Evaluasi Stok MNJ: Dead Stock, Slow Moving & Overstock (${cabNames})`;
+          if (trendSubtitle) trendSubtitle.innerText = `Visualisasi pergerakan tren Dead Stock, Slow Moving, dan Overstock (> 90 Hari) untuk ${cabNames} per bulan.`;
+
+          if (gbTitle) gbTitle.innerHTML = `<span>🏢</span> Ringkasan DOI MNJ Per Group Business (GB) - ${cabNames} ${gbBadge}`;
+          if (gbSub) gbSub.innerText = `Perbandingan stok cabang (${cabNames}), realisasi DOI, Max DOI MNJ (Master), Dead Stock, Slow Moving, dan Overstock per GB.`;
+
+          if (catGbTitle) catGbTitle.innerHTML = `<span>📊</span> Matrix Impact Selisih DOI MNJ - ${cabNames} ${catGbBadge}`;
+          if (catGbSub) catGbSub.innerText = `Matrix rincian dampak Selisih DOI MNJ untuk cabang (${cabNames}) per Status Evaluasi (Dead Stock, Slow Moving, Overstock > 90 Hari, Understock < 15 Hari, Streamline, Festive, Produk Baru).`;
+
+          if (detailTitle) detailTitle.innerHTML = `<span>📋</span> Detail Evaluasi DOI MNJ - ${cabNames} ${detailBadge}`;
+          if (detailSub) detailSub.innerText = `Rincian evaluasi stok cabang (${cabNames}). Tampil Dead Stock (6 bln 0 sales), Slow Moving (3 bln / DOI > 180d), Overstock (> 90 Hari), & Understock (< 15 Hari).`;
+        } else {
+          // Level Nasional: format seperti sebelum ada dead stok dan slow
+          if (cardDead) cardDead.style.display = 'none';
+          if (cardSlow) cardSlow.style.display = 'none';
+          if (cardOver) cardOver.style.display = '';
+          if (thDead) thDead.style.display = 'none';
+          if (thSlow) thSlow.style.display = 'none';
+
+          const trendToggle = document.getElementById('trendMetricToggleContainer');
+          if (trendToggle) trendToggle.style.display = 'flex';
+
+          if (this.filters.health_status === 'Dead Stock' || this.filters.health_status === 'Slow Moving') {
+            this.filters.health_status = 'All';
+            document.querySelectorAll('[data-health]').forEach(b => {
+              if (b.getAttribute('data-health') === 'All') b.classList.add('active');
+              else b.classList.remove('active');
+            });
+          }
+
+          if (trendChartTitle) trendChartTitle.innerHTML = `<span>🏢</span> Trend Evaluasi Stok MNJ: Dead Stock, Slow Moving & Overstock (Konsolidasi Nasional)`;
+          if (trendSubtitle) trendSubtitle.innerText = 'Visualisasi pergerakan tren Dead Stock, Slow Moving, dan Overstock (> 90 Hari) nasional per bulan.';
+
+          if (gbTitle) gbTitle.innerHTML = `<span>🏢</span> Ringkasan DOI MNJ Per Group Business (GB) ${gbBadge}`;
+          if (gbSub) gbSub.innerText = 'Perbandingan stok, realisasi DOI, Max DOI MNJ (Master), dan status understock/overstock nasional per GB.';
+
+          if (catGbTitle) catGbTitle.innerHTML = `<span>📊</span> Matrix Impact Selisih DOI MNJ Per Status & Group Business ${catGbBadge}`;
+          if (catGbSub) catGbSub.innerText = 'Matrix rincian dampak Selisih DOI MNJ per Status Evaluasi Nasional (Understock < 15 Hari, Normal, Overstock > Max DOI MNJ, Streamline, Festive, Produk Baru).';
+
+          if (detailTitle) detailTitle.innerHTML = `<span>📋</span> Detail Produk & Evaluasi Realisasi DOI MNJ (Nasional) ${detailBadge}`;
+          if (detailSub) detailSub.innerText = 'Rincian evaluasi DOI konsolidasi nasional distributor MNJ per produk. Threshold Understock < 15 Hari, Overstock > Max DOI MNJ.';
+        }
+
+        if (descUnder) descUnder.innerText = '< 15 Hari DOI';
+        if (descNorm) descNorm.innerText = '15 Hari – Max DOI';
       } else if (tab === 'kx') {
+        if (cardDead) cardDead.style.display = 'none';
+        if (cardSlow) cardSlow.style.display = 'none';
+        if (cardOver) cardOver.style.display = '';
+        if (descUnder) descUnder.innerText = '< 15 Hari DOI';
+        if (descNorm) descNorm.innerText = '15 Hari – Max DOI';
+        if (thDead) thDead.style.display = 'none';
+        if (thSlow) thSlow.style.display = 'none';
+
+        if (this.filters.health_status === 'Dead Stock' || this.filters.health_status === 'Slow Moving') {
+          this.filters.health_status = 'All';
+          document.querySelectorAll('[data-health]').forEach(b => {
+            if (b.getAttribute('data-health') === 'All') b.classList.add('active');
+            else b.classList.remove('active');
+          });
+        }
+
+        const trendToggle = document.getElementById('trendMetricToggleContainer');
+        if (trendToggle) trendToggle.style.display = 'none';
+
         if (trendChartTitle) trendChartTitle.innerHTML = `<span>🏭</span> Trend Pergerakan DOI KX (Principal Khusus)`;
         if (trendSubtitle) trendSubtitle.innerText = 'Visualisasi pergerakan level kesehatan DOI Principal KX per bulan.';
 
@@ -801,8 +985,27 @@
         if (detailTitle) detailTitle.innerHTML = `<span>📋</span> Detail Produk & Evaluasi Realisasi DOI KX (Principal) ${detailBadge}`;
         if (detailSub) detailSub.innerText = 'Rincian evaluasi DOI khusus principal KX per produk. Threshold Understock < 15 Hari.';
       } else {
-        if (trendChartTitle) trendChartTitle.innerHTML = `<span>📈</span> Trend Pergerakan DOI Historis (Januari 2026 – Oktober 2026)`;
-        if (trendSubtitle) trendSubtitle.innerText = 'Visualisasi perbandingan pergerakan DOI MNJ, DOI KX, dan DOI Combined Total.';
+        if (cardDead) cardDead.style.display = 'none';
+        if (cardSlow) cardSlow.style.display = 'none';
+        if (cardOver) cardOver.style.display = '';
+        if (descUnder) descUnder.innerText = '< 45 Hari DOI';
+        if (descNorm) descNorm.innerText = '45 Hari – DOI Max';
+        if (thDead) thDead.style.display = 'none';
+        if (thSlow) thSlow.style.display = 'none';
+
+        const trendToggle = document.getElementById('trendMetricToggleContainer');
+        if (trendToggle) trendToggle.style.display = 'none';
+
+        if (this.filters.health_status === 'Dead Stock' || this.filters.health_status === 'Slow Moving') {
+          this.filters.health_status = 'All';
+          document.querySelectorAll('[data-health]').forEach(b => {
+            if (b.getAttribute('data-health') === 'All') b.classList.add('active');
+            else b.classList.remove('active');
+          });
+        }
+
+        if (trendChartTitle) trendChartTitle.innerHTML = `<span>📈</span> Trend Pergerakan DOI Historis (1 Tahun Terakhir)`;
+        if (trendSubtitle) trendSubtitle.innerText = 'Visualisasi perbandingan pergerakan DOI MNJ, DOI KX, dan DOI Combined Total 1 tahun terakhir.';
 
         if (gbTitle) gbTitle.innerHTML = `<span>🏢</span> Ringkasan DOI Per Group Business (GB) & Total Konsolidasi ${gbBadge}`;
         if (gbSub) gbSub.innerText = 'Perbandingan stok persediaan MNJ, KX Principal, Total Combined, DOI Total, dan DOI Max Master per GB.';
@@ -847,6 +1050,7 @@
       }
 
       // Safe rendering steps
+      try { this.updateTabUI(this.filters.activeTab || 'combined'); } catch (e) { console.error('[DASHBOARD] updateTabUI error:', e); }
       try { this.renderSummaryCards(); } catch (e) { console.error('[DASHBOARD] renderSummaryCards error:', e); }
       try { this.renderTrendChart(); } catch (e) { console.error('[DASHBOARD] renderTrendChart error:', e); }
       try { this.renderGBTable(); } catch (e) { console.error('[DASHBOARD] renderGBTable error:', e); }
@@ -878,6 +1082,12 @@
       // Status Filter Cards SKU Counts
       const cntAll = document.getElementById('countAllSku');
       if (cntAll) cntAll.innerText = `${formatNum(this.summary.total_sku)} SKU`;
+
+      const cntDead = document.getElementById('countDeadStockSku');
+      if (cntDead) cntDead.innerText = `${formatNum(this.summary.dead_stock_count || 0)} SKU`;
+
+      const cntSlow = document.getElementById('countSlowMovingSku');
+      if (cntSlow) cntSlow.innerText = `${formatNum(this.summary.slow_moving_count || 0)} SKU`;
 
       const cntUnder = document.getElementById('countUnderstockSku');
       if (cntUnder) cntUnder.innerText = `${formatNum(this.summary.understock_count)} SKU`;
@@ -931,19 +1141,89 @@
     renderTrendChart() {
       const chartContainer = document.getElementById('trendChartContainer');
       const subtitleEl = document.getElementById('trendSubtitle');
-
       const titleEl = document.getElementById('trendChartTitle');
+      const activeTab = this.filters.activeTab || 'combined';
+
+      // 1. Dynamic Legend and Metric Toggle Visibility
+      const legendContainer = document.getElementById('trendLegendContainer');
+      const metricToggleContainer = document.getElementById('trendMetricToggleContainer');
+
+      if (metricToggleContainer) {
+        metricToggleContainer.style.display = (activeTab === 'mnj') ? 'flex' : 'none';
+        const currentTrendMetric = this.filters.trendMetric || 'doi';
+        metricToggleContainer.querySelectorAll('[data-trend-metric]').forEach(btn => {
+          if (btn.getAttribute('data-trend-metric') === currentTrendMetric) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+      }
+
+      if (legendContainer) {
+        if (activeTab === 'mnj') {
+          const sVis = this.trendSeriesVisibility || { total: true, dead: true, slow: true, over: true };
+          const isMetricDOI = (this.filters.trendMetric !== 'value');
+          const totalLegendText = isMetricDOI ? 'DOI Total MNJ' : (this.filters.unit === 'qty' ? 'Total Stok MNJ (Unit)' : 'Valuasi Total MNJ (Rp)');
+
+          legendContainer.innerHTML = `
+            <button type="button" class="trend-legend-pill" data-toggle-series="total" style="display: flex; align-items: center; gap: 6px; background: ${sVis.total ? '#f5f3ff' : '#f8fafc'}; border: 1.5px solid ${sVis.total ? '#8b5cf6' : '#cbd5e1'}; padding: 4px 10px; border-radius: 20px; cursor: pointer; opacity: ${sVis.total ? '1' : '0.5'}; transition: all 0.2s ease;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: #7c3aed; display: inline-block;"></span>
+              <span style="font-size: 12px; font-weight: 700; color: ${sVis.total ? '#6d28d9' : '#64748b'}; text-decoration: ${sVis.total ? 'none' : 'line-through'};">${totalLegendText}</span>
+            </button>
+            <button type="button" class="trend-legend-pill" data-toggle-series="dead" style="display: flex; align-items: center; gap: 6px; background: ${sVis.dead ? '#fff1f2' : '#f8fafc'}; border: 1.5px solid ${sVis.dead ? '#f43f5e' : '#cbd5e1'}; padding: 4px 10px; border-radius: 20px; cursor: pointer; opacity: ${sVis.dead ? '1' : '0.5'}; transition: all 0.2s ease;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: #e11d48; display: inline-block;"></span>
+              <span style="font-size: 12px; font-weight: 700; color: ${sVis.dead ? '#be123c' : '#64748b'}; text-decoration: ${sVis.dead ? 'none' : 'line-through'};">Dead Stock</span>
+            </button>
+            <button type="button" class="trend-legend-pill" data-toggle-series="slow" style="display: flex; align-items: center; gap: 6px; background: ${sVis.slow ? '#fff7ed' : '#f8fafc'}; border: 1.5px solid ${sVis.slow ? '#f97316' : '#cbd5e1'}; padding: 4px 10px; border-radius: 20px; cursor: pointer; opacity: ${sVis.slow ? '1' : '0.5'}; transition: all 0.2s ease;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: #ea580c; display: inline-block;"></span>
+              <span style="font-size: 12px; font-weight: 700; color: ${sVis.slow ? '#c2410c' : '#64748b'}; text-decoration: ${sVis.slow ? 'none' : 'line-through'};">Slow Moving</span>
+            </button>
+            <button type="button" class="trend-legend-pill" data-toggle-series="over" style="display: flex; align-items: center; gap: 6px; background: ${sVis.over ? '#f0f9ff' : '#f8fafc'}; border: 1.5px solid ${sVis.over ? '#0ea5e9' : '#cbd5e1'}; padding: 4px 10px; border-radius: 20px; cursor: pointer; opacity: ${sVis.over ? '1' : '0.5'}; transition: all 0.2s ease;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: #0284c7; display: inline-block;"></span>
+              <span style="font-size: 12px; font-weight: 700; color: ${sVis.over ? '#0369a1' : '#64748b'}; text-decoration: ${sVis.over ? 'none' : 'line-through'};">Overstock (&gt; 90 Hari)</span>
+            </button>
+          `;
+
+          legendContainer.querySelectorAll('[data-toggle-series]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              const s = e.currentTarget.getAttribute('data-toggle-series');
+              if (this.trendSeriesVisibility && this.trendSeriesVisibility[s] !== undefined) {
+                this.trendSeriesVisibility[s] = !this.trendSeriesVisibility[s];
+                this.renderTrendChart();
+              }
+            });
+          });
+        } else {
+          legendContainer.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: #7c3aed; display: inline-block;"></span>
+              <span style="font-size: 12px; font-weight: 700; color: #7c3aed;">DOI Combined Total</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: #dc2626; display: inline-block;"></span>
+              <span style="font-size: 12px; font-weight: 700; color: #dc2626;">DOI MNJ (Distributor)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: #0284c7; display: inline-block;"></span>
+              <span style="font-size: 12px; font-weight: 700; color: #0284c7;">DOI KX (Principal)</span>
+            </div>
+          `;
+        }
+      }
+
+      // 2. Titles and Subtitles
       if (titleEl && this.trendData && this.trendData.length > 0) {
         const startLabel = formatPeriodFullLabel(this.trendData[0].period);
         const endLabel = formatPeriodFullLabel(this.trendData[this.trendData.length - 1].period);
         const rangeText = (this.trendData.length > 1) ? `(${startLabel} – ${endLabel})` : `(${endLabel})`;
-        const activeTab = this.filters.activeTab || 'combined';
+
         if (activeTab === 'mnj') {
-          titleEl.innerHTML = `<span>🏢</span> Trend Pergerakan DOI MNJ (Distributor Khusus) ${rangeText}`;
+          titleEl.innerHTML = `<span>🏢</span> Trend Evaluasi Stok &amp; DOI MNJ: Total vs Dead, Slow &amp; Overstock ${rangeText}`;
         } else if (activeTab === 'kx') {
           titleEl.innerHTML = `<span>🏭</span> Trend Pergerakan DOI KX (Principal Khusus) ${rangeText}`;
         } else {
-          titleEl.innerHTML = `<span>📈</span> Trend Pergerakan DOI Historis ${rangeText}`;
+          titleEl.innerHTML = `<span>📈</span> Trend Pergerakan DOI Historis 1 Tahun Terakhir ${rangeText}`;
         }
       }
 
@@ -961,25 +1241,219 @@
         } else if (this.filters.selectedKets && this.filters.selectedKets.length > 0) {
           filterLabel = `Keterangan: ${this.filters.selectedKets.join(', ')}`;
         }
-        subtitleEl.innerHTML = `Visualisasi perbandingan tren pergerakan DOI historis 3-in-1 — <strong style="color: var(--accent-cyan);">${filterLabel}</strong>.`;
+
+        if (activeTab === 'mnj') {
+          const isCabFiltered = Boolean(this.filters.selectedCabangs && this.filters.selectedCabangs.length > 0);
+          const cabLabel = isCabFiltered 
+            ? (this.filters.selectedCabangs.length > 2 ? `${this.filters.selectedCabangs.length} Cabang Terpilih` : this.filters.selectedCabangs.join(', '))
+            : 'Konsolidasi Seluruh Cabang (Nasional)';
+          const metricText = (this.filters.trendMetric === 'value') ? 'Metrik Valuasi Stok' : 'Metrik Realisasi DOI (Hari)';
+          subtitleEl.innerHTML = `Perbandingan pergerakan Total Realisasi Stok MNJ vs Kategori Surplus (Dead Stock, Slow Moving, &amp; Overstock &gt; 90 Hari) — <strong style="color: var(--accent-cyan);">${cabLabel}</strong> [${metricText}] — <span>${filterLabel}</span>.`;
+        } else {
+          subtitleEl.innerHTML = `Visualisasi perbandingan tren pergerakan DOI historis 1 tahun terakhir — <strong style="color: var(--accent-cyan);">${filterLabel}</strong>.`;
+        }
       }
 
       if (!chartContainer || !this.trendData || this.trendData.length === 0) return;
 
       const data = this.trendData;
+      const width = 880;
+      const height = 300;
+      const padding = { top: 32, right: 40, bottom: 42, left: 65 };
+      const chartW = width - padding.left - padding.right;
+      const chartH = height - padding.top - padding.bottom;
+      const xStep = chartW / Math.max(1, data.length - 1);
 
+      // ==========================================
+      // BRANCH A: Sheet MNJ Trend (Total, Dead, Slow, Overstock)
+      // ==========================================
+      if (activeTab === 'mnj') {
+        const isMetricDOI = (this.filters.trendMetric !== 'value');
+        const isValUnit = (this.filters.unit === 'value');
+        const sVis = this.trendSeriesVisibility || { total: true, dead: true, slow: true, over: true };
+
+        const getTotVal = (d) => isMetricDOI ? (d.doi_mnj_days || 0) : (isValUnit ? (d.stok_mnj_value || 0) : (d.stok_mnj_qty || 0));
+        const getDeadVal = (d) => isMetricDOI ? (d.doi_dead_days || 0) : (isValUnit ? (d.dead_stock_val || 0) : (d.dead_stock_qty || 0));
+        const getSlowVal = (d) => isMetricDOI ? (d.doi_slow_days || 0) : (isValUnit ? (d.slow_moving_val || 0) : (d.slow_moving_qty || 0));
+        const getOverVal = (d) => isMetricDOI ? (d.doi_over_days || 0) : (isValUnit ? (d.overstock_val || 0) : (d.overstock_qty || 0));
+
+        // Dual scales:
+        // Top lane: Total Realisasi MNJ
+        const totVals = data.map(getTotVal);
+        const maxTot = Math.max(...totVals, isMetricDOI ? 45 : 1000) * 1.25;
+        const minTot = 0;
+        const getYTotal = (val) => padding.top + chartH - ((val - minTot) / Math.max(1, maxTot - minTot)) * chartH;
+
+        // Lower lane: Surplus (Dead, Slow, Overstock) with generous headroom
+        const surpVals = data.flatMap(d => [getDeadVal(d), getSlowVal(d), getOverVal(d)]);
+        const maxSurp = Math.max(...surpVals, isMetricDOI ? 3.5 : 100) * 1.85;
+        const minSurp = 0;
+        const getYSurplus = (val) => padding.top + chartH - ((val - minSurp) / Math.max(1, maxSurp - minSurp)) * chartH;
+
+        const pointsTotal = data.map((d, i) => ({ x: padding.left + i * xStep, y: getYTotal(getTotVal(d)), val: getTotVal(d), d }));
+        const pointsDead = data.map((d, i) => ({ x: padding.left + i * xStep, y: getYSurplus(getDeadVal(d)), val: getDeadVal(d), d }));
+        const pointsSlow = data.map((d, i) => ({ x: padding.left + i * xStep, y: getYSurplus(getSlowVal(d)), val: getSlowVal(d), d }));
+        const pointsOver = data.map((d, i) => ({ x: padding.left + i * xStep, y: getYSurplus(getOverVal(d)), val: getOverVal(d), d }));
+
+        const pathTotal = pointsTotal.reduce((acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
+        const pathDead = pointsDead.reduce((acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
+        const pathSlow = pointsSlow.reduce((acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
+        const pathOver = pointsOver.reduce((acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
+        const areaTotal = `${pathTotal} L ${pointsTotal[pointsTotal.length - 1].x} ${height - padding.bottom} L ${pointsTotal[0].x} ${height - padding.bottom} Z`;
+
+        const formatTotalLabel = (val) => {
+          if (isMetricDOI) return `${Math.round(val)}d`;
+          if (!isValUnit) {
+            if (val >= 1e6) return `${(val / 1e6).toFixed(1)}M`;
+            if (val >= 1e3) return `${(val / 1e3).toFixed(0)}k`;
+            return `${Math.round(val)}`;
+          }
+          if (val >= 1e9) return `Rp ${(val / 1e9).toFixed(1)}M`;
+          if (val >= 1e6) return `Rp ${(val / 1e6).toFixed(0)}Jt`;
+          return `Rp ${Math.round(val)}`;
+        };
+
+        const formatSurplusLabel = (val) => {
+          if (isMetricDOI) return val > 0 ? (val >= 10 ? `${val.toFixed(0)}d` : `${val.toFixed(1)}d`) : '0d';
+          if (!isValUnit) {
+            if (val >= 1e6) return `${(val / 1e6).toFixed(1)}M`;
+            if (val >= 1e3) return `${(val / 1e3).toFixed(0)}k`;
+            return val > 0 ? `${Math.round(val)}` : '0';
+          }
+          if (val >= 1e9) return `Rp ${(val / 1e9).toFixed(1)}M`;
+          if (val >= 1e6) return `Rp ${(val / 1e6).toFixed(0)}Jt`;
+          if (val >= 1e3) return `Rp ${(val / 1e3).toFixed(0)}Rb`;
+          return val > 0 ? `Rp ${Math.round(val)}` : 'Rp 0';
+        };
+
+        chartContainer.innerHTML = `
+          <svg viewBox="0 0 ${width} ${height}" style="width: 100%; height: 100%; overflow: visible;">
+            <defs>
+              <linearGradient id="trendGradientTotal" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.10"/>
+                <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.0"/>
+              </linearGradient>
+              <filter id="glowPurple" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="2.5" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+
+            <!-- Grid horizontal lines -->
+            <line x1="${padding.left}" y1="${padding.top}" x2="${width - padding.right}" y2="${padding.top}" stroke="#e2e8f0" stroke-dasharray="3 3"/>
+            <line x1="${padding.left}" y1="${padding.top + chartH * 0.35}" x2="${width - padding.right}" y2="${padding.top + chartH * 0.35}" stroke="#e2e8f0" stroke-dasharray="3 3"/>
+            <line x1="${padding.left}" y1="${padding.top + chartH * 0.7}" x2="${width - padding.right}" y2="${padding.top + chartH * 0.7}" stroke="#e2e8f0" stroke-dasharray="3 3"/>
+            <line x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}" stroke="#94a3b8"/>
+
+            <!-- Dual Axis Indicators -->
+            <text x="${padding.left}" y="${padding.top - 12}" fill="#7c3aed" font-size="10" font-weight="800" text-anchor="start">◀ Skala Total MNJ</text>
+            <text x="${width - padding.right}" y="${padding.top - 12}" fill="#64748b" font-size="10" font-weight="700" text-anchor="end">Skala Surplus ▶</text>
+
+            <!-- Subtle Area under Total line -->
+            ${sVis.total ? `<path d="${areaTotal}" fill="url(#trendGradientTotal)"/>` : ''}
+
+            <!-- Series 1: Total Realisasi MNJ (Royal Purple, Bold Glow) -->
+            ${sVis.total ? `<path d="${pathTotal}" fill="none" stroke="#7c3aed" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#glowPurple)"/>` : ''}
+
+            <!-- Series 2: Slow Moving (Vibrant Orange) -->
+            ${sVis.slow ? `<path d="${pathSlow}" fill="none" stroke="#ea580c" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+
+            <!-- Series 3: Overstock (> 90 Hari) (Crisp Ocean Blue) -->
+            ${sVis.over ? `<path d="${pathOver}" fill="none" stroke="#0284c7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+
+            <!-- Series 4: Dead Stock (Crimson Red) -->
+            ${sVis.dead ? `<path d="${pathDead}" fill="none" stroke="#e11d48" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+
+            <!-- Data Points & Interactive Columns -->
+            ${data.map((d, i) => {
+              const pTot = pointsTotal[i];
+              const pDead = pointsDead[i];
+              const pSlow = pointsSlow[i];
+              const pOver = pointsOver[i];
+
+              // Collision-free placement:
+              const yTotText = pTot.y - 12;
+              const yDeadText = pDead.y + 14;
+
+              let ySlowText = pSlow.y - 9;
+              let yOverText = pOver.y + 14;
+
+              if (pOver.y < pSlow.y) {
+                yOverText = pOver.y - 9;
+                ySlowText = pSlow.y + 14;
+              }
+
+              if (Math.abs(yOverText - yDeadText) < 14) {
+                yOverText = pOver.y - 9;
+              }
+
+              const haloStyle = 'paint-order="stroke fill" stroke="#ffffff" stroke-width="3px" stroke-linecap="round" stroke-linejoin="round"';
+
+              const tooltipText = `Periode: ${d.period_label || d.period}
+🟣 Total Realisasi MNJ: ${(d.doi_mnj_days || 0).toFixed(0)}d | ${this.formatDisplayValue(d.stok_mnj_value || 0, true)}
+🔴 Dead Stock: ${(d.doi_dead_days || 0).toFixed(1)}d | ${this.formatDisplayValue(d.dead_stock_val || 0, true)}
+🟠 Slow Moving: ${(d.doi_slow_days || 0).toFixed(1)}d | ${this.formatDisplayValue(d.slow_moving_val || 0, true)}
+🔵 Overstock (>90d): ${(d.doi_over_days || 0).toFixed(1)}d | ${this.formatDisplayValue(d.overstock_val || 0, true)}
+Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
+
+              return `
+                <g class="chart-point-group" data-period="${d.period}" style="cursor: pointer;">
+                  <title>${tooltipText}</title>
+
+                  <!-- Vertical guide line -->
+                  <line x1="${pTot.x}" y1="${padding.top}" x2="${pTot.x}" y2="${height - padding.bottom}" stroke="#e2e8f0" stroke-dasharray="3 3"/>
+
+                  <!-- Dead Stock Point & Label -->
+                  ${sVis.dead ? `
+                    <circle cx="${pDead.x}" cy="${pDead.y}" r="4" fill="#ffffff" stroke="#e11d48" stroke-width="2.5"/>
+                    <text x="${pDead.x}" y="${yDeadText}" fill="#be123c" font-size="10" font-weight="800" text-anchor="middle" ${haloStyle}>${formatSurplusLabel(pDead.val)}</text>
+                  ` : ''}
+
+                  <!-- Overstock Point & Label -->
+                  ${sVis.over ? `
+                    <circle cx="${pOver.x}" cy="${pOver.y}" r="4" fill="#ffffff" stroke="#0284c7" stroke-width="2.5"/>
+                    <text x="${pOver.x}" y="${yOverText}" fill="#0369a1" font-size="10" font-weight="800" text-anchor="middle" ${haloStyle}>${formatSurplusLabel(pOver.val)}</text>
+                  ` : ''}
+
+                  <!-- Slow Moving Point & Label -->
+                  ${sVis.slow ? `
+                    <circle cx="${pSlow.x}" cy="${pSlow.y}" r="4.5" fill="#ffffff" stroke="#ea580c" stroke-width="2.5"/>
+                    <text x="${pSlow.x}" y="${ySlowText}" fill="#c2410c" font-size="10" font-weight="800" text-anchor="middle" ${haloStyle}>${formatSurplusLabel(pSlow.val)}</text>
+                  ` : ''}
+
+                  <!-- Total MNJ Point & Label -->
+                  ${sVis.total ? `
+                    <circle cx="${pTot.x}" cy="${pTot.y}" r="5.5" fill="#ffffff" stroke="#7c3aed" stroke-width="3"/>
+                    <text x="${pTot.x}" y="${yTotText}" fill="#6d28d9" font-size="11" font-weight="800" text-anchor="middle" ${haloStyle}>${formatTotalLabel(pTot.val)}</text>
+                  ` : ''}
+
+                  <!-- Period X Label -->
+                  <text x="${pTot.x}" y="${height - padding.bottom + 20}" fill="#334155" font-size="11" font-weight="700" text-anchor="middle">${d.period_label}</text>
+                </g>
+              `;
+            }).join('')}
+          </svg>
+        `;
+
+        chartContainer.querySelectorAll('.chart-point-group').forEach(el => {
+          el.addEventListener('click', () => {
+            const p = el.getAttribute('data-period');
+            if (p) {
+              this.setFilter({ period: p, page: 1 });
+              const periodSelect = document.getElementById('periodSelect');
+              if (periodSelect) periodSelect.value = p;
+            }
+          });
+        });
+        return;
+      }
+
+      // ==========================================
+      // BRANCH B: Combined / KX Tab (Total, MNJ, KX DOI)
+      // ==========================================
       const allValues = data.flatMap(d => [d.doi_total_days || 0, d.doi_mnj_days || 0, d.doi_kx_days || 0]);
       const maxDOI = Math.max(...allValues, 100) * 1.12;
       const minDOI = 0;
-
-      const width = 850;
-      const height = 250;
-      const padding = { top: 25, right: 30, bottom: 45, left: 55 };
-
-      const chartW = width - padding.left - padding.right;
-      const chartH = height - padding.top - padding.bottom;
-
-      const xStep = chartW / Math.max(1, data.length - 1);
 
       const getY = (val) => padding.top + chartH - ((val - minDOI) / (maxDOI - minDOI)) * chartH;
 
@@ -992,16 +1466,11 @@
       const pathTotal = pointsTotal.reduce((acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
       const areaTotal = `${pathTotal} L ${pointsTotal[pointsTotal.length - 1].x} ${height - padding.bottom} L ${pointsTotal[0].x} ${height - padding.bottom} Z`;
 
-      const activeTab = this.filters.activeTab || 'combined';
       let mnjStrokeWidth = "2.5", mnjOpacity = "0.95", mnjFilter = "";
       let kxStrokeWidth = "2.5", kxOpacity = "0.95", kxFilter = "";
       let totalStrokeWidth = "3.5", totalOpacity = "1.0", totalFilter = 'filter="url(#glow)"';
 
-      if (activeTab === 'mnj') {
-        mnjStrokeWidth = "4.0"; mnjOpacity = "1.0"; mnjFilter = 'filter="url(#glow)"';
-        kxOpacity = "0.2";
-        totalOpacity = "0.2";
-      } else if (activeTab === 'kx') {
+      if (activeTab === 'kx') {
         kxStrokeWidth = "4.0"; kxOpacity = "1.0"; kxFilter = 'filter="url(#glow)"';
         mnjOpacity = "0.2";
         totalOpacity = "0.2";
@@ -1043,13 +1512,12 @@
             const pKX = pointsKX[i];
             const pTot = pointsTotal[i];
 
-            // Smart label Y-positioning
-            let yMNJText = pMNJ.y - 8;
+            let yMNJText = pMNJ.y - 9;
             let yKXText = pKX.y + 15;
 
-            if (pKX.y < pMNJ.y) {
-              yKXText = pKX.y - 8;
-              yMNJText = pMNJ.y + 15;
+            if (activeTab === 'kx') {
+              yKXText = pKX.y - 9;
+              yMNJText = pMNJ.y + 16;
             }
 
             if (Math.abs(yMNJText - (pTot.y - 10)) < 12) {
@@ -1064,13 +1532,23 @@
                 <!-- Vertical guide line -->
                 <line x1="${pTot.x}" y1="${padding.top}" x2="${pTot.x}" y2="${height - padding.bottom}" stroke="#cbd5e1" stroke-dasharray="3"/>
 
-                <!-- MNJ Point & Label (Bold Red) -->
-                <circle cx="${pMNJ.x}" cy="${pMNJ.y}" r="${activeTab === 'mnj' ? 6 : 4}" fill="#ffffff" stroke="#dc2626" stroke-width="${activeTab === 'mnj' ? 3.5 : 2.5}" opacity="${mnjOpacity}"/>
-                <text x="${pMNJ.x}" y="${yMNJText}" fill="#b91c1c" font-size="${activeTab === 'mnj' ? 11 : 10}" font-weight="800" text-anchor="middle" opacity="${mnjOpacity}">${pMNJ.val.toFixed(0)}d</text>
+                ${activeTab === 'kx' ? `
+                  <!-- Secondary: MNJ Point & Label (Drawn underneath) -->
+                  <circle cx="${pMNJ.x}" cy="${pMNJ.y}" r="4" fill="#ffffff" stroke="#dc2626" stroke-width="2.5" opacity="${mnjOpacity}"/>
+                  <text x="${pMNJ.x}" y="${yMNJText}" fill="#b91c1c" font-size="10" font-weight="700" text-anchor="middle" opacity="${mnjOpacity}">${pMNJ.val.toFixed(0)}d</text>
 
-                <!-- KX Point & Label (Bold Blue) -->
-                <circle cx="${pKX.x}" cy="${pKX.y}" r="${activeTab === 'kx' ? 6 : 4}" fill="#ffffff" stroke="#0284c7" stroke-width="${activeTab === 'kx' ? 3.5 : 2.5}" opacity="${kxOpacity}"/>
-                <text x="${pKX.x}" y="${yKXText}" fill="#0369a1" font-size="${activeTab === 'kx' ? 11 : 10}" font-weight="800" text-anchor="middle" opacity="${kxOpacity}">${pKX.val.toFixed(0)}d</text>
+                  <!-- Primary: KX Point & Label (Drawn on top, label consistently above) -->
+                  <circle cx="${pKX.x}" cy="${pKX.y}" r="6" fill="#ffffff" stroke="#0284c7" stroke-width="3.5" opacity="${kxOpacity}"/>
+                  <text x="${pKX.x}" y="${yKXText}" fill="#0369a1" font-size="11" font-weight="800" text-anchor="middle" opacity="${kxOpacity}">${pKX.val.toFixed(0)}d</text>
+                ` : `
+                  <!-- MNJ Point & Label (Bold Red) -->
+                  <circle cx="${pMNJ.x}" cy="${pMNJ.y}" r="4" fill="#ffffff" stroke="#dc2626" stroke-width="2.5" opacity="${mnjOpacity}"/>
+                  <text x="${pMNJ.x}" y="${yMNJText}" fill="#b91c1c" font-size="10" font-weight="800" text-anchor="middle" opacity="${mnjOpacity}">${pMNJ.val.toFixed(0)}d</text>
+
+                  <!-- KX Point & Label (Bold Blue) -->
+                  <circle cx="${pKX.x}" cy="${pKX.y}" r="4" fill="#ffffff" stroke="#0284c7" stroke-width="2.5" opacity="${kxOpacity}"/>
+                  <text x="${pKX.x}" y="${yKXText}" fill="#0369a1" font-size="10" font-weight="800" text-anchor="middle" opacity="${kxOpacity}">${pKX.val.toFixed(0)}d</text>
+                `}
 
                 <!-- Total Point & Label (Bold Purple) -->
                 <circle cx="${pTot.x}" cy="${pTot.y}" r="5" fill="#ffffff" stroke="#7c3aed" stroke-width="3" opacity="${totalOpacity}"/>
@@ -1171,9 +1649,14 @@
       let totalHealthStatus = 'Normal';
       let totalSelisihStok = targetGBList.reduce((a, b) => a + (isVal ? (b.selisih_value || 0) : (b.selisih_qty || 0)), 0);
 
+      const safeCeil = (num) => {
+        if (num === null || num === undefined || isNaN(num)) return 0;
+        return Math.ceil(Math.round(Number(num) * 10000) / 10000);
+      };
+
       if (activeTab === 'mnj') {
         const totalMaxThreshMNJ2026 = targetGBList.reduce((a, b) => a + (isVal ? (b.max_value_mnj_2026 || b.max_value_mnj || b.max_value_total) : (b.max_qty_mnj_2026 || b.max_qty_mnj || b.max_qty_total)), 0);
-        masterDoiTargetCons = Math.ceil(totalSalesActive2026 > 0 ? (totalMaxThreshMNJ2026 / totalSalesActive2026 * 30.0) : 33);
+        masterDoiTargetCons = safeCeil(totalSalesActive2026 > 0 ? (totalMaxThreshMNJ2026 / totalSalesActive2026 * 30.0) : 33);
         totalSelisihStok = targetGBList.reduce((a, b) => a + (isVal ? (b.selisih_value_mnj || 0) : (b.selisih_qty_mnj || 0)), 0);
 
         const totalMaxThreshMNJActive = targetGBList.reduce((a, b) => a + (isVal ? (b.max_value_mnj || b.max_value_total) : (b.max_qty_mnj || b.max_qty_total)), 0);
@@ -1186,7 +1669,7 @@
         }
       } else if (activeTab === 'kx') {
         const totalMaxThreshKX2026 = targetGBList.reduce((a, b) => a + (isVal ? (b.max_value_kx_2026 || b.max_value_kx || b.max_value_total) : (b.max_qty_kx_2026 || b.max_qty_kx || b.max_qty_total)), 0);
-        masterDoiTargetCons = Math.ceil(totalSalesActive2026 > 0 ? (totalMaxThreshKX2026 / totalSalesActive2026 * 30.0) : 60);
+        masterDoiTargetCons = safeCeil(totalSalesActive2026 > 0 ? (totalMaxThreshKX2026 / totalSalesActive2026 * 30.0) : 60);
         totalSelisihStok = targetGBList.reduce((a, b) => a + (isVal ? (b.selisih_value_kx || 0) : (b.selisih_qty_kx || 0)), 0);
 
         const totalMaxThreshKXActive = targetGBList.reduce((a, b) => a + (isVal ? (b.max_value_kx || b.max_value_total) : (b.max_qty_kx || b.max_qty_total)), 0);
@@ -1362,7 +1845,15 @@
 
       // Collect all distinct GB names (excluding Total Konsolidasi)
       const gbSet = new Set();
-      const statuses = ['Overstock', 'Understock', 'Streamline', 'Festive'];
+      const activeTab = this.filters.activeTab || 'combined';
+      const isCabangFiltered = this.filters.selectedCabangs && this.filters.selectedCabangs.length > 0;
+
+      let statuses = [];
+      if (activeTab === 'mnj' && isCabangFiltered) {
+        statuses = ['Dead Stock', 'Slow Moving', 'Overstock', 'Understock', 'Streamline', 'Festive', 'Produk Baru'];
+      } else {
+        statuses = ['Understock', 'Overstock', 'Streamline', 'Festive', 'Produk Baru'];
+      }
       const matrix = {};
 
       statuses.forEach(st => {
@@ -1405,8 +1896,16 @@
                 const style = isCons
                   ? 'text-align: right; color: #0369a1; font-weight: 800; background: #e0f2fe;'
                   : 'text-align: right; color: #0f172a;';
-                const label = isCons ? '🌐 Total Konsolidasi' : gb;
-                return `<th style="${style}">${label}</th>`;
+                const cabLabel = (this.filters.selectedCabangs && this.filters.selectedCabangs.length > 0)
+                  ? (this.filters.selectedCabangs.length > 2 ? `${this.filters.selectedCabangs.length} Cabang` : this.filters.selectedCabangs.join(', '))
+                  : '';
+                const label = isCons 
+                  ? (cabLabel ? `🏪 Total Konsolidasi (${cabLabel})` : '🌐 Total Konsolidasi (Nasional)')
+                  : gb;
+                const tooltip = isCons
+                  ? (cabLabel ? `Dampak Konsolidasi Cabang (${cabLabel}) — Pembagi: Total Penjualan Cabang` : 'Dampak Konsolidasi Nasional — Pembagi: Total Penjualan Nasional')
+                  : `Dampak Selisih terhadap DOI ${gb}`;
+                return `<th style="${style}" title="${tooltip}">${label}</th>`;
               }).join('')}
             </tr>
           `;
@@ -1533,6 +2032,7 @@
       }
 
       const activeTab = this.filters.activeTab || 'combined';
+      const isCabangFiltered = Boolean(this.filters.selectedCabangs && this.filters.selectedCabangs.length > 0);
       const thDetailStokMnj = document.getElementById('detailThStokMnj');
       const thDetailStokKx = document.getElementById('detailThStokKx');
       const thDetailComb = document.getElementById('detailThComb');
@@ -1543,6 +2043,11 @@
       const thDetailSelDoi = document.getElementById('detailThSelDoi');
       const thDetailSelStok = document.getElementById('detailThSelStok');
       const thDetailStatus = document.getElementById('detailThStatus');
+      const thDead = document.getElementById('detailThDeadStock');
+      const thSlow = document.getElementById('detailThSlowMoving');
+
+      if (thDead) thDead.style.display = (activeTab === 'mnj' && isCabangFiltered) ? '' : 'none';
+      if (thSlow) thSlow.style.display = (activeTab === 'mnj' && isCabangFiltered) ? '' : 'none';
 
       if (thDetailStokMnj) thDetailStokMnj.style.display = (activeTab === 'kx') ? 'none' : '';
       if (thDetailStokKx) thDetailStokKx.style.display = (activeTab === 'mnj') ? 'none' : '';
@@ -1570,9 +2075,22 @@
 
       const thSelGB = document.getElementById('thSelGB');
       if (thSelGB) {
+        const isCabangFiltered = Boolean(this.filters.selectedCabangs && this.filters.selectedCabangs.length > 0);
+        const cabLabel = isCabangFiltered
+          ? (this.filters.selectedCabangs.length > 2 ? `${this.filters.selectedCabangs.length} Cabang` : this.filters.selectedCabangs.join(', '))
+          : '';
         const isSingleGB = Boolean(this.filters.selectedGBs && this.filters.selectedGBs.length === 1);
-        thSelGB.innerText = isSingleGB ? 'Sel. GB' : 'Sel. Nas';
-        thSelGB.title = isSingleGB ? 'Selisih DOI item relatif terhadap DOI Total GB' : 'Selisih DOI item relatif terhadap DOI Total Konsolidasi Nasional';
+
+        if (isSingleGB) {
+          thSelGB.innerText = 'Sel. GB';
+          thSelGB.title = `Selisih DOI item relatif terhadap DOI GB ${this.filters.selectedGBs[0]} (${isCabangFiltered ? cabLabel : 'Nasional'}) - Pembagi: Sales GB di ${isCabangFiltered ? cabLabel : 'Nasional'}`;
+        } else if (isCabangFiltered) {
+          thSelGB.innerText = 'Sel. Cab';
+          thSelGB.title = `Selisih DOI item relatif terhadap DOI Total Konsolidasi Cabang (${cabLabel}) - Pembagi: Total Sales Cabang (${cabLabel})`;
+        } else {
+          thSelGB.innerText = 'Sel. Nas';
+          thSelGB.title = 'Selisih DOI item relatif terhadap DOI Total Konsolidasi Nasional - Pembagi: Total Sales Nasional';
+        }
       }
 
       if (this.doiData.data.length === 0) {
@@ -1595,35 +2113,36 @@
       const doiKxColStyle = (activeTab === 'mnj') ? 'display:none;' : '';
       const doiTotalColStyle = (activeTab === 'mnj' || activeTab === 'kx') ? 'display:none;' : '';
 
-      // Sort by entity-specific selisih stock descending (Qty or Value depending on detailSelisihUnit)
-      this.doiData.data.sort((a, b) => {
-        const ketA = (a.keterangan_produk || '').toLowerCase();
-        const ketB = (b.keterangan_produk || '').toLowerCase();
-        let valA, valB;
-        if (isSelisihVal) {
-          if (activeTab === 'mnj') {
-            valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_mnj_value || 0) : (a.selisih_value_mnj !== undefined ? a.selisih_value_mnj : (a.selisih_value || 0));
-            valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_mnj_value || 0) : (b.selisih_value_mnj !== undefined ? b.selisih_value_mnj : (b.selisih_value || 0));
-          } else if (activeTab === 'kx') {
-            valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_kx_value || 0) : (a.selisih_value_kx !== undefined ? a.selisih_value_kx : (a.selisih_value || 0));
-            valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_kx_value || 0) : (b.selisih_value_kx !== undefined ? b.selisih_value_kx : (b.selisih_value || 0));
-          } else {
-            valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_total_value || 0) : (a.selisih_value || 0);
-            valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_total_value || 0) : (b.selisih_value || 0);
-          }
+      // Sort strictly by selisih value / qty descending (without grouping by status)
+      const getSortItemVal = (item) => {
+        const ket = (item.keterangan_produk || '').toLowerCase();
+        const isSpecial = (ket === 'streamline' || ket === 'festive');
+        let sel = 0, stk = 0;
+
+        if (activeTab === 'mnj') {
+          stk = isStockVal ? (item.stok_mnj_value || 0) : (item.stok_mnj_qty || 0);
+          sel = isSpecial ? 0 : (isSelisihVal ? (item.selisih_value_mnj || 0) : (item.selisih_qty_mnj || 0));
+        } else if (activeTab === 'kx') {
+          stk = isStockVal ? (item.stok_kx_value || 0) : (item.stok_kx_qty || 0);
+          sel = isSpecial ? 0 : (isSelisihVal ? (item.selisih_value_kx !== undefined ? item.selisih_value_kx : (item.selisih_value || 0)) : (item.selisih_qty_kx !== undefined ? item.selisih_qty_kx : (item.selisih_qty || 0)));
         } else {
-          if (activeTab === 'mnj') {
-            valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_mnj_qty || 0) : (a.selisih_qty_mnj !== undefined ? a.selisih_qty_mnj : (a.selisih_qty || 0));
-            valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_mnj_qty || 0) : (b.selisih_qty_mnj !== undefined ? b.selisih_qty_mnj : (b.selisih_qty || 0));
-          } else if (activeTab === 'kx') {
-            valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_kx_qty || 0) : (a.selisih_qty_kx !== undefined ? a.selisih_qty_kx : (a.selisih_qty || 0));
-            valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_kx_qty || 0) : (b.selisih_qty_kx !== undefined ? b.selisih_qty_kx : (b.selisih_qty || 0));
-          } else {
-            valA = (ketA === 'streamline' || ketA === 'festive') ? (a.stok_total_qty || 0) : (a.selisih_qty || 0);
-            valB = (ketB === 'streamline' || ketB === 'festive') ? (b.stok_total_qty || 0) : (b.selisih_qty || 0);
-          }
+          stk = isStockVal ? (item.stok_total_value || 0) : (item.stok_total_qty || 0);
+          sel = isSpecial ? 0 : (isSelisihVal ? (item.selisih_value || 0) : (item.selisih_qty || 0));
         }
-        return valB - valA;
+
+        // 1. Surplus items (sel > 0): Overstock, Slow Moving, Dead Stock sorted strictly by sel descending
+        // 2. Deficit items (sel < 0): Understock sorted by abs(sel) descending
+        // 3. Normal / Festive / Streamline / PB (sel == 0): sorted by stock descending
+        if (sel > 0) return { tier: 3, val: sel };
+        if (sel < 0) return { tier: 2, val: Math.abs(sel) };
+        return { tier: 1, val: stk };
+      };
+
+      this.doiData.data.sort((a, b) => {
+        const kA = getSortItemVal(a);
+        const kB = getSortItemVal(b);
+        if (kA.tier !== kB.tier) return kB.tier - kA.tier;
+        return kB.val - kA.val;
       });
 
       tableBody.innerHTML = this.doiData.data.map(item => {
@@ -1674,9 +2193,35 @@
           } else if (targetStatus === 'Understock') {
             selDoiHtml = `<span style="color: #b91c1c; font-weight: 800;">${selDoi.toFixed(0)}d</span>`;
             selStokHtml = `<span style="color: #b91c1c; font-weight: 800;">${this.formatDisplayValue(selStok, isSelisihVal)}</span>`;
+          } else if (targetStatus === 'Dead Stock') {
+            selDoiHtml = `<span style="color: #991b1b; font-weight: 800;">+${selDoi.toFixed(0)}d</span>`;
+            selStokHtml = `<span style="color: #991b1b; font-weight: 800;">+${this.formatDisplayValue(selStok, isSelisihVal)}</span>`;
+          } else if (targetStatus === 'Slow Moving') {
+            selDoiHtml = `<span style="color: #c2410c; font-weight: 800;">+${selDoi.toFixed(0)}d</span>`;
+            selStokHtml = `<span style="color: #c2410c; font-weight: 800;">+${this.formatDisplayValue(selStok, isSelisihVal)}</span>`;
           }
 
           doiNetHtml = `${doiAfterSelisih >= 999 ? '>999' : doiAfterSelisih.toFixed(0)}d`;
+        }
+
+        // Dead Stock & Slow Moving cell content (Sheet DOI MNJ - only shown when cabang is filtered)
+        const deadColStyle = (activeTab !== 'mnj' || !isCabangFiltered) ? 'display:none;' : '';
+        const slowColStyle = (activeTab !== 'mnj' || !isCabangFiltered) ? 'display:none;' : '';
+
+        let deadStockHtml = '<span style="color: #94a3b8;">-</span>';
+        if (activeTab === 'mnj') {
+          const deadVal = isStockVal ? (item.dead_stock_value || 0) : (item.dead_stock_qty || 0);
+          if (deadVal > 0) {
+            deadStockHtml = `<span style="color: #991b1b; font-weight: 800;">${this.formatDisplayValue(deadVal, isStockVal)}</span>${item.dead_cab_cnt ? `<span style="display:block; font-size:9.5px; color:#be123c; font-weight:600;">${item.dead_cab_cnt} cbg</span>` : ''}`;
+          }
+        }
+
+        let slowMovingHtml = '<span style="color: #94a3b8;">-</span>';
+        if (activeTab === 'mnj') {
+          const slowVal = isStockVal ? (item.slow_moving_value || 0) : (item.slow_moving_qty || 0);
+          if (slowVal > 0) {
+            slowMovingHtml = `<span style="color: #c2410c; font-weight: 800;">${this.formatDisplayValue(slowVal, isStockVal)}</span>${item.slow_cab_cnt ? `<span style="display:block; font-size:9.5px; color:#ea580c; font-weight:600;">${item.slow_cab_cnt} cbg</span>` : ''}`;
+          }
         }
 
         // 2. Selisih GB (Always rendered, including Streamline)
@@ -1708,8 +2253,13 @@
             <td style="font-weight: 700; color: #0f172a;">${item.product_name}</td>
             <td><span style="font-size: 10.5px; color: #334155; font-weight: 700;">${item.gb}</span></td>
             <td><span class="badge" style="${ketBadgeStyle}">${item.keterangan_produk}</span></td>
-            <td style="${stokMnjColStyle} text-align: right; font-weight: 600; color: #b91c1c;">${this.formatDisplayValue(stokMNJ, isStockVal)}</td>
-            <td style="${stokKxColStyle} text-align: right; font-weight: 600; color: #0369a1;">${this.formatDisplayValue(stokKX, isStockVal)}</td>
+            <td style="${stokMnjColStyle} text-align: right; font-weight: 600; color: #b91c1c;">
+              ${this.formatDisplayValue(stokMNJ, isStockVal)}
+              ${(!isStockVal && (item.qty_baik !== undefined || item.qty_bdp !== undefined)) ? `<div style="font-size: 9.5px; color: #64748b; font-weight: 500;">B: ${this.formatDisplayValue(item.qty_baik || 0, false)} | BDP: ${this.formatDisplayValue(item.qty_bdp || 0, false)}</div>` : ''}
+            </td>
+            <td style="${stokKxColStyle} text-align: right; font-weight: 600; color: #0369a1;">
+              ${this.formatDisplayValue(stokKX, isStockVal)}
+            </td>
             <td style="${combColStyle} text-align: right; font-weight: 800; color: #0f172a;">${this.formatDisplayValue(stokTotal, isStockVal)}</td>
             <td style="text-align: right; font-weight: 600; color: #334155;">${this.formatDisplayValue(avgSales, isStockVal)}</td>
             <td style="${doiMnjColStyle} text-align: right; font-weight: 700; color: #b91c1c;">${doiMNJ >= 999 ? '>999' : doiMNJ.toFixed(0)}d</td>
@@ -1720,6 +2270,8 @@
             <td style="text-align: right; font-weight: 700; color: #047857;">
               ${doiMax >= 999 ? '>999' : doiMax ? doiMax.toFixed(0) : '0'}d
             </td>
+            <td style="${deadColStyle} text-align: right;">${deadStockHtml}</td>
+            <td style="${slowColStyle} text-align: right;">${slowMovingHtml}</td>
             <td style="text-align: right;">${selDoiHtml}</td>
             <td style="text-align: right;">${selStokHtml}</td>
             <td style="text-align: right;">${selGbHtml}</td>
@@ -1757,49 +2309,123 @@
     }
 
     openDetailModal(item) {
-      const modalContent = document.getElementById('modalContent');
       const modalOverlay = document.getElementById('modalOverlay') || document.getElementById('detailModalOverlay');
-      const modalBody = document.getElementById('detailModalBody') || modalContent;
+      const modalBody = document.getElementById('detailModalBody') || document.getElementById('modalContent');
       if (!modalOverlay || !modalBody) return;
 
-      const formatCurr = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val);
-      const formatNum = (val) => new Intl.NumberFormat('id-ID').format(val);
+      const formatCurr = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val || 0);
+      const formatNum = (val) => new Intl.NumberFormat('id-ID').format(val || 0);
       const doiMax = item.doi_max_days !== undefined ? item.doi_max_days : (item.target_doi_days || 90);
+      const activeTab = this.filters.activeTab || 'combined';
+      const isCabangFiltered = this.filters.selectedCabangs && this.filters.selectedCabangs.length > 0;
+      const cabNames = isCabangFiltered 
+        ? (this.filters.selectedCabangs.length > 2 ? `${this.filters.selectedCabangs.length} Cabang Terpilih` : this.filters.selectedCabangs.join(', '))
+        : 'Nasional';
+      const curAvgMonths = this.filters.avg_months || 6;
+      const avgLabel = (curAvgMonths >= 2024) ? curAvgMonths : `${curAvgMonths} Bulan`;
+
+      const isDead = (item.health_status_mnj === 'Dead Stock') || (item.dead_stock_value > 0);
+      const isSlow = (item.health_status_mnj === 'Slow Moving') || (item.slow_moving_value > 0);
+
+      let specialStatusBanner = '';
+      if (activeTab === 'mnj' && isDead) {
+        specialStatusBanner = `
+          <div style="background: #ffe4e6; border: 1px solid #fda4af; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 24px;">💀</span>
+              <div>
+                <div style="font-weight: 800; color: #991b1b; font-size: 14px;">TERIDENTIFIKASI DEAD STOCK (DISTRIBUTOR MNJ)</div>
+                <div style="font-size: 12px; color: #be123c;">6 bulan berturut-turut tanpa penjualan di cabang dan barang masih mengendap.</div>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 16px; font-weight: 800; color: #991b1b;">${formatCurr(item.dead_stock_value || 0)}</div>
+              <div style="font-size: 11px; color: #be123c; font-weight: 700;">${item.dead_cab_cnt || 0} Cabang Terdampak</div>
+            </div>
+          </div>
+        `;
+      } else if (activeTab === 'mnj' && isSlow) {
+        specialStatusBanner = `
+          <div style="background: #ffedd5; border: 1px solid #fdba74; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 24px;">⏳</span>
+              <div>
+                <div style="font-weight: 800; color: #c2410c; font-size: 14px;">TERIDENTIFIKASI SLOW MOVING (DISTRIBUTOR MNJ)</div>
+                <div style="font-size: 12px; color: #ea580c;">3 bulan berturut-turut tanpa penjualan atau rata-rata DOI 3 bulan di cabang > 180 hari.</div>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 16px; font-weight: 800; color: #c2410c;">${formatCurr(item.slow_moving_value || 0)}</div>
+              <div style="font-size: 11px; color: #ea580c; font-weight: 700;">${item.slow_cab_cnt || 0} Cabang Terdampak</div>
+            </div>
+          </div>
+        `;
+      }
+
+      const activeBadgeStatus = (activeTab === 'mnj') ? (item.health_status_mnj || item.health_status_total) : (activeTab === 'kx' ? (item.health_status_kx || item.health_status_total) : item.health_status_total);
 
       modalBody.innerHTML = `
         <div style="margin-bottom: 20px;">
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap;">
             <span class="badge" style="background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd;">${item.gb}</span>
             <span class="badge" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">${item.keterangan_produk}</span>
-            ${renderHealthBadge(item.health_status_total)}
+            ${renderHealthBadge(activeBadgeStatus)}
           </div>
           <h2 style="font-size: 20px; font-weight: 800; color: #0f172a;">${item.product_name}</h2>
           <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">Kode Produk: <strong style="color: var(--accent-cyan);">${item.product_code}</strong> | Principal Code: <strong>${item.principal_product_code || '-'}</strong></p>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
-          <div style="background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid var(--border-color);">
+        ${specialStatusBanner}
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px;">
+          <div style="background: #f8fafc; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border-color);">
             <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Harga Dasar Unit</div>
-            <div style="font-size: 18px; font-weight: 800; color: var(--accent-cyan); margin-top: 4px;">${formatCurr(item.harga_dasar)}</div>
+            <div style="font-size: 17px; font-weight: 800; color: var(--accent-cyan); margin-top: 4px;">${formatCurr(item.harga_dasar)}</div>
           </div>
-          <div style="background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid var(--border-color);">
-            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Avg Sales Bulanan</div>
-            <div style="font-size: 18px; font-weight: 800; color: #0f172a; margin-top: 4px;">${formatNum(item.avg_sales_qty)} Unit</div>
-            <div style="font-size: 12px; color: var(--text-muted);">${formatCurr(item.avg_sales_value)}</div>
+          <div style="background: #f8fafc; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border-color);">
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Avg Sales (${isCabangFiltered ? cabNames : 'Nasional'} - ${avgLabel})</div>
+            <div style="font-size: 17px; font-weight: 800; color: #0f172a; margin-top: 4px;">${formatNum(item.avg_sales_qty)} Unit</div>
+            <div style="font-size: 11px; color: var(--text-muted);">${formatCurr(item.avg_sales_value)}</div>
           </div>
+          ${activeTab === 'mnj' ? `
+            <div style="background: ${item.dead_stock_value > 0 ? '#fff1f2' : '#f8fafc'}; padding: 14px 16px; border-radius: 12px; border: 1px solid ${item.dead_stock_value > 0 ? '#fecdd3' : 'var(--border-color)'};">
+              <div style="font-size: 11px; color: ${item.dead_stock_value > 0 ? '#be123c' : 'var(--text-muted)'}; text-transform: uppercase; font-weight: 700;">💀 Dead Stock</div>
+              <div style="font-size: 17px; font-weight: 800; color: ${item.dead_stock_value > 0 ? '#991b1b' : '#334155'}; margin-top: 4px;">${formatCurr(item.dead_stock_value || 0)}</div>
+              <div style="font-size: 11px; color: ${item.dead_stock_value > 0 ? '#be123c' : 'var(--text-muted)'}; font-weight: 600;">${item.dead_cab_cnt || 0} Cabang</div>
+            </div>
+            <div style="background: ${item.slow_moving_value > 0 ? '#fff7ed' : '#f8fafc'}; padding: 14px 16px; border-radius: 12px; border: 1px solid ${item.slow_moving_value > 0 ? '#fed7aa' : 'var(--border-color)'};">
+              <div style="font-size: 11px; color: ${item.slow_moving_value > 0 ? '#ea580c' : 'var(--text-muted)'}; text-transform: uppercase; font-weight: 700;">⏳ Slow Moving</div>
+              <div style="font-size: 17px; font-weight: 800; color: ${item.slow_moving_value > 0 ? '#c2410c' : '#334155'}; margin-top: 4px;">${formatCurr(item.slow_moving_value || 0)}</div>
+              <div style="font-size: 11px; color: ${item.slow_moving_value > 0 ? '#ea580c' : 'var(--text-muted)'}; font-weight: 600;">${item.slow_cab_cnt || 0} Cabang</div>
+            </div>
+          ` : ''}
         </div>
 
         <h3 style="font-size: 13px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px;">Komparasi Persediaan &amp; Realisasi DOI (${item.period})</h3>
 
-        <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
           <!-- MNJ Row -->
           <div style="background: #f8fafc; padding: 14px 18px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <div style="font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">🏢 Distributor (MNJ)</div>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">${formatNum(item.stok_mnj_qty)} Unit (${formatCurr(item.stok_mnj_value)})</div>
+              <div style="font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                🏢 Distributor (MNJ) ${isCabangFiltered ? `<span style="font-size: 11px; background: #e0f2fe; color: #0284c7; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${cabNames}</span>` : '<span style="font-size: 11px; color: #64748b;">(Konsolidasi Nasional)</span>'}
+              </div>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+                ${formatNum(item.stok_mnj_qty)} Unit (${formatCurr(item.stok_mnj_value)})
+                <span style="font-size: 11px; color: #0284c7; font-weight: 600; margin-left: 6px;">[Baik: ${formatNum(item.qty_baik || 0)} | BDP: ${formatNum(item.qty_bdp || 0)}]</span>
+              </div>
+              ${activeTab === 'mnj' && item.health_status_mnj === 'Understock' ? `<div style="font-size: 12px; color: #dc2626; margin-top: 6px; font-weight: 700;">🔴 Defisit Understock: ${item.selisih_doi_mnj} Hari (-${formatCurr(Math.abs(item.selisih_value_mnj || 0))}) | Defisit Qty: ${formatNum(Math.abs(item.selisih_qty_mnj || 0))} Unit</div>` : ''}
+              ${activeTab === 'mnj' && item.health_status_mnj === 'Dead Stock' ? `<div style="font-size: 12px; color: #991b1b; margin-top: 6px; font-weight: 700;">💀 Dead Stock: +${item.selisih_doi_mnj} Hari (+${formatCurr(item.selisih_value_mnj || 0)}) | Qty: ${formatNum(item.selisih_qty_mnj || 0)} Unit</div>` : ''}
+              ${activeTab === 'mnj' && item.health_status_mnj === 'Slow Moving' ? `<div style="font-size: 12px; color: #c2410c; margin-top: 6px; font-weight: 700;">⏳ Slow Moving: +${item.selisih_doi_mnj} Hari (+${formatCurr(item.selisih_value_mnj || 0)}) | Qty: ${formatNum(item.selisih_qty_mnj || 0)} Unit</div>` : ''}
+              ${activeTab === 'mnj' && item.health_status_mnj === 'Overstock' ? `<div style="font-size: 12px; color: #d97706; margin-top: 6px; font-weight: 700;">🟡 Kelebihan Overstock: +${item.selisih_doi_mnj} Hari (+${formatCurr(item.selisih_value_mnj || 0)}) | Qty: ${formatNum(item.selisih_qty_mnj || 0)} Unit</div>` : ''}
+              ${activeTab === 'mnj' && (item.selisih_doi_konsolidasi !== undefined || item.selisih_doi_gb !== undefined) ? `
+                <div style="font-size: 11.5px; color: #0284c7; margin-top: 5px; font-weight: 600;">
+                  📊 Dampak ke DOI Konsolidasi (${isCabangFiltered ? cabNames : 'Nasional'}): ${(item.selisih_doi_konsolidasi !== undefined ? item.selisih_doi_konsolidasi : item.selisih_doi_gb) > 0 ? '+' : ''}${(item.selisih_doi_konsolidasi !== undefined ? item.selisih_doi_konsolidasi : item.selisih_doi_gb)} Hari
+                  <span style="color: #64748b; font-weight: normal; margin-left: 8px;">| Dampak ke DOI GB (${item.gb}): ${(item.selisih_doi_gb_only !== undefined ? item.selisih_doi_gb_only : item.selisih_doi_gb) > 0 ? '+' : ''}${(item.selisih_doi_gb_only !== undefined ? item.selisih_doi_gb_only : item.selisih_doi_gb)} Hari</span>
+                </div>` : ''}
             </div>
             <div style="text-align: right;">
-              <div style="font-size: 18px; font-weight: 800; color: #7c3aed;">${item.doi_mnj_days.toFixed(0)} Hari</div>
+              <div style="font-size: 18px; font-weight: 800; color: #b91c1c;">${item.doi_mnj_days.toFixed(0)} Hari</div>
               ${renderHealthBadge(item.health_status_mnj)}
             </div>
           </div>
@@ -1807,11 +2433,13 @@
           <!-- KX Row -->
           <div style="background: #f8fafc; padding: 14px 18px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <div style="font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">🏭 Principal (KX)</div>
+              <div style="font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                🏭 Principal (KX) <span style="font-size: 11px; color: #64748b;">(Konsolidasi Pabrik KX)</span>
+              </div>
               <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">${formatNum(item.stok_kx_qty)} Unit (${formatCurr(item.stok_kx_value)})</div>
             </div>
             <div style="text-align: right;">
-              <div style="font-size: 18px; font-weight: 800; color: #e11d48;">${item.doi_kx_days.toFixed(0)} Hari</div>
+              <div style="font-size: 18px; font-weight: 800; color: #0284c7;">${item.doi_kx_days.toFixed(0)} Hari</div>
               ${renderHealthBadge(item.health_status_kx || item.health_status_total)}
             </div>
           </div>
@@ -1819,21 +2447,154 @@
           <!-- Total Row -->
           <div style="background: #e0f2fe; border: 1px solid #bae6fd; padding: 16px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <div style="font-weight: 800; color: #0f172a; font-size: 15px;">🔗 Total Combined (MNJ + KX)</div>
+              <div style="font-weight: 800; color: #0f172a; font-size: 15px;">
+                🔗 Total Combined (MNJ + KX) <span style="font-size: 11px; color: #64748b; font-weight: normal;">(Konsolidasi Nasional)</span>
+              </div>
               <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">${formatNum(item.stok_total_qty)} Unit (${formatCurr(item.stok_total_value)})</div>
               <div style="font-size: 11px; color: #059669; margin-top: 4px;">Master Min/Max DOI: ${item.doi_min_days ? item.doi_min_days.toFixed(0) : '30'} - ${doiMax.toFixed(0)} Hari</div>
-              ${item.health_status_total === 'Overstock' ? `<div style="font-size: 12px; color: #d97706; margin-top: 6px; font-weight: 700;">🟡 Kelebihan Overstock: +${(item.selisih_doi_days || 0).toFixed(0)} Hari (+${formatCurr(item.value_overstock || 0)})</div>` : ''}
-              ${item.health_status_total === 'Understock' ? `<div style="font-size: 12px; color: #dc2626; margin-top: 6px; font-weight: 700;">🔴 Kekurangan Understock: ${(item.selisih_doi_days || 0).toFixed(0)} Hari (-${formatCurr(item.value_understock || 0)})</div>` : ''}
+              ${!isCabangFiltered && item.health_status_total === 'Overstock' ? `<div style="font-size: 12px; color: #d97706; margin-top: 6px; font-weight: 700;">🟡 Kelebihan Overstock (Nasional): +${(item.selisih_doi_days || 0).toFixed(0)} Hari (+${formatCurr(item.value_overstock || 0)})</div>` : ''}
+              ${!isCabangFiltered && item.health_status_total === 'Understock' ? `<div style="font-size: 12px; color: #dc2626; margin-top: 6px; font-weight: 700;">🔴 Kekurangan Understock (Nasional): ${(item.selisih_doi_days || 0).toFixed(0)} Hari (-${formatCurr(item.value_understock || 0)})</div>` : ''}
             </div>
             <div style="text-align: right;">
-              <div style="font-size: 22px; font-weight: 800; color: var(--accent-cyan);">${item.doi_total_days.toFixed(0)} Hari</div>
+              <div style="font-size: 22px; font-weight: 800; color: #0f172a;">${item.doi_total_days.toFixed(0)} Hari</div>
               ${renderHealthBadge(item.health_status_total)}
+            </div>
+          </div>
+        </div>
+
+        <!-- Section Rincian Cabang (Branch Breakdown) -->
+        <div id="branchBreakdownSection" style="border-top: 1px solid #e2e8f0; padding-top: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <h3 style="font-size: 14px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                <span>🏪</span> Rincian Persediaan Per Cabang MNJ (Dead &amp; Slow Moving Status)
+              </h3>
+              <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+                Evaluasi dinamis periode ${item.period || this.filters.period} &amp; rentang avg sales ${this.filters.avg_months >= 2024 ? this.filters.avg_months : this.filters.avg_months + ' bulan'} (Dead: 6 bln stok berturut &amp; 0 sales; Slow: 3 bln stok &amp; 0 sales atau DOI &gt; 180 hari).
+              </p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input type="text" id="branchSearchInput" placeholder="Cari nama cabang..." style="padding: 6px 12px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; width: 170px;">
+            </div>
+          </div>
+
+          <div id="branchTableContainer" style="max-height: 280px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff;">
+            <div style="text-align: center; padding: 25px; color: #64748b; font-size: 13px;">
+              <span>⏳ Memuat rincian cabang...</span>
             </div>
           </div>
         </div>
       `;
 
       modalOverlay.classList.add('active');
+
+      const curPeriod = item.period || this.filters.period || '2026-09';
+      const shortAvgLabel = (curAvgMonths >= 2024) ? curAvgMonths : `${curAvgMonths}M`;
+
+      // Fetch branch detail asynchronously
+      fetchWithRetry(`${API_BASE}/sku-cabang-detail?code=${encodeURIComponent(item.product_code)}&period=${encodeURIComponent(curPeriod)}&avg_months=${encodeURIComponent(curAvgMonths)}`)
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById('branchTableContainer');
+          if (!container) return;
+
+          const cabangs = data.cabangs || [];
+          if (cabangs.length === 0) {
+            container.innerHTML = `
+              <div style="text-align: center; padding: 25px; color: #94a3b8; font-size: 13px;">
+                Tidak ada data stok cabang untuk produk ini pada periode ${curPeriod}.
+              </div>
+            `;
+            return;
+          }
+
+          const renderCabangList = (list) => {
+            if (list.length === 0) {
+              container.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 12px;">
+                  Tidak ada cabang yang cocok dengan pencarian.
+                </div>
+              `;
+              return;
+            }
+
+            container.innerHTML = `
+              <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                <thead>
+                  <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; position: sticky; top: 0; z-index: 2;">
+                    <th style="padding: 8px 12px;">No</th>
+                    <th style="padding: 8px 12px;">Cabang</th>
+                    <th style="padding: 8px 12px;">Wilayah</th>
+                    <th style="padding: 8px 12px;">Status Cabang</th>
+                    <th style="padding: 8px 12px; text-align: right;">Stok Baik</th>
+                    <th style="padding: 8px 12px; text-align: right;">BDP</th>
+                    <th style="padding: 8px 12px; text-align: right;">Total Qty</th>
+                    <th style="padding: 8px 12px; text-align: right;">Total Value (IDR)</th>
+                    <th style="padding: 8px 12px; text-align: right;">Avg Sales (${avgLabel})</th>
+                    <th style="padding: 8px 12px; text-align: right;">DOI (${avgLabel})</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${list.map((c, idx) => {
+                    let stBadge = renderHealthBadge(c.status_cabang);
+                    let rowBg = '#ffffff';
+                    if (c.status_cabang === 'Dead Stock') rowBg = '#fff1f2';
+                    else if (c.status_cabang === 'Slow Moving') rowBg = '#fff7ed';
+
+                    return `
+                      <tr style="border-bottom: 1px solid #f1f5f9; background: ${rowBg};">
+                        <td style="padding: 8px 12px; color: #94a3b8;">${idx + 1}</td>
+                        <td style="padding: 8px 12px; font-weight: 700; color: #0f172a;">${c.cabang}</td>
+                        <td style="padding: 8px 12px; color: #64748b;">${c.wilayah || '-'}</td>
+                        <td style="padding: 8px 12px;">${stBadge}</td>
+                        <td style="padding: 8px 12px; text-align: right; color: #475569;">${formatNum(c.stok_baik || 0)}</td>
+                        <td style="padding: 8px 12px; text-align: right; color: ${c.stok_bdp > 0 ? '#d97706' : '#94a3b8'}; font-weight: ${c.stok_bdp > 0 ? '700' : '400'};">${formatNum(c.stok_bdp || 0)}</td>
+                        <td style="padding: 8px 12px; text-align: right; font-weight: 700; color: #0f172a;">${formatNum(c.stok_qty)}</td>
+                        <td style="padding: 8px 12px; text-align: right; font-weight: 700; color: ${c.status_cabang === 'Dead Stock' ? '#991b1b' : (c.status_cabang === 'Slow Moving' ? '#c2410c' : '#0f172a')};">
+                          ${formatCurr(c.stok_val)}
+                        </td>
+                        <td style="padding: 8px 12px; text-align: right; color: #334155;">${formatNum(c.avg_sales !== undefined ? c.avg_sales : c.avg_3m)}</td>
+                        <td style="padding: 8px 12px; text-align: right; font-weight: 700; color: ${(c.doi !== undefined ? c.doi : c.doi_3m) > 180 ? '#c2410c' : '#0f172a'};">
+                          ${(c.doi !== undefined ? c.doi : c.doi_3m) >= 999 ? '>999' : (c.doi !== undefined ? c.doi : c.doi_3m).toFixed(0)}d
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            `;
+          };
+
+          renderCabangList(cabangs);
+
+          const searchInput = document.getElementById('branchSearchInput');
+          if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+              const q = (e.target.value || '').toLowerCase().trim();
+              if (!q) {
+                renderCabangList(cabangs);
+              } else {
+                const filtered = cabangs.filter(c => 
+                  (c.cabang || '').toLowerCase().includes(q) || 
+                  (c.wilayah || '').toLowerCase().includes(q) ||
+                  (c.status_cabang || '').toLowerCase().includes(q)
+                );
+                renderCabangList(filtered);
+              }
+            });
+          }
+        })
+        .catch(err => {
+          console.error('[MODAL] Error fetching branch detail:', err);
+          const container = document.getElementById('branchTableContainer');
+          if (container) {
+            container.innerHTML = `
+              <div style="text-align: center; padding: 20px; color: #ef4444; font-size: 12px;">
+                Gagal memuat rincian cabang: ${err.message || err}
+              </div>
+            `;
+          }
+        });
     }
 
     updateApiStatus(online, msg) {
@@ -1878,7 +2639,7 @@
   function startApp() {
     if (!window.__doi_app_initialized) {
       window.__doi_app_initialized = true;
-      new DashboardApp();
+      window.dashboardApp = new DashboardApp();
     }
   }
 

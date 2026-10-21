@@ -272,7 +272,8 @@ def generate_doi_ppt(data_engine, filters: Dict[str, Any], template_path: str = 
     else:
         prs = Presentation(template_path)
 
-    period = filters.get("period", "2026-07")
+    default_period = data_engine.get_available_periods()[0] if hasattr(data_engine, "get_available_periods") and data_engine.get_available_periods() else "2026-09"
+    period = filters.get("period", default_period)
     unit = filters.get("unit", "value").lower()
     is_value = (unit == "value")
     avg_months = int(filters.get("avg_months", "6"))

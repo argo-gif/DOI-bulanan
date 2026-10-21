@@ -96,6 +96,9 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             elif path == "/api/v1/doi-data":
                 self.handle_doi_data(get_param)
 
+            elif path == "/api/v1/sku-cabang-detail":
+                self.handle_sku_cabang_detail(get_param)
+
             elif path == "/api/v1/export":
                 self.handle_export(get_param)
 
@@ -146,12 +149,15 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             for pcode, p in sorted(master.items(), key=lambda x: x[0])
         ]
 
+        cabang_opts = data_engine.get_available_cabangs()
+
         res = {
             "periods": periods,
             "gb_options": gbs,
             "keterangan_options": keterangan_opts,
             "product_options": product_options,
-            "avg_months_options": [1, 3, 6, 9, 12, 2025, 2026],
+            "cabang_options": cabang_opts,
+            "avg_months_options": [1, 3, 6, 9, 12, 2024, 2025, 2026],
             "total_products": len(master)
         }
         self._set_headers(200)
@@ -161,8 +167,9 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         period = get_param("period", "")
         avg_months = int(get_param("avg_months", "6"))
         view_mode = get_param("view_mode", get_param("view", get_param("tab", "combined"))).lower()
+        cabang_raw = get_param("cabang", "All")
         
-        report = data_engine.get_doi_mnj_report(period=period if period else None, avg_months=avg_months)
+        report = data_engine.get_doi_mnj_report(period=period if period else None, avg_months=avg_months, cabang=cabang_raw)
 
         gb_raw = get_param("gb", "All")
         gb_set = parse_multi_param(gb_raw)
@@ -215,10 +222,14 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
                 unit=unit_mode,
                 products=prod_raw,
                 health_status=health_status,
-                view_mode=view_mode
+                view_mode=view_mode,
+                cabang=cabang_raw
             )
             
             is_gb_active = bool(gb_set and "all" not in [g.lower() for g in gb_set])
+
+            gb_sales_map = {g["gb"]: (g["avg_sales_qty"] if unit_mode == "qty" else g["avg_sales_value"]) for g in gb_summary_report}
+            total_avg_sales_all_gb = sum((g["avg_sales_qty"] if unit_mode == "qty" else g["avg_sales_value"]) for g in gb_summary_report)
 
             for r in filtered:
                 ket_p = (r.get("keterangan_produk") or "").strip().lower()
@@ -234,38 +245,49 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
 
                 selisih_stok_metric = selisih_stok_qty if unit_mode == "qty" else selisih_stok_val
 
-                if is_gb_active:
-                    gb_sales_map = {g["gb"]: (g["avg_sales_qty"] if unit_mode == "qty" else g["avg_sales_value"]) for g in gb_summary_report}
-                    r_gb = r.get("gb", "Unassigned")
-                    gb_avg_sales = gb_sales_map.get(r_gb, 0.0)
-                    selisih_gb_days = round((selisih_stok_metric / gb_avg_sales * 30.0), 2) if gb_avg_sales > 0 else 0.0
-                else:
-                    total_avg_sales_all_gb = sum((g["avg_sales_qty"] if unit_mode == "qty" else g["avg_sales_value"]) for g in gb_summary_report)
-                    selisih_gb_days = round((selisih_stok_metric / total_avg_sales_all_gb * 30.0), 2) if total_avg_sales_all_gb > 0 else 0.0
+                r_gb = r.get("gb", "Unassigned")
+                gb_avg_sales = gb_sales_map.get(r_gb, 0.0)
+                selisih_gb_days = round((selisih_stok_metric / gb_avg_sales * 30.0), 2) if gb_avg_sales > 0 else 0.0
+                selisih_konsolidasi_days = round((selisih_stok_metric / total_avg_sales_all_gb * 30.0), 2) if total_avg_sales_all_gb > 0 else 0.0
 
-                r["selisih_doi_gb"] = selisih_gb_days
+                if is_gb_active:
+                    r["selisih_doi_gb"] = selisih_gb_days
+                else:
+                    r["selisih_doi_gb"] = selisih_konsolidasi_days
+
+                r["selisih_doi_gb_only"] = selisih_gb_days
+                r["selisih_doi_konsolidasi"] = selisih_konsolidasi_days
                 r["selisih_value_gb"] = selisih_stok_val
                 r["selisih_qty_gb"] = selisih_stok_qty
 
         # Urutkan data berdasarkan Selisih Stok terbesar ke kecil (descending) sesuai unit_mode (qty atau value)
         if filtered:
             unit_mode = get_param("unit", "value").lower()
+            is_cabang_filtered = bool(cabang_raw and cabang_raw.strip().lower() != "all")
+
             def get_sort_key(x):
                 ket_p = (x.get("keterangan_produk") or "").strip().lower()
-                if unit_mode == "qty":
-                    if view_mode == "mnj":
-                        return x.get("stok_mnj_qty", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_qty_mnj", 0.0)
-                    elif view_mode == "kx":
-                        return x.get("stok_kx_qty", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_qty_kx", 0.0)
-                    else:
-                        return x.get("stok_total_qty", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_qty", 0.0)
+                is_special = ket_p in ["streamline", "festive"]
+                if view_mode == "mnj":
+                    sel = 0.0 if is_special else (x.get("selisih_qty_mnj", 0.0) if unit_mode == "qty" else x.get("selisih_value_mnj", 0.0))
+                    stk = x.get("stok_mnj_qty", 0.0) if unit_mode == "qty" else x.get("stok_mnj_value", 0.0)
+                elif view_mode == "kx":
+                    sel = 0.0 if is_special else (x.get("selisih_qty_kx", 0.0) if unit_mode == "qty" else x.get("selisih_value_kx", 0.0))
+                    stk = x.get("stok_kx_qty", 0.0) if unit_mode == "qty" else x.get("stok_kx_value", 0.0)
                 else:
-                    if view_mode == "mnj":
-                        return x.get("stok_mnj_value", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_value_mnj", 0.0)
-                    elif view_mode == "kx":
-                        return x.get("stok_kx_value", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_value_kx", 0.0)
-                    else:
-                        return x.get("stok_total_value", 0.0) if ket_p in ["streamline", "festive"] else x.get("selisih_value", 0.0)
+                    sel = 0.0 if is_special else (x.get("selisih_qty", 0.0) if unit_mode == "qty" else x.get("selisih_value", 0.0))
+                    stk = x.get("stok_total_qty", 0.0) if unit_mode == "qty" else x.get("stok_total_value", 0.0)
+
+                # Urutkan selisih dari terbesar ke terkecil murni berdasarkan selisih (bukan kelompok status):
+                # 1. Surplus (sel > 0): Overstock, Slow Moving, Dead Stock bersaing murni dari selisih terbesar
+                # 2. Defisit (sel < 0): Understock berdasarkan defisit terbesar
+                # 3. Normal / Festive / Streamline / Produk Baru (sel == 0): berdasarkan stok terbesar
+                if sel > 0:
+                    return (3, sel)
+                elif sel < 0:
+                    return (2, abs(sel))
+                else:
+                    return (1, stk)
 
             filtered.sort(key=get_sort_key, reverse=True)
 
@@ -275,10 +297,19 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         filtered = self.get_filtered_data(get_param)
         unit = get_param("unit", "qty").lower()
         view_mode = get_param("view_mode", get_param("view", get_param("tab", "combined"))).lower()
+        cabang_raw = get_param("cabang", "All")
+        is_cabang_filtered = bool(cabang_raw and cabang_raw.strip().lower() != "all")
 
         under = 0
         normal = 0
         over = 0
+        dead = 0
+        slow = 0
+
+        tot_dead_val = 0.0
+        tot_dead_qty = 0.0
+        tot_slow_val = 0.0
+        tot_slow_qty = 0.0
         
         tot_mnj_val = 0.0
         tot_mnj_qty = 0.0
@@ -297,6 +328,15 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
                 normal += 1
             elif status == "Overstock":
                 over += 1
+            elif status == "Dead Stock":
+                dead += 1
+            elif status == "Slow Moving":
+                slow += 1
+
+            tot_dead_val += r.get("dead_stock_value", 0.0)
+            tot_dead_qty += r.get("dead_stock_qty", 0.0)
+            tot_slow_val += r.get("slow_moving_value", 0.0)
+            tot_slow_qty += r.get("slow_moving_qty", 0.0)
 
             tot_mnj_val += r["stok_mnj_value"]
             tot_mnj_qty += r["stok_mnj_qty"]
@@ -310,7 +350,8 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             tot_sales_val += r["avg_sales_value"]
             tot_sales_qty += r["avg_sales_qty"]
 
-        period_active = filtered[0]["period"] if filtered else get_param("period", "2026-07")
+        default_period = data_engine.get_available_periods()[0] if data_engine.get_available_periods() else "2026-09"
+        period_active = filtered[0]["period"] if filtered else get_param("period", default_period)
 
         res = {
             "period": period_active,
@@ -319,6 +360,14 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             "understock_count": under,
             "normal_count": normal,
             "overstock_count": over,
+
+            # Dead & Slow Moving Metrics (Sheet DOI MNJ when cabang is filtered)
+            "dead_stock_count": dead if (view_mode == "mnj" and is_cabang_filtered) else 0,
+            "total_dead_stock_value": round(tot_dead_val, 2) if (view_mode == "mnj" and is_cabang_filtered) else 0.0,
+            "total_dead_stock_qty": round(tot_dead_qty, 2) if (view_mode == "mnj" and is_cabang_filtered) else 0.0,
+            "slow_moving_count": slow if (view_mode == "mnj" and is_cabang_filtered) else 0,
+            "total_slow_moving_value": round(tot_slow_val, 2) if (view_mode == "mnj" and is_cabang_filtered) else 0.0,
+            "total_slow_moving_qty": round(tot_slow_qty, 2) if (view_mode == "mnj" and is_cabang_filtered) else 0.0,
 
             # MNJ Stock
             "total_stok_mnj_value": round(tot_mnj_val, 2),
@@ -349,6 +398,7 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         view_mode = get_param("view_mode", get_param("view", get_param("tab", "combined"))).lower()
         gb_raw = get_param("gb", "All")
         gb_set = parse_multi_param(gb_raw)
+        cabang_raw = get_param("cabang", "All")
 
         gb_summary = data_engine.get_gb_summary_report(
             period=period if period else None,
@@ -357,7 +407,8 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             unit=unit,
             products=products,
             health_status=health_status,
-            view_mode=view_mode
+            view_mode=view_mode,
+            cabang=cabang_raw
         )
 
         if gb_set and "all" not in [g.lower() for g in gb_set]:
@@ -376,6 +427,7 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         view_mode = get_param("view_mode", get_param("view", get_param("tab", "combined"))).lower()
         gb_raw = get_param("gb", "All")
         gb_set = parse_multi_param(gb_raw)
+        cabang_raw = get_param("cabang", "All")
 
         cat_summary = data_engine.get_category_gb_summary_report(
             period=period if period else None,
@@ -385,7 +437,8 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             products=products,
             health_status=health_status,
             gb=gb_raw,
-            view_mode=view_mode
+            view_mode=view_mode,
+            cabang=cabang_raw
         )
 
         if gb_set and "all" not in [g.lower() for g in gb_set]:
@@ -403,7 +456,9 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         unit = get_param("unit", "value")
         period = get_param("period", get_param("until_period", ""))
         view_mode = get_param("view_mode", get_param("view", get_param("tab", "combined"))).lower()
+        cabang_raw = get_param("cabang", "All")
 
+        limit_months = int(get_param("limit_months", "12"))
         trend_data = data_engine.get_historical_doi_trend(
             gb=gb,
             keterangan=keterangan,
@@ -412,7 +467,9 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             products=products,
             health_status=health_status,
             until_period=period if period else None,
-            view_mode=view_mode
+            view_mode=view_mode,
+            limit_months=limit_months,
+            cabang=cabang_raw
         )
 
         self._set_headers(200)
@@ -439,6 +496,18 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         }
         self._set_headers(200)
         self.wfile.write(json.dumps(res).encode("utf-8"))
+
+    def handle_sku_cabang_detail(self, get_param):
+        pcode = get_param("code", get_param("product_code", ""))
+        period = get_param("period", None)
+        avg_months = int(get_param("avg_months", "6"))
+        if not pcode:
+            self._set_headers(400)
+            self.wfile.write(json.dumps({"error": "Missing parameter 'code'"}).encode("utf-8"))
+            return
+        detail = data_engine.get_sku_cabang_details(pcode, period=period, avg_months=avg_months)
+        self._set_headers(200)
+        self.wfile.write(json.dumps(detail).encode("utf-8"))
 
     def handle_export(self, get_param):
         filtered = self.get_filtered_data(get_param)
@@ -481,7 +550,8 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         from openpyxl.utils import get_column_letter
 
         filtered = self.get_filtered_data(get_param)
-        period_str = get_param("period", "2026-07")
+        default_period = data_engine.get_available_periods()[0] if data_engine.get_available_periods() else "2026-09"
+        period_str = get_param("period", default_period)
 
         wb = openpyxl.Workbook()
 
@@ -536,35 +606,62 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         auto_fit_columns(ws_comb)
 
         # Sheet 2: DOI MNJ (Distributor)
-        ws_mnj = wb.create_sheet(title="DOI MNJ (Distributor)")
-        headers_mnj = [
-            "Periode", "Kode Produk", "Kode Principal", "Nama Produk", "GB", "Keterangan",
-            "Harga Dasar (IDR)", "Qty Baik MNJ", "Qty BDP MNJ", "Total Stok MNJ Qty", "Stok MNJ Value (IDR)",
-            "Avg Sales Qty", "Avg Sales Value (IDR)", "DOI MNJ (Hari)", "DOI Max Master (Hari)",
-            "Selisih DOI MNJ (Hari)", "Selisih Stok MNJ (IDR)", "Status Stok MNJ"
-        ]
-        style_header(ws_mnj, headers_mnj)
+        cabang_raw = get_param("cabang", "All")
+        is_cabang_filtered = bool(cabang_raw and cabang_raw.strip().lower() != "all")
 
-        for r in filtered:
-            ket_p = (r.get("keterangan_produk") or "").strip().lower()
-            is_spec = ket_p in ["streamline", "festive"]
-            doi_max = r["doi_max_days"]
-            doi_mnj = r["doi_mnj_days"]
-            sel_doi_mnj = round(max(0.0, doi_mnj - doi_max), 1) if (not is_spec and doi_max > 0 and doi_mnj > doi_max) else (
-                round(doi_mnj - doi_max, 1) if (not is_spec and doi_max > 0 and doi_mnj < r["doi_min_days"]) else 0.0
-            )
-            sel_stok_mnj = r["stok_mnj_value"] if is_spec else (
-                round(max(0.0, r["stok_mnj_value"] - (doi_max / 30.0 * r["avg_sales_value"])), 2) if (doi_max > 0 and doi_mnj > doi_max) else 0.0
-            )
+        if is_cabang_filtered:
+            sheet_title = f"DOI MNJ ({cabang_raw[:20]})"
+            ws_mnj = wb.create_sheet(title=sheet_title)
+            headers_mnj = [
+                "Periode", "Kode Produk", "Kode Principal", "Nama Produk", "GB", "Keterangan",
+                "Harga Dasar (IDR)", "Total Stok MNJ Qty", "Stok MNJ Value (IDR)",
+                "Avg Sales Qty", "Avg Sales Value (IDR)", "DOI MNJ (Hari)", "DOI Max Master (Hari)",
+                "Dead Stock Value (IDR)", "Slow Moving Value (IDR)",
+                "Selisih DOI MNJ (Hari)", "Selisih Stok MNJ (IDR)", "Status Stok MNJ"
+            ]
+            style_header(ws_mnj, headers_mnj)
 
-            ws_mnj.append([
-                r["period"], r["product_code"], r["principal_product_code"], r["product_name"],
-                r["gb"], r["keterangan_produk"], r["harga_dasar"],
-                r["qty_baik"], r["qty_bdp"], r["stok_mnj_qty"], r["stok_mnj_value"],
-                r["avg_sales_qty"], r["avg_sales_value"], doi_mnj, doi_max,
-                sel_doi_mnj, sel_stok_mnj, r["health_status_mnj"]
-            ])
-        auto_fit_columns(ws_mnj)
+            for r in filtered:
+                doi_max = r.get("doi_max_mnj", r["doi_max_days"])
+                doi_mnj = r["doi_mnj_days"]
+                sel_doi_mnj = r.get("selisih_doi_mnj", 0.0)
+                sel_stok_mnj = r.get("selisih_value_mnj", 0.0)
+                dead_val = r.get("dead_stock_value", 0.0)
+                slow_val = r.get("slow_moving_value", 0.0)
+
+                ws_mnj.append([
+                    r["period"], r["product_code"], r["principal_product_code"], r["product_name"],
+                    r["gb"], r["keterangan_produk"], r["harga_dasar"],
+                    r["stok_mnj_qty"], r["stok_mnj_value"],
+                    r["avg_sales_qty"], r["avg_sales_value"], doi_mnj, doi_max,
+                    dead_val, slow_val,
+                    sel_doi_mnj, sel_stok_mnj, r["health_status_mnj"]
+                ])
+            auto_fit_columns(ws_mnj)
+        else:
+            ws_mnj = wb.create_sheet(title="DOI MNJ (Distributor)")
+            headers_mnj = [
+                "Periode", "Kode Produk", "Kode Principal", "Nama Produk", "GB", "Keterangan",
+                "Harga Dasar (IDR)", "Qty Baik MNJ", "Qty BDP MNJ", "Total Stok MNJ Qty", "Stok MNJ Value (IDR)",
+                "Avg Sales Qty", "Avg Sales Value (IDR)", "DOI MNJ (Hari)", "DOI Max Master (Hari)",
+                "Selisih DOI MNJ (Hari)", "Selisih Stok MNJ (IDR)", "Status Stok MNJ"
+            ]
+            style_header(ws_mnj, headers_mnj)
+
+            for r in filtered:
+                doi_max = r.get("doi_max_mnj", r["doi_max_days"])
+                doi_mnj = r["doi_mnj_days"]
+                sel_doi_mnj = r.get("selisih_doi_mnj", 0.0)
+                sel_stok_mnj = r.get("selisih_value_mnj", 0.0)
+
+                ws_mnj.append([
+                    r["period"], r["product_code"], r["principal_product_code"], r["product_name"],
+                    r["gb"], r["keterangan_produk"], r["harga_dasar"],
+                    r["qty_baik"], r["qty_bdp"], r["stok_mnj_qty"], r["stok_mnj_value"],
+                    r["avg_sales_qty"], r["avg_sales_value"], doi_mnj, doi_max,
+                    sel_doi_mnj, sel_stok_mnj, r["health_status_mnj"]
+                ])
+            auto_fit_columns(ws_mnj)
 
         # Sheet 3: DOI KX (Principal)
         ws_kx = wb.create_sheet(title="DOI KX (Principal)")
@@ -609,8 +706,9 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(excel_bytes)
 
     def handle_export_ppt(self, get_param):
+        default_period = data_engine.get_available_periods()[0] if data_engine.get_available_periods() else "2026-09"
         filters = {
-            "period": get_param("period", "2026-07"),
+            "period": get_param("period", default_period),
             "unit": get_param("unit", "value"),
             "gb": get_param("gb", "All"),
             "keterangan": get_param("keterangan", "All"),
@@ -631,13 +729,50 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(ppt_bytes)
 
-def run_server(port=8000):
+class DualStackServer(ThreadingHTTPServer):
+    def server_bind(self):
+        import socket
+        try:
+            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        except Exception:
+            pass
+        return super().server_bind()
+
+def create_server(port):
+    import socket
+    try:
+        class IPv6Server(DualStackServer):
+            address_family = socket.AF_INET6
+        return IPv6Server(("::", port), DOIRequestHandler)
+    except Exception:
+        return ThreadingHTTPServer(("0.0.0.0", port), DOIRequestHandler)
+
+def run_server(port=8000, auto_open_browser=True):
     print("[SERVER] Preloading datasets into memory...", flush=True)
     data_engine.preload_all_data()
 
-    server_address = ("0.0.0.0", port)
-    httpd = ThreadingHTTPServer(server_address, DOIRequestHandler)
-    print(f"[SERVER] DOI MNJ & KX Monitoring API Server running on http://localhost:{port} and http://127.0.0.1:{port}", flush=True)
+    try:
+        httpd = create_server(port)
+    except OSError as e:
+        print(f"[SERVER] Port {port} sudah aktif ({e}). Membuka browser ke http://localhost:{port}...", flush=True)
+        if auto_open_browser:
+            import webbrowser
+            webbrowser.open(f"http://localhost:{port}")
+        return
+
+    print(f"\n===================================================================", flush=True)
+    print(f"  [SERVER READY] Dashboard Monitoring DOI Bulanan Berhasil Aktif!", flush=True)
+    print(f"  Akses Dashboard melalui browser:", flush=True)
+    print(f"  -> http://localhost:{port}", flush=True)
+    print(f"  -> http://127.0.0.1:{port}", flush=True)
+    print(f"===================================================================\n", flush=True)
+
+    if auto_open_browser:
+        def _open():
+            import time, webbrowser
+            time.sleep(0.5)
+            webbrowser.open(f"http://localhost:{port}")
+        threading.Thread(target=_open, daemon=True).start()
 
     try:
         httpd.serve_forever()

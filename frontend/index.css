@@ -622,6 +622,26 @@ body {
   color: #0284c7;
 }
 
+.status-filter-card.status-card-dead.active {
+  background: #ffe4e6;
+  border: 1px solid #be123c;
+  box-shadow: 0 0 12px rgba(190, 18, 60, 0.25);
+}
+
+.status-filter-card.status-card-dead.active .status-card-title {
+  color: #be123c;
+}
+
+.status-filter-card.status-card-slow.active {
+  background: #ffedd5;
+  border: 1px solid #ea580c;
+  box-shadow: 0 0 12px rgba(234, 88, 12, 0.25);
+}
+
+.status-filter-card.status-card-slow.active .status-card-title {
+  color: #ea580c;
+}
+
 .status-filter-card.status-card-understock.active {
   background: #fee2e2;
   border: 1px solid #dc2626;
@@ -653,6 +673,14 @@ body {
 }
 
 /* Hover highlights for non-active cards */
+.status-filter-card.status-card-dead:hover:not(.active) {
+  border-color: #f43f5e;
+}
+
+.status-filter-card.status-card-slow:hover:not(.active) {
+  border-color: #fb923c;
+}
+
 .status-filter-card.status-card-understock:hover:not(.active) {
   border-color: #f87171;
 }
@@ -912,8 +940,10 @@ body {
 }
 
 .modal-card {
-  width: 90%;
-  max-width: 650px;
+  width: 92%;
+  max-width: 840px;
+  max-height: 88vh;
+  overflow-y: auto;
   padding: 30px;
   position: relative;
   background: #ffffff;
