@@ -1989,6 +1989,65 @@ class DataEngine:
         cat_bel = get_cat_stat("below_-3", "Expired < -3 Bulan")
         cat_abv = get_cat_stat("above_3", "Expired > 3 Bulan")
 
+        # Determine YTD period range based on active period filter
+        # e.g., filter '2026-09' -> YTD '2026-01' to '2026-09' (Jan 26 - Sep 26)
+        # filter '2025-12' -> YTD '2025-01' to '2025-12' (Jan 25 - Des 25)
+        ID_MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
+        
+        target_period = None
+        if period and period.strip().lower() != "all":
+            p_parts = [p.strip() for p in period.split(",") if p.strip() and p.strip().lower() != "all"]
+            if p_parts:
+                target_period = p_parts[-1]
+
+        if not target_period:
+            if self._upb_records:
+                target_period = max((r["trans_period"] for r in self._upb_records), default="2026-09")
+            else:
+                target_period = "2026-09"
+
+        try:
+            year_str = target_period[:4]
+            month_int = int(target_period[5:7])
+        except Exception:
+            year_str = "2026"
+            month_int = 9
+
+        ytd_periods = [f"{year_str}-{m:02d}" for m in range(1, month_int + 1)]
+        end_month_name = ID_MONTHS[month_int - 1] if 1 <= month_int <= 12 else f"{month_int:02d}"
+        ytd_label = f"Jan {year_str} - {end_month_name} {year_str}" if month_int > 1 else f"Jan {year_str}"
+
+        # Filter YTD records (ignoring monthly period filter, respecting cabang, gb, category, product)
+        ytd_period_arg = ",".join(ytd_periods)
+        ytd_filtered = self._filter_upb_records(period=ytd_period_arg, cabang=cabang, gb=gb, category=category, product=product)
+
+        ytd_total_val = sum(r["val"] for r in ytd_filtered)
+        ytd_total_qty = sum(r["qty"] for r in ytd_filtered)
+        ytd_total_rows = len(ytd_filtered)
+
+        def get_ytd_cat_stat(cat_key: str, label_name: str) -> Dict[str, Any]:
+            items = [r for r in ytd_filtered if r["exp_category"] == cat_key]
+            c_val = sum(r["val"] for r in items)
+            c_qty = sum(r["qty"] for r in items)
+            c_rows = len(items)
+            pct_val = round((c_val / ytd_total_val * 100.0) if ytd_total_val > 0 else 0.0, 1)
+            pct_qty = round((c_qty / ytd_total_qty * 100.0) if ytd_total_qty > 0 else 0.0, 1)
+            return {
+                "label": label_name,
+                "val": round(c_val, 2),
+                "qty": round(c_qty, 2),
+                "rows": c_rows,
+                "count": c_rows,
+                "pct_val": pct_val,
+                "val_pct": pct_val,
+                "pct_qty": pct_qty,
+                "qty_pct": pct_qty
+            }
+
+        ytd_pm3 = get_ytd_cat_stat("plus_minus_3", "Expired ± 3 Bulan")
+        ytd_bel = get_ytd_cat_stat("below_-3", "Expired < -3 Bulan")
+        ytd_abv = get_ytd_cat_stat("above_3", "Expired > 3 Bulan")
+
         return {
             "period": period,
             "unit": unit,
@@ -2007,6 +2066,25 @@ class DataEngine:
                 "below_minus_3": cat_bel,
                 "below_-3": cat_bel,
                 "above_3": cat_abv
+            },
+            "ytd": {
+                "period_label": ytd_label,
+                "year": year_str,
+                "end_month": month_int,
+                "periods": ytd_periods,
+                "total_val": round(ytd_total_val, 2),
+                "total_qty": round(ytd_total_qty, 2),
+                "total_rows": ytd_total_rows,
+                "total_records": ytd_total_rows,
+                "cat_plus_minus_3": ytd_pm3,
+                "cat_below_3": ytd_bel,
+                "cat_above_3": ytd_abv,
+                "categories": {
+                    "plus_minus_3": ytd_pm3,
+                    "below_minus_3": ytd_bel,
+                    "below_-3": ytd_bel,
+                    "above_3": ytd_abv
+                }
             }
         }
 

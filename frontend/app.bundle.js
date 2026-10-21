@@ -3090,6 +3090,60 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
       const subBelow = document.getElementById('upbSubBelow');
       if (valBelow) valBelow.innerHTML = `${formatCompact(bel.val)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${belPct}%)</span>`;
       if (subBelow) subBelow.innerText = `${formatNum(bel.qty)} Unit • ${formatNum(belCount)} Transaksi`;
+
+      // Helper to format 'YYYY-MM' -> 'Mmm YYYY'
+      const formatPeriodLabel = (p) => {
+        if (!p || p === 'All') return 'Semua Periode';
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        try {
+          const parts = p.split('-');
+          if (parts.length === 2) {
+            const mIdx = parseInt(parts[1], 10) - 1;
+            if (mIdx >= 0 && mIdx < 12) return `${months[mIdx]} ${parts[0]}`;
+          }
+        } catch (e) {}
+        return p;
+      };
+
+      const monthLbl = document.getElementById('upbMonthPeriodLabel');
+      if (monthLbl) monthLbl.innerText = formatPeriodLabel(s.period);
+
+      // 2. Render YTD Cumulative Cards (Di atasnya)
+      if (s.ytd) {
+        const y = s.ytd;
+        const ytdLbl = document.getElementById('upbYtdPeriodLabel');
+        if (ytdLbl && y.period_label) ytdLbl.innerText = y.period_label;
+
+        const valAllYtd = document.getElementById('upbValAllYtd');
+        const subAllYtd = document.getElementById('upbSubAllYtd');
+        if (valAllYtd) valAllYtd.innerText = formatCompact(y.total_val);
+        if (subAllYtd) subAllYtd.innerText = `${formatNum(y.total_qty)} Unit • ${formatNum(y.total_records || y.total_rows || 0)} Transaksi`;
+
+        const yPm3 = (y.categories && y.categories.plus_minus_3) || y.cat_plus_minus_3 || { val: 0, qty: 0, count: 0, val_pct: 0 };
+        const yAbv = (y.categories && y.categories.above_3) || y.cat_above_3 || { val: 0, qty: 0, count: 0, val_pct: 0 };
+        const yBel = (y.categories && (y.categories['below_-3'] || y.categories.below_minus_3)) || y.cat_below_3 || { val: 0, qty: 0, count: 0, val_pct: 0 };
+
+        const yPm3Pct = yPm3.val_pct !== undefined ? yPm3.val_pct : (yPm3.pct_val !== undefined ? yPm3.pct_val : 0);
+        const yPm3Count = yPm3.count !== undefined ? yPm3.count : (yPm3.rows !== undefined ? yPm3.rows : 0);
+        const valPm3Ytd = document.getElementById('upbValPm3Ytd');
+        const subPm3Ytd = document.getElementById('upbSubPm3Ytd');
+        if (valPm3Ytd) valPm3Ytd.innerHTML = `${formatCompact(yPm3.val)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${yPm3Pct}%)</span>`;
+        if (subPm3Ytd) subPm3Ytd.innerText = `${formatNum(yPm3.qty)} Unit • ${formatNum(yPm3Count)} Transaksi`;
+
+        const yAbvPct = yAbv.val_pct !== undefined ? yAbv.val_pct : (yAbv.pct_val !== undefined ? yAbv.pct_val : 0);
+        const yAbvCount = yAbv.count !== undefined ? yAbv.count : (yAbv.rows !== undefined ? yAbv.rows : 0);
+        const valAboveYtd = document.getElementById('upbValAboveYtd');
+        const subAboveYtd = document.getElementById('upbSubAboveYtd');
+        if (valAboveYtd) valAboveYtd.innerHTML = `${formatCompact(yAbv.val)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${yAbvPct}%)</span>`;
+        if (subAboveYtd) subAboveYtd.innerText = `${formatNum(yAbv.qty)} Unit • ${formatNum(yAbvCount)} Transaksi`;
+
+        const yBelPct = yBel.val_pct !== undefined ? yBel.val_pct : (yBel.pct_val !== undefined ? yBel.pct_val : 0);
+        const yBelCount = yBel.count !== undefined ? yBel.count : (yBel.rows !== undefined ? yBel.rows : 0);
+        const valBelowYtd = document.getElementById('upbValBelowYtd');
+        const subBelowYtd = document.getElementById('upbSubBelowYtd');
+        if (valBelowYtd) valBelowYtd.innerHTML = `${formatCompact(yBel.val)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${yBelPct}%)</span>`;
+        if (subBelowYtd) subBelowYtd.innerText = `${formatNum(yBel.qty)} Unit • ${formatNum(yBelCount)} Transaksi`;
+      }
     }
 
     renderUpbTrendChart() {

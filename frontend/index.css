@@ -1130,6 +1130,23 @@ body {
   box-shadow: 0 4px 14px rgba(245, 158, 11, 0.2);
 }
 
+.upb-ytd-card {
+  background: #ffffff;
+  border: 1.5px solid #e0e7ff;
+  border-radius: var(--radius-md);
+  padding: 15px 16px;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.upb-ytd-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.09);
+  border-color: #c7d2fe;
+}
+
 .upb-status-card {
   background: #ffffff;
   border: 1.5px solid #e2e8f0;
