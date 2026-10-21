@@ -3129,18 +3129,21 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
         });
       });
       if (isNaN(maxVal) || maxVal <= 0) maxVal = 1000;
-      maxVal = maxVal * 1.15; // 15% headroom
+      maxVal = maxVal * 1.25; // 25% headroom to avoid clipping top peak labels
 
       const width = Math.max(container.clientWidth || 960, 600);
-      const height = 320;
+      const height = 370;
       const padLeft = 85;
-      const padRight = 30;
-      const padTop = 25;
-      const padBottom = 50;
+      const padRight = 35;
+      const padTop = 38;
+      const padBottom = 55;
+      const xInset = 24; // Inset so first and last points are never clipped or touching axis
 
       const plotW = width - padLeft - padRight;
       const plotH = height - padTop - padBottom;
-      const stepX = data.length > 1 ? (plotW / (data.length - 1)) : plotW;
+      const xStart = padLeft + xInset;
+      const xEnd = width - padRight - xInset;
+      const stepX = data.length > 1 ? ((xEnd - xStart) / (data.length - 1)) : 0;
 
       const getY = (val) => padTop + plotH - ((val / maxVal) * plotH);
       const formatY = (v) => {
@@ -3155,6 +3158,20 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
         }
       };
 
+      const formatLabel = (v) => {
+        if (isQty) {
+          if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+          if (v >= 1e4) return `${Math.round(v / 1e3)}k`;
+          if (v >= 1e3) return `${(v / 1e3).toFixed(1)}k`;
+          return v > 0 ? `${Math.round(v)}` : '0';
+        } else {
+          if (v >= 1e9) return `${(v / 1e9).toFixed(1)}M`;
+          if (v >= 1e6) return `${Math.round(v / 1e6)}Jt`;
+          if (v >= 1e3) return `${Math.round(v / 1e3)}Rb`;
+          return v > 0 ? `${Math.round(v)}` : '0';
+        }
+      };
+
       // Gridlines & Labels
       let gridSvg = '';
       const gridSteps = 5;
@@ -3163,14 +3180,14 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
         const yPos = getY(yVal);
         gridSvg += `
           <line x1="${padLeft}" y1="${yPos}" x2="${width - padRight}" y2="${yPos}" stroke="#f1f5f9" stroke-width="1.2" stroke-dasharray="${i === 0 ? 'none' : '3,3'}" />
-          <text x="${padLeft - 12}" y="${yPos + 4}" font-size="11" font-weight="600" fill="#94a3b8" text-anchor="end">${formatY(yVal)}</text>
+          <text x="${padLeft - 10}" y="${yPos + 4}" font-size="11" font-weight="600" fill="#94a3b8" text-anchor="end">${formatY(yVal)}</text>
         `;
       }
 
       // X-Axis labels
       let xLabelsSvg = '';
       data.forEach((d, i) => {
-        const xPos = padLeft + i * stepX;
+        const xPos = xStart + i * stepX;
         const rawLbl = d.label || d.period_label || d.period;
         const shortLbl = rawLbl.replace(' 20', ' \'');
         xLabelsSvg += `
@@ -3179,23 +3196,15 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
         `;
       });
 
+      // Series lines and areas
       let seriesSvg = '';
-      let pointsSvg = '';
-
       seriesConfig.forEach(s => {
         if (!sVis[s.key]) return;
-        const pts = data.map((d, i) => {
-          const val = s.getVal(d);
-          return {
-            x: padLeft + i * stepX,
-            y: getY(val),
-            val: val,
-            period: d.period_label || d.label || d.period,
-            raw: d
-          };
-        });
+        const pts = data.map((d, i) => ({
+          x: xStart + i * stepX,
+          y: getY(s.getVal(d))
+        }));
 
-        // Area & Line Path
         let lineD = `M ${pts[0].x} ${pts[0].y}`;
         for (let i = 1; i < pts.length; i++) {
           lineD += ` L ${pts[i].x} ${pts[i].y}`;
@@ -3203,25 +3212,111 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
         const areaD = `${lineD} L ${pts[pts.length - 1].x} ${height - padBottom} L ${pts[0].x} ${height - padBottom} Z`;
 
         seriesSvg += `
-          <path d="${areaD}" fill="${s.color}" fill-opacity="0.08" />
+          <path d="${areaD}" fill="${s.color}" fill-opacity="0.06" />
           <path d="${lineD}" fill="none" stroke="${s.color}" stroke-width="${s.strokeWidth}" stroke-linecap="round" stroke-linejoin="round" />
         `;
+      });
 
-        // Points
-        pts.forEach(p => {
+      // Data Points & Data Labels with Smart Anti-Collision
+      let pointsAndLabelsSvg = '';
+      const haloStyle = 'paint-order="stroke fill" stroke="#ffffff" stroke-width="4px" stroke-linecap="round" stroke-linejoin="round"';
+
+      data.forEach((d, i) => {
+        const xPos = xStart + i * stepX;
+
+        // Vertical dotted column guide
+        pointsAndLabelsSvg += `
+          <line x1="${xPos}" y1="${padTop}" x2="${xPos}" y2="${height - padBottom}" stroke="#f1f5f9" stroke-width="1.2" stroke-dasharray="3 3" />
+        `;
+
+        // Gather active series points for this period
+        const active = [];
+        if (sVis.total) active.push({ key: 'total', name: 'Total UPB', color: '#6d28d9', stroke: '#7c3aed', size: 4.5, val: seriesConfig[0].getVal(d) });
+        if (sVis.pm3) active.push({ key: 'pm3', name: 'Expired ± 3 Bulan', color: '#b45309', stroke: '#d97706', size: 4, val: seriesConfig[1].getVal(d) });
+        if (sVis.bel) active.push({ key: 'bel', name: 'Expired < -3 Bulan', color: '#b91c1c', stroke: '#dc2626', size: 3.5, val: seriesConfig[2].getVal(d) });
+        if (sVis.abv) active.push({ key: 'abv', name: 'Expired > 3 Bulan', color: '#0369a1', stroke: '#0284c7', size: 3.5, val: seriesConfig[3].getVal(d) });
+
+        active.forEach(item => {
+          item.x = xPos;
+          item.y = getY(item.val);
+        });
+
+        const pTot = active.find(a => a.key === 'total');
+        const pPm3 = active.find(a => a.key === 'pm3');
+        const pBel = active.find(a => a.key === 'bel');
+        const pAbv = active.find(a => a.key === 'abv');
+
+        // Total label: always above total point
+        if (pTot) {
+          pTot.labelX = xPos;
+          pTot.labelY = Math.max(padTop + 4, pTot.y - 12);
+        }
+
+        // PM3 label: place below point if close to total, otherwise above
+        if (pPm3) {
+          pPm3.labelX = xPos;
+          if (pTot && (pPm3.y - pTot.y < 24)) {
+            pPm3.labelY = pPm3.y + 15;
+          } else {
+            pPm3.labelY = pPm3.y - 10;
+          }
+        }
+
+        // Bel & Abv labels: stagger horizontally if points are close vertically
+        if (pBel && pAbv) {
+          const closeBelAbv = Math.abs(pAbv.y - pBel.y) < 18;
+          if (closeBelAbv) {
+            pBel.labelX = xPos - 13;
+            pAbv.labelX = xPos + 13;
+            pBel.labelY = Math.max(padTop + 15, Math.min(height - padBottom - 8, pBel.y - 9));
+            pAbv.labelY = Math.max(padTop + 15, Math.min(height - padBottom - 8, pAbv.y - 8));
+          } else {
+            pBel.labelX = xPos;
+            pAbv.labelX = xPos;
+            pBel.labelY = pBel.y - 9;
+            pAbv.labelY = Math.min(height - padBottom - 8, pAbv.y - 8);
+            if (pPm3 && Math.abs(pBel.labelY - pPm3.labelY) < 14) {
+              pBel.labelY = pPm3.labelY + 14;
+            }
+          }
+        } else {
+          if (pBel) {
+            pBel.labelX = xPos;
+            pBel.labelY = pBel.y - 9;
+            if (pPm3 && Math.abs(pBel.labelY - pPm3.labelY) < 14) {
+              pBel.labelY = pPm3.labelY + 14;
+            }
+          }
+          if (pAbv) {
+            pAbv.labelX = xPos;
+            pAbv.labelY = Math.min(height - padBottom - 8, pAbv.y - 8);
+          }
+        }
+
+        // Render point circles (interactive hover)
+        active.forEach(item => {
           const tooltipContent = encodeURIComponent(JSON.stringify({
-            series: s.name,
-            period: p.period,
-            val: p.val,
+            series: item.name,
+            period: d.period_label || d.label || d.period,
+            val: item.val,
             isQty: isQty,
-            totalVal: p.raw.total_val || p.raw.total || 0,
-            totalQty: p.raw.total_qty || 0,
-            pm3Val: p.raw.plus_minus_3_val || p.raw.plus_minus_3 || 0,
-            abvVal: p.raw.above_3_val || p.raw.above_3 || 0,
-            belVal: p.raw.below_minus_3_val || p.raw.below_3_val || p.raw.below_3 || 0
+            totalVal: d.total_val || d.total || 0,
+            totalQty: d.total_qty || 0,
+            pm3Val: d.plus_minus_3_val || d.plus_minus_3 || 0,
+            abvVal: d.above_3_val || d.above_3 || 0,
+            belVal: d.below_minus_3_val || d.below_3_val || 0
           }));
-          pointsSvg += `
-            <circle cx="${p.x}" cy="${p.y}" r="4" fill="#ffffff" stroke="${s.color}" stroke-width="2.5" class="trend-pt" data-pt="${tooltipContent}" style="cursor: pointer; transition: all 0.2s ease;" />
+
+          pointsAndLabelsSvg += `
+            <circle cx="${item.x}" cy="${item.y}" r="${item.size}" fill="#ffffff" stroke="${item.stroke}" stroke-width="2.3" class="trend-pt" data-pt="${tooltipContent}" style="cursor: pointer; transition: all 0.2s ease;" />
+          `;
+        });
+
+        // Render numbers / data labels
+        active.forEach(item => {
+          const fSize = item.key === 'total' ? '11' : (item.key === 'pm3' ? '10' : '9.5');
+          pointsAndLabelsSvg += `
+            <text x="${item.labelX}" y="${item.labelY}" fill="${item.color}" font-size="${fSize}" font-weight="800" text-anchor="middle" ${haloStyle} style="pointer-events: none;">${formatLabel(item.val)}</text>
           `;
         });
       });
@@ -3232,7 +3327,7 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
           <line x1="${padLeft}" y1="${height - padBottom}" x2="${width - padRight}" y2="${height - padBottom}" stroke="#94a3b8" stroke-width="1.5" />
           ${xLabelsSvg}
           ${seriesSvg}
-          ${pointsSvg}
+          ${pointsAndLabelsSvg}
         </svg>
       `;
 
