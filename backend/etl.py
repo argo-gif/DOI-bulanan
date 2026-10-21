@@ -2358,7 +2358,7 @@ class DataEngine:
             "pareto_qty": round(pareto_qty, 2),
             "pareto_pct": pareto_pct,
             "dimension": dimension,
-            "description": f"<strong>{all_pareto_count} dari {total_entities} {dim_label}</strong> menyumbang <strong>{pareto_pct}%</strong> ({_fmt_compact(pareto_val)}) dari total nilai UPB. Fokus pengendalian pada grup ini untuk dampak maksimal."
+            "description": f"<strong>{all_pareto_count} dari {total_entities} {dim_label}</strong> menyumbang akumulasi <strong>{pareto_pct}%</strong> ({_fmt_compact(pareto_val)}) dari total nilai UPB. Kelompok Pareto 80% ditandai badge emas ⭐ dan nilai kumulatif."
         }
 
         return {

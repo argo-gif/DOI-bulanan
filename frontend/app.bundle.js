@@ -3458,22 +3458,47 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
           else if (r.id === 'below_-3' || r.id === 'below_minus_3') bg = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
         }
 
-        const isSmall = (r.w < 70 || r.h < 45);
-        const isTiny = (r.w < 50 || r.h < 30);
+        const isSmall = (r.w < 75 || r.h < 50);
+        const isTiny = (r.w < 45 || r.h < 28);
         const isPareto = Boolean(r.is_pareto);
         const pctVal = r.pct !== undefined ? r.pct : (r.val_pct !== undefined ? r.val_pct : 0);
         const pctText = `${Number(pctVal).toFixed(1)}%`;
+        const cumPct = (r.cum_pct !== undefined && r.cum_pct !== null) ? `${Number(r.cum_pct).toFixed(1)}%` : '';
 
-        // Mini Category Breakdown Bar inside tile
+        // Pareto pill badge with cumulative percentage
+        let badgeHtml = '';
+        if (r.w >= 45 && r.h >= 36) {
+          if (isPareto) {
+            if (r.w >= 140) {
+              badgeHtml = `<span class="treemap-pareto-pill">⭐ PARETO ${pctText} <span class="treemap-cum-tag">Kum ${cumPct}</span></span>`;
+            } else if (r.w >= 85) {
+              badgeHtml = `<span class="treemap-pareto-pill">⭐ ${pctText} <span class="treemap-cum-tag">Kum ${cumPct}</span></span>`;
+            } else if (r.w >= 58) {
+              badgeHtml = `<span class="treemap-pareto-pill">⭐ ${pctText} <span class="treemap-cum-tag">${cumPct}</span></span>`;
+            } else {
+              badgeHtml = `<span class="treemap-pareto-pill">⭐ ${pctText}</span>`;
+            }
+          } else {
+            if (r.w >= 100) {
+              badgeHtml = `<span class="treemap-norm-pill">${pctText} <span class="treemap-cum-tag-sub">Kum ${cumPct}</span></span>`;
+            } else if (r.w >= 58) {
+              badgeHtml = `<span class="treemap-norm-pill">${pctText} <span class="treemap-cum-tag-sub">${cumPct}</span></span>`;
+            } else {
+              badgeHtml = `<span class="treemap-norm-pill">${pctText}</span>`;
+            }
+          }
+        }
+
+        // Mini Category Breakdown Bar inside tile (only for sufficiently tall & wide tiles)
         let miniBarHtml = '';
-        if (r.category_breakdown && r.w >= 100 && r.h >= 65 && r.val > 0) {
+        if (r.category_breakdown && r.w >= 130 && r.h >= 85 && r.val > 0) {
           const cb = r.category_breakdown;
           const pm3Pct = Math.min(100, Math.max(0, ((cb.plus_minus_3 || 0) / r.val) * 100));
           const belPct = Math.min(100, Math.max(0, ((cb.below_minus_3 || 0) / r.val) * 100));
           const abvPct = Math.min(100, Math.max(0, ((cb.above_3 || 0) / r.val) * 100));
 
           miniBarHtml = `
-            <div style="margin-top: 6px; width: 100%; height: 5px; background: rgba(255,255,255,0.25); border-radius: 3px; display: flex; overflow: hidden;" title="Breakdown: ±3 Bln (${pm3Pct.toFixed(0)}%), < -3 Bln (${belPct.toFixed(0)}%), > 3 Bln (${abvPct.toFixed(0)}%)">
+            <div style="margin-top: 4px; width: 100%; height: 4px; background: rgba(255,255,255,0.25); border-radius: 2px; display: flex; overflow: hidden;" title="Breakdown: ±3 Bln (${pm3Pct.toFixed(0)}%), < -3 Bln (${belPct.toFixed(0)}%), > 3 Bln (${abvPct.toFixed(0)}%)">
               <div style="width: ${pm3Pct}%; background: #fde047;" title="±3 Bln: ${pm3Pct.toFixed(0)}%"></div>
               <div style="width: ${belPct}%; background: #f87171;" title="< -3 Bln: ${belPct.toFixed(0)}%"></div>
               <div style="width: ${abvPct}%; background: #38bdf8;" title="> 3 Bln: ${abvPct.toFixed(0)}%"></div>
@@ -3484,16 +3509,15 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
         const rawDataStr = encodeURIComponent(JSON.stringify(r));
 
         html += `
-          <div class="treemap-tile ${isPareto ? 'is-pareto' : 'is-non-pareto'}" data-tile="${rawDataStr}" style="left: ${r.x.toFixed(1)}px; top: ${r.y.toFixed(1)}px; width: ${Math.max(1, r.w - 2).toFixed(1)}px; height: ${Math.max(1, r.h - 2).toFixed(1)}px; background: ${bg}; padding: ${isSmall ? '4px' : '8px'};">
+          <div class="treemap-tile ${isPareto ? 'is-pareto' : 'is-non-pareto'}" data-tile="${rawDataStr}" style="left: ${r.x.toFixed(1)}px; top: ${r.y.toFixed(1)}px; width: ${Math.max(1, r.w - 2).toFixed(1)}px; height: ${Math.max(1, r.h - 2).toFixed(1)}px; background: ${bg}; padding: ${isSmall ? '3px 5px' : '5px 7px'};">
             ${isTiny ? '' : `
               <div class="treemap-tile-header">
-                <span class="treemap-tile-title" style="font-size: ${isSmall ? '10px' : '12px'};">${r.name}</span>
-                <div style="display: flex; gap: 4px; align-items: center; flex-shrink: 0;">
-                  ${isPareto && r.w >= 115 && r.h >= 50 ? `<span class="treemap-pareto-tag">⭐ Pareto</span>` : ''}
-                  ${r.w >= 65 ? `<span class="treemap-tile-badge ${isPareto ? 'badge-pareto' : ''}">${pctText}</span>` : ''}
-                </div>
+                <div class="treemap-tile-title" style="font-size: ${isSmall ? '10px' : '11px'};" title="${r.name}">${r.name}</div>
               </div>
-              <div class="treemap-tile-val" style="font-size: ${isSmall ? '11px' : '13px'};">${formatCompact(r.val)}</div>
+              <div class="treemap-tile-bottom">
+                <span class="treemap-tile-val" style="font-size: ${isSmall ? '10px' : '11.5px'};">${formatCompact(r.val)}</span>
+                ${badgeHtml}
+              </div>
               ${miniBarHtml}
             `}
           </div>
@@ -3537,6 +3561,16 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
               <span>${dimension === 'cabang' ? '🏢 Cabang: ' : (dimension === 'item' ? '📦 Produk: ' : '⏳ ')}${raw.name}</span>
               ${raw.is_pareto ? '<span style="background: #fef3c7; color: #b45309; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; border: 1px solid #fde68a; white-space: nowrap;">⭐ PARETO 80%</span>' : '<span style="background: #f1f5f9; color: #64748b; font-size: 10px; padding: 2px 6px; border-radius: 4px; white-space: nowrap;">Non-Pareto</span>'}
             </div>
+            <div style="background: ${raw.is_pareto ? 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)' : '#f8fafc'}; border: 1px solid ${raw.is_pareto ? '#fde68a' : '#e2e8f0'}; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+                <span style="color: #64748b;">Kontribusi Share:</span>
+                <strong style="color: ${raw.is_pareto ? '#b45309' : '#0f172a'}; font-size: 11.5px;">${Number(rawPct).toFixed(1)}%</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-top: 2px; border-top: 1px dashed ${raw.is_pareto ? '#fcd34d' : '#e2e8f0'}; padding-top: 2px;">
+                <span style="color: #64748b;">Kumulatif Pareto:</span>
+                <strong style="color: ${raw.is_pareto ? '#92400e' : '#2563eb'}; font-size: 12px;">${raw.cum_pct || 0}% ${raw.rank ? `(Peringkat #${raw.rank})` : ''}</strong>
+              </div>
+            </div>
             <div style="font-size: 12px; margin-bottom: 3px; display: flex; justify-content: space-between; gap: 12px;">
               <span style="color: #64748b;">Valuasi UPB:</span>
               <strong style="color: #0f172a;">${formatCurrency(raw.val)}</strong>
@@ -3544,14 +3578,6 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
             <div style="font-size: 12px; margin-bottom: 3px; display: flex; justify-content: space-between; gap: 12px;">
               <span style="color: #64748b;">Volume:</span>
               <strong style="color: #0f172a;">${new Intl.NumberFormat('id-ID').format(raw.qty || 0)} Unit</strong>
-            </div>
-            <div style="font-size: 12px; margin-bottom: 3px; display: flex; justify-content: space-between; gap: 12px;">
-              <span style="color: #64748b;">Kontribusi (Share):</span>
-              <strong style="color: #2563eb;">${Number(rawPct).toFixed(1)}%</strong>
-            </div>
-            <div style="font-size: 12px; margin-bottom: 4px; display: flex; justify-content: space-between; gap: 12px;">
-              <span style="color: #64748b;">Kumulatif Pareto:</span>
-              <strong style="${raw.is_pareto ? 'color: #d97706;' : 'color: #64748b;'}">${raw.cum_pct || 0}% ${raw.rank ? `(Peringkat #${raw.rank})` : ''}</strong>
             </div>
             ${catBreakdownHtml}
             <div style="margin-top: 8px; font-size: 10.5px; color: #0284c7; font-weight: 600; text-align: center; background: #f0f9ff; padding: 4px; border-radius: 4px;">
