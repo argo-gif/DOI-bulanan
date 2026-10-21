@@ -108,6 +108,21 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
             elif path == "/api/v1/export-ppt":
                 self.handle_export_ppt(get_param)
 
+            elif path == "/api/v1/upb-summary":
+                self.handle_upb_summary(get_param)
+
+            elif path == "/api/v1/upb-trend":
+                self.handle_upb_trend(get_param)
+
+            elif path == "/api/v1/upb-treemap":
+                self.handle_upb_treemap(get_param)
+
+            elif path == "/api/v1/upb-data":
+                self.handle_upb_data(get_param)
+
+            elif path == "/api/v1/export-upb-excel":
+                self.handle_export_upb_excel(get_param)
+
             else:
                 rel_path = path.lstrip("/")
                 if not rel_path or rel_path == "index.html":
@@ -729,6 +744,129 @@ class DOIRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(ppt_bytes)
+
+    def handle_upb_summary(self, get_param):
+        period = get_param("period", "All")
+        unit = get_param("unit", "value")
+        cabang = get_param("cabang", "All")
+        gb = get_param("gb", "All")
+        category = get_param("category", "All")
+        products = get_param("products", "All")
+        res = data_engine.get_upb_summary(period=period, cabang=cabang, gb=gb, category=category, product=products, unit=unit)
+        self._set_headers(200)
+        self.wfile.write(json.dumps(res).encode("utf-8"))
+
+    def handle_upb_trend(self, get_param):
+        unit = get_param("unit", "value")
+        cabang = get_param("cabang", "All")
+        gb = get_param("gb", "All")
+        category = get_param("category", "All")
+        products = get_param("products", "All")
+        res = data_engine.get_upb_trend(cabang=cabang, gb=gb, category=category, product=products, unit=unit)
+        self._set_headers(200)
+        self.wfile.write(json.dumps(res).encode("utf-8"))
+
+    def handle_upb_treemap(self, get_param):
+        dimension = get_param("dimension", "cabang")
+        period = get_param("period", "All")
+        unit = get_param("unit", "value")
+        cabang = get_param("cabang", "All")
+        gb = get_param("gb", "All")
+        category = get_param("category", "All")
+        products = get_param("products", "All")
+        limit = int(get_param("limit", "50"))
+        res = data_engine.get_upb_treemap(dimension=dimension, period=period, cabang=cabang, gb=gb, category=category, product=products, unit=unit, limit=limit)
+        self._set_headers(200)
+        self.wfile.write(json.dumps(res).encode("utf-8"))
+
+    def handle_upb_data(self, get_param):
+        period = get_param("period", "All")
+        cabang = get_param("cabang", "All")
+        gb = get_param("gb", "All")
+        category = get_param("category", "All")
+        products = get_param("products", "All")
+        search = get_param("search", "")
+        page = int(get_param("page", "1"))
+        page_size = int(get_param("page_size", "20"))
+        sort_by = get_param("sort_by", "val")
+        sort_order = get_param("sort_order", "desc")
+        res = data_engine.get_upb_report(
+            period=period, cabang=cabang, gb=gb, category=category, product=products,
+            search=search, page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order
+        )
+        self._set_headers(200)
+        self.wfile.write(json.dumps(res).encode("utf-8"))
+
+    def handle_export_upb_excel(self, get_param):
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+        from openpyxl.utils import get_column_letter
+        from io import BytesIO
+
+        period = get_param("period", "All")
+        cabang = get_param("cabang", "All")
+        gb = get_param("gb", "All")
+        category = get_param("category", "All")
+        products = get_param("products", "All")
+
+        filtered = data_engine._filter_upb_records(period=period, cabang=cabang, gb=gb, category=category, product=products)
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Rincian Transaksi UPB"
+
+        header_fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
+        header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+        align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+        headers = [
+            "No", "Periode Transaksi", "Periode Expired", "Selisih Bulan", "Kategori Expired",
+            "Cabang", "Kode Produk", "Nama Produk", "GB", "Qty UPB (Unit)", "Valuasi UPB (IDR)"
+        ]
+        ws.append(headers)
+        ws.row_dimensions[1].height = 28
+        for col_idx in range(1, len(headers) + 1):
+            cell = ws.cell(row=1, column=col_idx)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = align_center
+
+        cat_labels = {
+            "plus_minus_3": "± 3 Bulan",
+            "below_-3": "< -3 Bulan",
+            "above_3": "> 3 Bulan"
+        }
+
+        for idx, r in enumerate(filtered):
+            ws.append([
+                idx + 1, r["trans_period"], r["exp_period"], r["diff_months"],
+                cat_labels.get(r["exp_category"], r["exp_category"]),
+                r["cabang"], r["product_code"], r["product_name"], r["gb"],
+                r["qty"], r["val"]
+            ])
+
+        ws.views.sheetView[0].showGridLines = True
+        for col in ws.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                val_str = str(cell.value or '')
+                if '\n' in val_str:
+                    val_str = max(val_str.split('\n'), key=len)
+                max_len = max(max_len, len(val_str))
+            ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        excel_bytes = output.getvalue()
+
+        self.send_response(200)
+        self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        self.send_header("Content-Disposition", f"attachment; filename=Laporan_Analisa_UPB_{period}.xlsx")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(excel_bytes)
 
 class DualStackServer(ThreadingHTTPServer):
     def server_bind(self):

@@ -45,6 +45,16 @@ def parse_year_month(val: Any) -> Optional[str]:
         return val_str[0:7]
     return None
 
+def format_period_label(p: str) -> str:
+    month_names = {
+        "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "Mei", "06": "Jun",
+        "07": "Jul", "08": "Agu", "09": "Sep", "10": "Okt", "11": "Nov", "12": "Des"
+    }
+    parts = str(p).split("-")
+    if len(parts) == 2:
+        return f"{month_names.get(parts[1], parts[1])} {parts[0]}"
+    return str(p)
+
 def parse_multi_param(val: Any) -> Set[str]:
     """Parses multi-select parameter into a set of normalized strings."""
     if not val:
@@ -84,6 +94,7 @@ class DataEngine:
         self.kx_file = os.path.join(base_dir, "Stok Akhir bulan KX dan Produksi.xlsx")
         self.sales_file = os.path.join(base_dir, "Data sales.xlsx")
         self.dead_slow_file = os.path.join(base_dir, "08. Dead & Slow Moving Aug 26.xlsx")
+        self.upb_file = os.path.join(self.base_dir, "UPB.xlsx")
 
         self.master_products: Dict[str, Dict[str, Any]] = {}
         self.master_cabang: Dict[str, str] = {}
@@ -100,6 +111,7 @@ class DataEngine:
         self._dead_slow_items: Dict[str, Dict[str, Any]] = {}        # {pcode: aggregated metrics}
         self._dead_slow_cabangs: Dict[str, List[Dict[str, Any]]] = {} # {pcode: [cabang_record]}
         self._trend_cache: Dict[Any, Any] = {}
+        self._upb_records: List[Dict[str, Any]] = []
 
     def load_master_data(self) -> Dict[str, Dict[str, Any]]:
         """Reads Master produk.xlsx and builds lookup tables with exact column mapping."""
@@ -261,12 +273,12 @@ class DataEngine:
             self.load_master_cabang()
         return dict(self.master_cabang)
 
-    ETL_VERSION = "2.5.0"
+    ETL_VERSION = "2.6.0"
 
     def _get_cache_checksum(self) -> str:
         h = hashlib.md5()
         h.update(self.ETL_VERSION.encode("utf-8"))
-        for fp in [self.master_file, self.mnj_file, self.kx_file, self.sales_file, self.dead_slow_file, self.master_cabang_file]:
+        for fp in [self.master_file, self.mnj_file, self.kx_file, self.sales_file, self.dead_slow_file, self.master_cabang_file, self.upb_file]:
             abs_fp = os.path.abspath(fp)
             if os.path.exists(abs_fp):
                 stat = os.stat(abs_fp)
@@ -299,8 +311,9 @@ class DataEngine:
                     self._sales_cabang_cache = cache_data.get("_sales_cabang_cache", {})
                     self._dead_slow_items = cache_data.get("_dead_slow_items", {})
                     self._dead_slow_cabangs = cache_data.get("_dead_slow_cabangs", {})
+                    self._upb_records = cache_data.get("_upb_records", [])
                     self._is_preloaded = True
-                    print(f"[ENGINE] Fast cache load complete! {len(self.master_products)} products, {len(self.available_periods)} periods, {len(self._dead_slow_items)} Dead/Slow items.", flush=True)
+                    print(f"[ENGINE] Fast cache load complete! {len(self.master_products)} products, {len(self.available_periods)} periods, {len(self._dead_slow_items)} Dead/Slow items, {len(self._upb_records)} UPB records.", flush=True)
                     return
             except Exception as e:
                 print(f"[ENGINE] Cache load failed ({e}), re-parsing Excel files...", flush=True)
@@ -535,7 +548,8 @@ class DataEngine:
                 "_sales_cache": self._sales_cache,
                 "_sales_cabang_cache": self._sales_cabang_cache,
                 "_dead_slow_items": self._dead_slow_items,
-                "_dead_slow_cabangs": self._dead_slow_cabangs
+                "_dead_slow_cabangs": self._dead_slow_cabangs,
+                "_upb_records": self._upb_records
             }
             with open(cache_file, "wb") as f:
                 pickle.dump(cache_data, f)
@@ -1838,4 +1852,527 @@ class DataEngine:
             "slow_moving_value": round(slow_moving_qty * harga_dasar, 2),
             "slow_moving_qty": round(slow_moving_qty, 2),
             "cabangs": sorted_cabangs
+        }
+
+    # =========================================================================
+    # UPB (USULAN PEMUSNAHAN BARANG & EXPIRED) ANALYTICS METHODS
+    # =========================================================================
+
+    def load_upb_records(self) -> List[Dict[str, Any]]:
+        """Loads and caches UPB.xlsx records if not already in memory."""
+        if self._upb_records:
+            return self._upb_records
+        if not os.path.exists(self.upb_file):
+            return []
+
+        wb = openpyxl.load_workbook(self.upb_file, read_only=True, data_only=True)
+        sheet = wb.active
+        records = []
+        for r in sheet.iter_rows(min_row=2, values_only=True):
+            if not r or r[0] is None:
+                continue
+            t_raw = str(r[1]).strip()
+            e_raw = str(r[8]).strip()
+            try:
+                t_y, t_m = int(t_raw[:4]), int(t_raw[4:6])
+                e_y, e_m = int(e_raw[:4]), int(e_raw[4:6])
+                diff = (e_y - t_y) * 12 + (e_m - t_m)
+                if diff < -3:
+                    cat = "below_-3"
+                elif diff > 3:
+                    cat = "above_3"
+                else:
+                    cat = "plus_minus_3"
+            except Exception:
+                diff = 0
+                cat = "plus_minus_3"
+
+            raw_cab = str(r[4]).strip().upper() if r[4] else ""
+            norm_cab = normalize_cabang_name(raw_cab)
+            raw_pcode = str(r[9]).strip() if r[9] else ""
+            resolved_code = self.resolve_product_code(raw_pcode) or raw_pcode
+            pname = str(r[10]).strip() if r[10] else ""
+            gb = str(r[11]).strip() if r[11] else "Unassigned"
+            qty = float(r[12]) if r[12] is not None else 0.0
+            val = float(r[13]) if r[13] is not None else 0.0
+
+            trans_period = f"{t_raw[:4]}-{t_raw[4:6]}"
+            exp_period = f"{e_raw[:4]}-{e_raw[4:6]}"
+
+            records.append({
+                "trans_period": trans_period,
+                "exp_period": exp_period,
+                "diff_months": diff,
+                "exp_category": cat,
+                "cabang": norm_cab,
+                "product_code": resolved_code,
+                "product_name": pname,
+                "gb": gb,
+                "qty": qty,
+                "val": val
+            })
+        wb.close()
+        self._upb_records = records
+        return self._upb_records
+
+    def _filter_upb_records(
+        self,
+        period: str = "All",
+        cabang: str = "All",
+        gb: str = "All",
+        category: str = "All",
+        product: str = "All"
+    ) -> List[Dict[str, Any]]:
+        """Filters in-memory UPB records based on active multi-filters."""
+        if not self._upb_records:
+            self.load_upb_records()
+
+        sel_periods = [p.strip() for p in period.split(",") if p.strip() and p.strip().lower() != "all"] if period else []
+        sel_cabangs = [normalize_cabang_name(c.strip()) for c in cabang.split(",") if c.strip() and c.strip().lower() != "all"] if cabang else []
+        sel_gbs = [g.strip().upper() for g in gb.split(",") if g.strip() and g.strip().lower() != "all"] if gb else []
+        sel_cats = [k.strip() for k in category.split(",") if k.strip() and k.strip().lower() != "all"] if category else []
+        sel_prods = [p.strip() for p in product.split(",") if p.strip() and p.strip().lower() != "all"] if product else []
+
+        res = []
+        for r in self._upb_records:
+            if sel_periods and r["trans_period"] not in sel_periods:
+                continue
+            if sel_cabangs and r["cabang"] not in sel_cabangs:
+                continue
+            if sel_gbs and r["gb"].upper() not in sel_gbs:
+                continue
+            if sel_cats and r["exp_category"] not in sel_cats:
+                continue
+            if sel_prods and r["product_code"] not in sel_prods:
+                continue
+            res.append(r)
+        return res
+
+    def get_upb_summary(
+        self,
+        period: str = "All",
+        cabang: str = "All",
+        gb: str = "All",
+        category: str = "All",
+        product: str = "All",
+        unit: str = "value"
+    ) -> Dict[str, Any]:
+        """Calculates executive summary metrics for UPB."""
+        filtered = self._filter_upb_records(period=period, cabang=cabang, gb=gb, category=category, product=product)
+
+        total_val = sum(r["val"] for r in filtered)
+        total_qty = sum(r["qty"] for r in filtered)
+        total_rows = len(filtered)
+        distinct_items = len(set(r["product_code"] for r in filtered))
+        distinct_cabangs = len(set(r["cabang"] for r in filtered))
+
+        def get_cat_stat(cat_key: str, label_name: str) -> Dict[str, Any]:
+            items = [r for r in filtered if r["exp_category"] == cat_key]
+            c_val = sum(r["val"] for r in items)
+            c_qty = sum(r["qty"] for r in items)
+            c_rows = len(items)
+            pct_val = round((c_val / total_val * 100.0) if total_val > 0 else 0.0, 1)
+            pct_qty = round((c_qty / total_qty * 100.0) if total_qty > 0 else 0.0, 1)
+            return {
+                "label": label_name,
+                "val": round(c_val, 2),
+                "qty": round(c_qty, 2),
+                "rows": c_rows,
+                "count": c_rows,
+                "pct_val": pct_val,
+                "val_pct": pct_val,
+                "pct_qty": pct_qty,
+                "qty_pct": pct_qty
+            }
+
+        cat_pm3 = get_cat_stat("plus_minus_3", "Expired ± 3 Bulan")
+        cat_bel = get_cat_stat("below_-3", "Expired < -3 Bulan")
+        cat_abv = get_cat_stat("above_3", "Expired > 3 Bulan")
+
+        return {
+            "period": period,
+            "unit": unit,
+            "total_val": round(total_val, 2),
+            "total_qty": round(total_qty, 2),
+            "total_rows": total_rows,
+            "total_records": total_rows,
+            "total_count": total_rows,
+            "distinct_items": distinct_items,
+            "distinct_cabangs": distinct_cabangs,
+            "cat_plus_minus_3": cat_pm3,
+            "cat_below_3": cat_bel,
+            "cat_above_3": cat_abv,
+            "categories": {
+                "plus_minus_3": cat_pm3,
+                "below_minus_3": cat_bel,
+                "below_-3": cat_bel,
+                "above_3": cat_abv
+            }
+        }
+
+    def get_upb_trend(
+        self,
+        cabang: str = "All",
+        gb: str = "All",
+        category: str = "All",
+        product: str = "All",
+        unit: str = "value"
+    ) -> List[Dict[str, Any]]:
+        """Calculates monthly UPB trend across all 21 available transaction periods."""
+        filtered = self._filter_upb_records(period="All", cabang=cabang, gb=gb, category=category, product=product)
+
+        trend_map = {}
+        for r in filtered:
+            p = r["trans_period"]
+            if p not in trend_map:
+                trend_map[p] = {
+                    "total_val": 0.0, "total_qty": 0.0,
+                    "pm3_val": 0.0, "pm3_qty": 0.0,
+                    "bel_val": 0.0, "bel_qty": 0.0,
+                    "abv_val": 0.0, "abv_qty": 0.0
+                }
+            v = r["val"]
+            q = r["qty"]
+            cat = r["exp_category"]
+            trend_map[p]["total_val"] += v
+            trend_map[p]["total_qty"] += q
+            if cat == "plus_minus_3":
+                trend_map[p]["pm3_val"] += v
+                trend_map[p]["pm3_qty"] += q
+            elif cat == "below_-3":
+                trend_map[p]["bel_val"] += v
+                trend_map[p]["bel_qty"] += q
+            else:
+                trend_map[p]["abv_val"] += v
+                trend_map[p]["abv_qty"] += q
+
+        # Ensure all available periods are represented in chronological order
+        all_periods = sorted(list(set(r["trans_period"] for r in self._upb_records)))
+        series = []
+        for p in all_periods:
+            d = trend_map.get(p, {
+                "total_val": 0.0, "total_qty": 0.0,
+                "pm3_val": 0.0, "pm3_qty": 0.0,
+                "bel_val": 0.0, "bel_qty": 0.0,
+                "abv_val": 0.0, "abv_qty": 0.0
+            })
+            tot = d["total_val"] if unit == "value" else d["total_qty"]
+            pm3 = d["pm3_val"] if unit == "value" else d["pm3_qty"]
+            bel = d["bel_val"] if unit == "value" else d["bel_qty"]
+            abv = d["abv_val"] if unit == "value" else d["abv_qty"]
+
+            series.append({
+                "period": p,
+                "label": format_period_label(p),
+                "total": round(tot, 2),
+                "total_val": round(d["total_val"], 2),
+                "total_qty": round(d["total_qty"], 2),
+                "plus_minus_3": round(pm3, 2),
+                "below_3": round(bel, 2),
+                "above_3": round(abv, 2),
+                "plus_minus_3_val": round(d["pm3_val"], 2),
+                "below_3_val": round(d["bel_val"], 2),
+                "above_3_val": round(d["abv_val"], 2),
+                "plus_minus_3_qty": round(d["pm3_qty"], 2),
+                "below_3_qty": round(d["bel_qty"], 2),
+                "above_3_qty": round(d["abv_qty"], 2),
+            })
+        return series
+
+    def get_upb_treemap(
+        self,
+        dimension: str = "cabang",
+        period: str = "All",
+        cabang: str = "All",
+        gb: str = "All",
+        category: str = "All",
+        product: str = "All",
+        unit: str = "value",
+        limit: int = 50
+    ) -> Dict[str, Any]:
+        """Generates hierarchical Treemap data based on Cabang, Item, or Kategori Expired."""
+        filtered = self._filter_upb_records(period=period, cabang=cabang, gb=gb, category=category, product=product)
+
+        total_val = sum(r["val"] for r in filtered)
+        total_qty = sum(r["qty"] for r in filtered)
+        total_metric = total_val if unit == "value" else total_qty
+
+        nodes = []
+
+        if dimension == "cabang":
+            cab_map = {}
+            for r in filtered:
+                c = r["cabang"]
+                if c not in cab_map:
+                    cab_map[c] = {
+                        "val": 0.0, "qty": 0.0,
+                        "pm3_val": 0.0, "bel_val": 0.0, "abv_val": 0.0,
+                        "pm3_qty": 0.0, "bel_qty": 0.0, "abv_qty": 0.0,
+                        "items": set()
+                    }
+                v = r["val"]
+                q = r["qty"]
+                cat = r["exp_category"]
+                cab_map[c]["val"] += v
+                cab_map[c]["qty"] += q
+                cab_map[c]["items"].add(r["product_code"])
+                if cat == "plus_minus_3":
+                    cab_map[c]["pm3_val"] += v
+                    cab_map[c]["pm3_qty"] += q
+                elif cat == "below_-3":
+                    cab_map[c]["bel_val"] += v
+                    cab_map[c]["bel_qty"] += q
+                else:
+                    cab_map[c]["abv_val"] += v
+                    cab_map[c]["abv_qty"] += q
+
+            sorted_cabs = sorted(cab_map.items(), key=lambda x: (x[1]["val"] if unit == "value" else x[1]["qty"]), reverse=True)
+            for c, d in sorted_cabs:
+                metric_val = d["val"] if unit == "value" else d["qty"]
+                dom_cat = "plus_minus_3"
+                if d["bel_val"] > d["pm3_val"] and d["bel_val"] > d["abv_val"]:
+                    dom_cat = "below_-3"
+                elif d["abv_val"] > d["pm3_val"] and d["abv_val"] > d["bel_val"]:
+                    dom_cat = "above_3"
+                nodes.append({
+                    "id": c,
+                    "name": c,
+                    "value": round(metric_val, 2),
+                    "val": round(d["val"], 2),
+                    "qty": round(d["qty"], 2),
+                    "pct": round((metric_val / total_metric * 100.0) if total_metric > 0 else 0.0, 1),
+                    "distinct_items": len(d["items"]),
+                    "dominant_category": dom_cat,
+                    "category_breakdown": {
+                        "plus_minus_3": round(d["pm3_val"], 2),
+                        "below_minus_3": round(d["bel_val"], 2),
+                        "above_3": round(d["abv_val"], 2)
+                    },
+                    "breakdown": {
+                        "plus_minus_3_val": round(d["pm3_val"], 2),
+                        "plus_minus_3_qty": round(d["pm3_qty"], 2),
+                        "below_3_val": round(d["bel_val"], 2),
+                        "below_3_qty": round(d["bel_qty"], 2),
+                        "above_3_val": round(d["abv_val"], 2),
+                        "above_3_qty": round(d["abv_qty"], 2),
+                    }
+                })
+
+        elif dimension == "item":
+            item_map = {}
+            for r in filtered:
+                pcode = r["product_code"]
+                if pcode not in item_map:
+                    item_map[pcode] = {
+                        "name": r["product_name"],
+                        "gb": r["gb"],
+                        "val": 0.0, "qty": 0.0,
+                        "pm3_val": 0.0, "bel_val": 0.0, "abv_val": 0.0,
+                        "pm3_qty": 0.0, "bel_qty": 0.0, "abv_qty": 0.0,
+                        "cabangs": set()
+                    }
+                v = r["val"]
+                q = r["qty"]
+                cat = r["exp_category"]
+                item_map[pcode]["val"] += v
+                item_map[pcode]["qty"] += q
+                item_map[pcode]["cabangs"].add(r["cabang"])
+                if cat == "plus_minus_3":
+                    item_map[pcode]["pm3_val"] += v
+                    item_map[pcode]["pm3_qty"] += q
+                elif cat == "below_-3":
+                    item_map[pcode]["bel_val"] += v
+                    item_map[pcode]["bel_qty"] += q
+                else:
+                    item_map[pcode]["abv_val"] += v
+                    item_map[pcode]["abv_qty"] += q
+
+            sorted_items = sorted(item_map.items(), key=lambda x: (x[1]["val"] if unit == "value" else x[1]["qty"]), reverse=True)
+            top_items = sorted_items[:limit]
+            for pcode, d in top_items:
+                metric_val = d["val"] if unit == "value" else d["qty"]
+                dom_cat = "plus_minus_3"
+                if d["bel_val"] > d["pm3_val"] and d["bel_val"] > d["abv_val"]:
+                    dom_cat = "below_-3"
+                elif d["abv_val"] > d["pm3_val"] and d["abv_val"] > d["bel_val"]:
+                    dom_cat = "above_3"
+                nodes.append({
+                    "id": pcode,
+                    "name": f"{pcode} - {d['name']}",
+                    "product_code": pcode,
+                    "product_name": d["name"],
+                    "gb": d["gb"],
+                    "value": round(metric_val, 2),
+                    "val": round(d["val"], 2),
+                    "qty": round(d["qty"], 2),
+                    "pct": round((metric_val / total_metric * 100.0) if total_metric > 0 else 0.0, 1),
+                    "distinct_cabangs": len(d["cabangs"]),
+                    "dominant_category": dom_cat,
+                    "category_breakdown": {
+                        "plus_minus_3": round(d["pm3_val"], 2),
+                        "below_minus_3": round(d["bel_val"], 2),
+                        "above_3": round(d["abv_val"], 2)
+                    },
+                    "breakdown": {
+                        "plus_minus_3_val": round(d["pm3_val"], 2),
+                        "plus_minus_3_qty": round(d["pm3_qty"], 2),
+                        "below_3_val": round(d["bel_val"], 2),
+                        "below_3_qty": round(d["bel_qty"], 2),
+                        "above_3_val": round(d["abv_val"], 2),
+                        "above_3_qty": round(d["abv_qty"], 2),
+                    }
+                })
+
+        elif dimension == "category":
+            cat_defs = [
+                ("plus_minus_3", "Expired ± 3 Bulan (Trans. vs Exp.)", "#f59e0b"),
+                ("below_-3", "Expired < -3 Bulan (Sudah Lewat Jauh)", "#ef4444"),
+                ("above_3", "Expired > 3 Bulan (Masa Depan)", "#0284c7")
+            ]
+            for cat_key, cat_name, color in cat_defs:
+                c_records = [r for r in filtered if r["exp_category"] == cat_key]
+                c_val = sum(r["val"] for r in c_records)
+                c_qty = sum(r["qty"] for r in c_records)
+                metric_val = c_val if unit == "value" else c_qty
+
+                # Sub-breakdown top 8 cabangs
+                cab_sub = {}
+                for r in c_records:
+                    c = r["cabang"]
+                    if c not in cab_sub:
+                        cab_sub[c] = {"val": 0.0, "qty": 0.0}
+                    cab_sub[c]["val"] += r["val"]
+                    cab_sub[c]["qty"] += r["qty"]
+                top_c = sorted(cab_sub.items(), key=lambda x: x[1]["val" if unit == "value" else "qty"], reverse=True)[:8]
+
+                children = [
+                    {
+                        "id": f"{cat_key}_{c}",
+                        "name": c,
+                        "value": round(d["val" if unit == "value" else "qty"], 2),
+                        "val": round(d["val"], 2),
+                        "qty": round(d["qty"], 2),
+                        "pct": round((d["val" if unit == "value" else "qty"] / metric_val * 100.0) if metric_val > 0 else 0.0, 1)
+                    }
+                    for c, d in top_c
+                ]
+
+                nodes.append({
+                    "id": cat_key,
+                    "name": cat_name,
+                    "color": color,
+                    "value": round(metric_val, 2),
+                    "val": round(c_val, 2),
+                    "qty": round(c_qty, 2),
+                    "pct": round((metric_val / total_metric * 100.0) if total_metric > 0 else 0.0, 1),
+                    "rows": len(c_records),
+                    "children": children
+                })
+
+        return {
+            "dimension": dimension,
+            "period": period,
+            "unit": unit,
+            "total_value": round(total_metric, 2),
+            "total_val": round(total_val, 2),
+            "total_qty": round(total_qty, 2),
+            "nodes": nodes
+        }
+
+    def get_upb_report(
+        self,
+        period: str = "All",
+        cabang: str = "All",
+        gb: str = "All",
+        category: str = "All",
+        product: str = "All",
+        search: str = "",
+        page: int = 1,
+        page_size: int = 20,
+        sort_by: str = "val",
+        sort_order: str = "desc"
+    ) -> Dict[str, Any]:
+        """Returns paginated, searchable, and sortable UPB detail transactions."""
+        filtered = self._filter_upb_records(period=period, cabang=cabang, gb=gb, category=category, product=product)
+
+        if search:
+            q = search.strip().lower()
+            filtered = [
+                r for r in filtered
+                if q in r["product_code"].lower()
+                or q in r["product_name"].lower()
+                or q in r["cabang"].lower()
+                or q in r["gb"].lower()
+                or q in r["trans_period"]
+                or q in r["exp_period"]
+            ]
+
+        total_records = len(filtered)
+        total_val_all = sum(r["val"] for r in filtered)
+        total_qty_all = sum(r["qty"] for r in filtered)
+
+        # Sorting
+        rev = (sort_order.lower() == "desc")
+        if sort_by == "val":
+            filtered.sort(key=lambda x: x["val"], reverse=rev)
+        elif sort_by == "qty":
+            filtered.sort(key=lambda x: x["qty"], reverse=rev)
+        elif sort_by == "diff":
+            filtered.sort(key=lambda x: x["diff_months"], reverse=rev)
+        elif sort_by == "cabang":
+            filtered.sort(key=lambda x: x["cabang"], reverse=rev)
+        elif sort_by == "product_name":
+            filtered.sort(key=lambda x: x["product_name"], reverse=rev)
+        elif sort_by == "product_code":
+            filtered.sort(key=lambda x: x["product_code"], reverse=rev)
+        elif sort_by == "period":
+            filtered.sort(key=lambda x: x["trans_period"], reverse=rev)
+        else:
+            filtered.sort(key=lambda x: x["val"], reverse=True)
+
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        page_items = filtered[start_idx:end_idx]
+
+        cat_labels = {
+            "plus_minus_3": "Expired ± 3 Bulan",
+            "below_-3": "Expired < -3 Bulan",
+            "above_3": "Expired > 3 Bulan"
+        }
+
+        rows = []
+        for idx, r in enumerate(page_items):
+            rows.append({
+                "no": start_idx + idx + 1,
+                "trans_period": r["trans_period"],
+                "period": r["trans_period"],
+                "exp_period": r["exp_period"],
+                "tgl_expired": r["exp_period"],
+                "diff_months": r["diff_months"],
+                "month_diff": r["diff_months"],
+                "exp_category": r["exp_category"],
+                "category_key": r["exp_category"],
+                "exp_category_label": cat_labels.get(r["exp_category"], r["exp_category"]),
+                "category_label": cat_labels.get(r["exp_category"], r["exp_category"]),
+                "cabang": r["cabang"],
+                "product_code": r["product_code"],
+                "kode_produk": r["product_code"],
+                "product_name": r["product_name"],
+                "nama_produk": r["product_name"],
+                "gb": r["gb"],
+                "qty": round(r["qty"], 2),
+                "val": round(r["val"], 2),
+                "pct_of_total": round((r["val"] / total_val_all * 100.0) if total_val_all > 0 else 0.0, 2)
+            })
+
+        total_pages = (total_records + page_size - 1) // page_size if page_size > 0 else 1
+
+        return {
+            "page": page,
+            "page_size": page_size,
+            "total_records": total_records,
+            "total_pages": total_pages,
+            "total_val": round(total_val_all, 2),
+            "total_qty": round(total_qty_all, 2),
+            "items": rows
         }

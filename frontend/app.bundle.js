@@ -266,6 +266,89 @@
     `;
   }
 
+
+  // =========================================================================
+  // UPB API HELPERS
+  // =========================================================================
+  async function fetchUpbSummary(filters) {
+    const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0)
+      ? filters.selectedCabangs.join(',')
+      : (filters.cabang || 'All');
+    const params = new URLSearchParams({
+      period: filters.period || 'All',
+      unit: filters.unit || 'value',
+      cabang: cabVal,
+      category: filters.category || 'All',
+      search: filters.search || ''
+    });
+    const res = await fetchWithRetry(`${API_BASE}/upb-summary?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch UPB summary');
+    return res.json();
+  }
+
+  async function fetchUpbTrend(filters) {
+    const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0)
+      ? filters.selectedCabangs.join(',')
+      : (filters.cabang || 'All');
+    const params = new URLSearchParams({
+      unit: filters.unit || 'value',
+      cabang: cabVal,
+      category: filters.category || 'All'
+    });
+    const res = await fetchWithRetry(`${API_BASE}/upb-trend?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch UPB trend');
+    return res.json();
+  }
+
+  async function fetchUpbTreemap(filters) {
+    const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0)
+      ? filters.selectedCabangs.join(',')
+      : (filters.cabang || 'All');
+    const params = new URLSearchParams({
+      dimension: filters.treemapDimension || 'cabang',
+      period: filters.period || 'All',
+      unit: filters.unit || 'value',
+      cabang: cabVal,
+      category: filters.category || 'All',
+      limit: '60'
+    });
+    const res = await fetchWithRetry(`${API_BASE}/upb-treemap?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch UPB treemap');
+    return res.json();
+  }
+
+  async function fetchUpbData(filters) {
+    const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0)
+      ? filters.selectedCabangs.join(',')
+      : (filters.cabang || 'All');
+    const params = new URLSearchParams({
+      period: filters.period || 'All',
+      cabang: cabVal,
+      category: filters.category || 'All',
+      search: filters.search || '',
+      page: (filters.page || 1).toString(),
+      page_size: (filters.pageSize || 20).toString(),
+      sort_by: filters.sortBy || 'val',
+      sort_order: filters.sortOrder || 'desc'
+    });
+    const res = await fetchWithRetry(`${API_BASE}/upb-data?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch UPB data');
+    return res.json();
+  }
+
+  function getExportUpbExcelUrl(upbFilters, globalFilters) {
+    const cabVal = (globalFilters.selectedCabangs && globalFilters.selectedCabangs.length > 0)
+      ? globalFilters.selectedCabangs.join(',')
+      : (upbFilters.cabang || 'All');
+    const params = new URLSearchParams({
+      period: globalFilters.period || 'All',
+      cabang: cabVal,
+      category: upbFilters.category || 'All',
+      search: upbFilters.search || ''
+    });
+    return `${API_BASE}/export-upb-excel?${params.toString()}`;
+  }
+
   class DashboardApp {
     constructor() {
       this.filters = {
@@ -295,12 +378,36 @@
       this.doiData = null;
       this.trendSeriesVisibility = { total: true, dead: true, slow: true, over: true };
 
+      // UPB Specific State
+      this.upbFilters = {
+        category: 'All',
+        treemapDimension: 'cabang',
+        search: '',
+        page: 1,
+        pageSize: 20,
+        sortBy: 'val',
+        sortOrder: 'desc',
+        trendMetric: 'value'
+      };
+      this.upbTrendSeriesVisibility = { total: true, pm3: true, abv: true, bel: true };
+      this.upbSummary = null;
+      this.upbTrendData = null;
+      this.upbTreemapData = null;
+      this.upbTableData = null;
+
       this.init();
     }
 
     async init() {
       try {
         this.metadata = await fetchMetadata();
+        if (typeof window !== 'undefined' && window.location && window.location.search) {
+          const urlParams = new URLSearchParams(window.location.search);
+          const tabParam = urlParams.get('tab') || urlParams.get('view');
+          if (tabParam && ['combined', 'mnj', 'kx', 'upb'].includes(tabParam.toLowerCase())) {
+            this.filters.activeTab = tabParam.toLowerCase();
+          }
+        }
         if (this.metadata && this.metadata.periods && this.metadata.periods.length > 0) {
           this.filters.period = this.metadata.periods[0];
         } else {
@@ -309,6 +416,10 @@
         this.updateApiStatus(true, 'API Live Connected');
         this.populateFilterDropdowns();
         this.bindEvents();
+        document.querySelectorAll('[data-tab]').forEach(b => {
+          if (b.getAttribute('data-tab') === this.filters.activeTab) b.classList.add('active');
+          else b.classList.remove('active');
+        });
         await this.refreshData();
       } catch (err) {
         console.error('[DASHBOARD] Initialization error:', err);
@@ -857,6 +968,142 @@
         });
       }
 
+
+      // UPB Interactive Event Bindings
+      document.querySelectorAll('.upb-status-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+          const cat = e.currentTarget.getAttribute('data-upb-cat') || 'All';
+          this.upbFilters.category = cat;
+          this.upbFilters.page = 1;
+          document.querySelectorAll('.upb-status-card').forEach(c => c.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          const catSelect = document.getElementById('upbCategorySelect');
+          if (catSelect) catSelect.value = cat;
+          this.refreshUpbData();
+        });
+      });
+
+      const btnUpbTrendVal = document.getElementById('btnUpbTrendVal');
+      const btnUpbTrendQty = document.getElementById('btnUpbTrendQty');
+      if (btnUpbTrendVal && btnUpbTrendQty) {
+        btnUpbTrendVal.addEventListener('click', () => {
+          this.upbFilters.trendMetric = 'value';
+          btnUpbTrendVal.classList.add('active');
+          btnUpbTrendQty.classList.remove('active');
+          this.renderUpbTrendChart();
+        });
+        btnUpbTrendQty.addEventListener('click', () => {
+          this.upbFilters.trendMetric = 'qty';
+          btnUpbTrendQty.classList.add('active');
+          btnUpbTrendVal.classList.remove('active');
+          this.renderUpbTrendChart();
+        });
+      }
+
+      document.querySelectorAll('[data-toggle-upb-series]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const series = e.currentTarget.getAttribute('data-toggle-upb-series');
+          if (this.upbTrendSeriesVisibility[series] !== undefined) {
+            this.upbTrendSeriesVisibility[series] = !this.upbTrendSeriesVisibility[series];
+            const isVis = this.upbTrendSeriesVisibility[series];
+            e.currentTarget.style.opacity = isVis ? '1' : '0.45';
+            const textEl = e.currentTarget.querySelector('span:last-child');
+            if (textEl) textEl.style.textDecoration = isVis ? 'none' : 'line-through';
+            this.renderUpbTrendChart();
+          }
+        });
+      });
+
+      document.querySelectorAll('#upbTreemapDimensionToggle button').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const dim = e.currentTarget.getAttribute('data-treemap-dim');
+          this.upbFilters.treemapDimension = dim;
+          document.querySelectorAll('#upbTreemapDimensionToggle button').forEach(b => b.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          this.fetchUpbTreemapAndRender();
+        });
+      });
+
+      const btnResetTreemap = document.getElementById('btnResetTreemapFilter');
+      if (btnResetTreemap) {
+        btnResetTreemap.addEventListener('click', () => {
+          this.filters.selectedCabangs = [];
+          this.upbFilters.search = '';
+          this.upbFilters.category = 'All';
+          btnResetTreemap.style.display = 'none';
+          this.populateFilterDropdowns();
+          this.refreshUpbData();
+        });
+      }
+
+      const upbCatSelect = document.getElementById('upbCategorySelect');
+      if (upbCatSelect) {
+        upbCatSelect.addEventListener('change', (e) => {
+          this.upbFilters.category = e.target.value;
+          this.upbFilters.page = 1;
+          document.querySelectorAll('.upb-status-card').forEach(c => {
+            if (c.getAttribute('data-upb-cat') === this.upbFilters.category) {
+              c.classList.add('active');
+            } else {
+              c.classList.remove('active');
+            }
+          });
+          this.refreshUpbData();
+        });
+      }
+
+      const upbSearch = document.getElementById('upbSearchInput');
+      if (upbSearch) {
+        let debounceTimer = null;
+        upbSearch.addEventListener('input', (e) => {
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            this.upbFilters.search = e.target.value.trim();
+            this.upbFilters.page = 1;
+            this.fetchUpbTableAndRender();
+          }, 300);
+        });
+      }
+
+      const btnExportUpb = document.getElementById('btnExportUpbExcel');
+      if (btnExportUpb) {
+        btnExportUpb.addEventListener('click', () => {
+          window.open(getExportUpbExcelUrl(this.upbFilters, this.filters), '_blank');
+        });
+      }
+
+      document.querySelectorAll('[data-upb-sort]').forEach(th => {
+        th.addEventListener('click', (e) => {
+          const sortBy = e.currentTarget.getAttribute('data-upb-sort');
+          if (this.upbFilters.sortBy === sortBy) {
+            this.upbFilters.sortOrder = (this.upbFilters.sortOrder === 'asc') ? 'desc' : 'asc';
+          } else {
+            this.upbFilters.sortBy = sortBy;
+            this.upbFilters.sortOrder = (sortBy === 'cabang' || sortBy === 'product_name' || sortBy === 'product_code') ? 'asc' : 'desc';
+          }
+          this.fetchUpbTableAndRender();
+        });
+      });
+
+      const btnUpbPrev = document.getElementById('btnUpbPrevPage');
+      if (btnUpbPrev) {
+        btnUpbPrev.addEventListener('click', () => {
+          if (this.upbFilters.page > 1) {
+            this.upbFilters.page--;
+            this.fetchUpbTableAndRender();
+          }
+        });
+      }
+      const btnUpbNext = document.getElementById('btnUpbNextPage');
+      if (btnUpbNext) {
+        btnUpbNext.addEventListener('click', () => {
+          if (this.upbTableData && this.upbFilters.page < this.upbTableData.total_pages) {
+            this.upbFilters.page++;
+            this.fetchUpbTableAndRender();
+          }
+        });
+      }
+
       // Modal Close Listeners
       const btnCloseModal = document.getElementById('btnCloseModal');
       const modalOverlay = document.getElementById('modalOverlay');
@@ -869,6 +1116,42 @@
     }
 
     updateTabUI(tab) {
+      const isUpb = (tab === 'upb');
+      const doiCards = document.getElementById('doiCardsContainer');
+      const upbCards = document.getElementById('upbCardsContainer');
+      const doiTrend = document.getElementById('doiTrendSection');
+      const gbSec = document.getElementById('gbSummarySection');
+      const catGbSec = document.getElementById('catGbMatrixSection');
+      const doiDetail = document.getElementById('doiDetailSection');
+      const upbTrend = document.getElementById('upbTrendSection');
+      const upbTreemap = document.getElementById('upbTreemapSection');
+      const upbDetail = document.getElementById('upbDetailSection');
+
+      if (isUpb) {
+        if (doiCards) doiCards.style.display = 'none';
+        if (upbCards) upbCards.style.display = 'block';
+        if (doiTrend) doiTrend.style.display = 'none';
+        if (gbSec) gbSec.style.display = 'none';
+        if (catGbSec) catGbSec.style.display = 'none';
+        if (doiDetail) doiDetail.style.display = 'none';
+        if (upbTrend) upbTrend.style.display = 'block';
+        if (upbTreemap) upbTreemap.style.display = 'block';
+        if (upbDetail) upbDetail.style.display = 'block';
+        const upbBadge = document.getElementById('upbPeriodBadge');
+        if (upbBadge) upbBadge.innerText = `Periode: ${formatPeriodFullLabel(this.filters.period)}`;
+        return;
+      } else {
+        if (doiCards) doiCards.style.display = 'block';
+        if (upbCards) upbCards.style.display = 'none';
+        if (doiTrend) doiTrend.style.display = 'block';
+        if (gbSec) gbSec.style.display = 'block';
+        if (catGbSec) catGbSec.style.display = 'block';
+        if (doiDetail) doiDetail.style.display = 'block';
+        if (upbTrend) upbTrend.style.display = 'none';
+        if (upbTreemap) upbTreemap.style.display = 'none';
+        if (upbDetail) upbDetail.style.display = 'none';
+      }
+
       const trendChartTitle = document.getElementById('trendChartTitle');
       const trendSubtitle = document.getElementById('trendSubtitle');
       const gbTitle = document.getElementById('gbSectionTitle');
@@ -1061,6 +1344,11 @@
     }
 
     async refreshData() {
+      if (this.filters.activeTab === 'upb') {
+        await this.refreshUpbData();
+        return;
+      }
+
       let summaryRes, gbSummaryRes, catGbSummaryRes, trendRes, doiRes;
       try {
         [summaryRes, gbSummaryRes, catGbSummaryRes, trendRes, doiRes] = await Promise.all([
@@ -2668,6 +2956,656 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
         if (dot) dot.style.background = '#dc2626';
         if (textSpan) textSpan.innerText = msg || 'API Disconnected';
       }
+    }
+
+
+    // =========================================================================
+    // UPB METHODS (SUMMARY, TREND, TREEMAP, REPORT TABLE)
+    // =========================================================================
+
+    async refreshUpbData() {
+      try {
+        const upbParams = {
+          ...this.upbFilters,
+          period: this.filters.period || 'All',
+          unit: this.filters.unit || 'value',
+          selectedCabangs: this.filters.selectedCabangs || []
+        };
+
+        const [summaryRes, trendRes, treemapRes, dataRes] = await Promise.all([
+          fetchUpbSummary(upbParams),
+          fetchUpbTrend(upbParams),
+          fetchUpbTreemap(upbParams),
+          fetchUpbData(upbParams)
+        ]);
+
+        this.upbSummary = summaryRes;
+        this.upbTrendData = trendRes;
+        this.upbTreemapData = treemapRes;
+        this.upbTableData = dataRes;
+
+        this.updateApiStatus(true, 'API Live Connected');
+      } catch (err) {
+        console.error('[DASHBOARD] UPB fetch error:', err);
+        this.updateApiStatus(false, 'API Error');
+        return;
+      }
+
+      try { this.updateTabUI('upb'); } catch (e) { console.error('[DASHBOARD] updateTabUI error:', e); }
+      try { this.renderUpbSummaryCards(); } catch (e) { console.error('[DASHBOARD] renderUpbSummaryCards error:', e); }
+      try { this.renderUpbTrendChart(); } catch (e) { console.error('[DASHBOARD] renderUpbTrendChart error:', e); }
+      try { this.renderUpbTreemap(); } catch (e) { console.error('[DASHBOARD] renderUpbTreemap error:', e); }
+      try { this.renderUpbTable(); } catch (e) { console.error('[DASHBOARD] renderUpbTable error:', e); }
+      try { this.renderUpbPagination(); } catch (e) { console.error('[DASHBOARD] renderUpbPagination error:', e); }
+    }
+
+    async fetchUpbTreemapAndRender() {
+      try {
+        const upbParams = {
+          ...this.upbFilters,
+          period: this.filters.period || 'All',
+          unit: this.filters.unit || 'value',
+          selectedCabangs: this.filters.selectedCabangs || []
+        };
+        this.upbTreemapData = await fetchUpbTreemap(upbParams);
+        this.renderUpbTreemap();
+      } catch (err) {
+        console.error('[DASHBOARD] fetchUpbTreemap error:', err);
+      }
+    }
+
+    async fetchUpbTableAndRender() {
+      try {
+        const upbParams = {
+          ...this.upbFilters,
+          period: this.filters.period || 'All',
+          unit: this.filters.unit || 'value',
+          selectedCabangs: this.filters.selectedCabangs || []
+        };
+        this.upbTableData = await fetchUpbData(upbParams);
+        this.renderUpbTable();
+        this.renderUpbPagination();
+      } catch (err) {
+        console.error('[DASHBOARD] fetchUpbTable error:', err);
+      }
+    }
+
+    renderUpbSummaryCards() {
+      if (!this.upbSummary) return;
+      const s = this.upbSummary;
+      const formatNum = (v) => new Intl.NumberFormat('id-ID').format(Math.round(v));
+      const formatCompact = (v) => {
+        if (v >= 1e9) return `Rp ${(v / 1e9).toFixed(2)} M`;
+        if (v >= 1e6) return `Rp ${(v / 1e6).toFixed(1)} Jt`;
+        return `Rp ${formatNum(v)}`;
+      };
+
+      const valAll = document.getElementById('upbValAll');
+      const subAll = document.getElementById('upbSubAll');
+      const totalRecords = s.total_records || s.total_rows || s.total_count || 0;
+      if (valAll) valAll.innerText = formatCompact(s.total_val);
+      if (subAll) subAll.innerText = `${formatNum(s.total_qty)} Unit • ${formatNum(totalRecords)} Transaksi`;
+
+      const pm3 = (s.categories && s.categories.plus_minus_3) || s.cat_plus_minus_3 || { val: 0, qty: 0, count: 0, val_pct: 0 };
+      const abv = (s.categories && s.categories.above_3) || s.cat_above_3 || { val: 0, qty: 0, count: 0, val_pct: 0 };
+      const bel = (s.categories && (s.categories['below_-3'] || s.categories.below_minus_3)) || s.cat_below_3 || { val: 0, qty: 0, count: 0, val_pct: 0 };
+
+      const pm3Pct = pm3.val_pct !== undefined ? pm3.val_pct : (pm3.pct_val !== undefined ? pm3.pct_val : 0);
+      const pm3Count = pm3.count !== undefined ? pm3.count : (pm3.rows !== undefined ? pm3.rows : 0);
+      const valPm3 = document.getElementById('upbValPm3');
+      const subPm3 = document.getElementById('upbSubPm3');
+      if (valPm3) valPm3.innerHTML = `${formatCompact(pm3.val)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${pm3Pct}%)</span>`;
+      if (subPm3) subPm3.innerText = `${formatNum(pm3.qty)} Unit • ${formatNum(pm3Count)} Transaksi`;
+
+      const abvPct = abv.val_pct !== undefined ? abv.val_pct : (abv.pct_val !== undefined ? abv.pct_val : 0);
+      const abvCount = abv.count !== undefined ? abv.count : (abv.rows !== undefined ? abv.rows : 0);
+      const valAbove = document.getElementById('upbValAbove');
+      const subAbove = document.getElementById('upbSubAbove');
+      if (valAbove) valAbove.innerHTML = `${formatCompact(abv.val)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${abvPct}%)</span>`;
+      if (subAbove) subAbove.innerText = `${formatNum(abv.qty)} Unit • ${formatNum(abvCount)} Transaksi`;
+
+      const belPct = bel.val_pct !== undefined ? bel.val_pct : (bel.pct_val !== undefined ? bel.pct_val : 0);
+      const belCount = bel.count !== undefined ? bel.count : (bel.rows !== undefined ? bel.rows : 0);
+      const valBelow = document.getElementById('upbValBelow');
+      const subBelow = document.getElementById('upbSubBelow');
+      if (valBelow) valBelow.innerHTML = `${formatCompact(bel.val)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${belPct}%)</span>`;
+      if (subBelow) subBelow.innerText = `${formatNum(bel.qty)} Unit • ${formatNum(belCount)} Transaksi`;
+    }
+
+    renderUpbTrendChart() {
+      const container = document.getElementById('upbTrendChartContainer');
+      if (!container) return;
+
+      const data = this.upbTrendData;
+      if (!data || data.length === 0) {
+        container.innerHTML = '<div style="padding: 40px; text-align: center; color: #64748b;">Data tren historis UPB tidak ditemukan.</div>';
+        return;
+      }
+
+      const isQty = (this.upbFilters.trendMetric === 'qty');
+      const sVis = this.upbTrendSeriesVisibility || { total: true, pm3: true, abv: true, bel: true };
+
+      // Calculate max value among active series
+      let maxVal = 100;
+      data.forEach(d => {
+        if (sVis.total) maxVal = Math.max(maxVal, isQty ? d.total_qty : d.total_val);
+        if (sVis.pm3) maxVal = Math.max(maxVal, isQty ? d.plus_minus_3_qty : d.plus_minus_3_val);
+        if (sVis.abv) maxVal = Math.max(maxVal, isQty ? d.above_3_qty : d.above_3_val);
+        if (sVis.bel) maxVal = Math.max(maxVal, isQty ? d.below_minus_3_qty : d.below_minus_3_val);
+      });
+      maxVal = maxVal * 1.15; // 15% headroom
+
+      const width = Math.max(container.clientWidth || 960, 600);
+      const height = 320;
+      const padLeft = 85;
+      const padRight = 30;
+      const padTop = 25;
+      const padBottom = 50;
+
+      const plotW = width - padLeft - padRight;
+      const plotH = height - padTop - padBottom;
+      const stepX = plotW / (data.length - 1);
+
+      const getY = (val) => padTop + plotH - ((val / maxVal) * plotH);
+      const formatY = (v) => {
+        if (isQty) {
+          if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+          if (v >= 1e3) return `${(v / 1e3).toFixed(0)}k`;
+          return Math.round(v).toString();
+        } else {
+          if (v >= 1e9) return `Rp ${(v / 1e9).toFixed(1)}M`;
+          if (v >= 1e6) return `Rp ${(v / 1e6).toFixed(0)}Jt`;
+          return `Rp ${Math.round(v)}`;
+        }
+      };
+
+      // Gridlines & Labels
+      let gridSvg = '';
+      const gridSteps = 5;
+      for (let i = 0; i <= gridSteps; i++) {
+        const yVal = (maxVal / gridSteps) * i;
+        const yPos = getY(yVal);
+        gridSvg += `
+          <line x1="${padLeft}" y1="${yPos}" x2="${width - padRight}" y2="${yPos}" stroke="#f1f5f9" stroke-width="1.2" stroke-dasharray="${i === 0 ? 'none' : '3,3'}" />
+          <text x="${padLeft - 12}" y="${yPos + 4}" font-size="11" font-weight="600" fill="#94a3b8" text-anchor="end">${formatY(yVal)}</text>
+        `;
+      }
+
+      // X-Axis labels
+      let xLabelsSvg = '';
+      data.forEach((d, i) => {
+        const xPos = padLeft + i * stepX;
+        const shortLbl = d.period_label ? d.period_label.replace(' 20', ' \'') : d.period;
+        xLabelsSvg += `
+          <line x1="${xPos}" y1="${height - padBottom}" x2="${xPos}" y2="${height - padBottom + 5}" stroke="#cbd5e1" stroke-width="1" />
+          <text x="${xPos}" y="${height - padBottom + 18}" font-size="10.5" font-weight="600" fill="#64748b" text-anchor="middle" transform="rotate(-30 ${xPos} ${height - padBottom + 18})">${shortLbl}</text>
+        `;
+      });
+
+      // Generate paths for series
+      const seriesConfig = [
+        { key: 'total', name: 'Total UPB', color: '#7c3aed', valKey: isQty ? 'total_qty' : 'total_val', strokeWidth: 3 },
+        { key: 'pm3', name: 'Expired ± 3 Bulan', color: '#d97706', valKey: isQty ? 'plus_minus_3_qty' : 'plus_minus_3_val', strokeWidth: 2.5 },
+        { key: 'bel', name: 'Expired < -3 Bulan', color: '#dc2626', valKey: isQty ? 'below_minus_3_qty' : 'below_minus_3_val', strokeWidth: 2.5 },
+        { key: 'abv', name: 'Expired > 3 Bulan', color: '#0284c7', valKey: isQty ? 'above_3_qty' : 'above_3_val', strokeWidth: 2.2 }
+      ];
+
+      let seriesSvg = '';
+      let pointsSvg = '';
+
+      seriesConfig.forEach(s => {
+        if (!sVis[s.key]) return;
+        const pts = data.map((d, i) => ({
+          x: padLeft + i * stepX,
+          y: getY(d[s.valKey] || 0),
+          val: d[s.valKey] || 0,
+          period: d.period_label || d.period,
+          raw: d
+        }));
+
+        // Area & Line Path
+        let lineD = `M ${pts[0].x} ${pts[0].y}`;
+        for (let i = 1; i < pts.length; i++) {
+          lineD += ` L ${pts[i].x} ${pts[i].y}`;
+        }
+        const areaD = `${lineD} L ${pts[pts.length - 1].x} ${height - padBottom} L ${pts[0].x} ${height - padBottom} Z`;
+
+        seriesSvg += `
+          <path d="${areaD}" fill="${s.color}" fill-opacity="0.08" />
+          <path d="${lineD}" fill="none" stroke="${s.color}" stroke-width="${s.strokeWidth}" stroke-linecap="round" stroke-linejoin="round" />
+        `;
+
+        // Points
+        pts.forEach(p => {
+          const tooltipContent = encodeURIComponent(JSON.stringify({
+            series: s.name,
+            period: p.period,
+            val: p.val,
+            isQty: isQty,
+            totalVal: p.raw.total_val,
+            totalQty: p.raw.total_qty,
+            pm3Val: p.raw.plus_minus_3_val,
+            abvVal: p.raw.above_3_val,
+            belVal: p.raw.below_minus_3_val
+          }));
+          pointsSvg += `
+            <circle cx="${p.x}" cy="${p.y}" r="4" fill="#ffffff" stroke="${s.color}" stroke-width="2.5" class="trend-pt" data-pt="${tooltipContent}" style="cursor: pointer; transition: all 0.2s ease;" />
+          `;
+        });
+      });
+
+      container.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" style="width: 100%; height: 100%; overflow: visible;" id="upbTrendSvg">
+          ${gridSvg}
+          <line x1="${padLeft}" y1="${height - padBottom}" x2="${width - padRight}" y2="${height - padBottom}" stroke="#94a3b8" stroke-width="1.5" />
+          ${xLabelsSvg}
+          ${seriesSvg}
+          ${pointsSvg}
+        </svg>
+      `;
+
+      // Bind Hover Tooltips on Points
+      const svgEl = document.getElementById('upbTrendSvg');
+      const tt = document.getElementById('treemapTooltip');
+      if (svgEl && tt) {
+        svgEl.querySelectorAll('.trend-pt').forEach(pt => {
+          pt.addEventListener('mouseenter', (e) => {
+            const raw = JSON.parse(decodeURIComponent(e.target.getAttribute('data-pt')));
+            e.target.setAttribute('r', '6');
+            e.target.setAttribute('stroke-width', '3.5');
+            
+            const formatCurrency = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v);
+            const formatInteger = (v) => new Intl.NumberFormat('id-ID').format(Math.round(v));
+
+            tt.innerHTML = `
+              <div style="font-weight: 700; font-size: 13px; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;">
+                📅 ${raw.period} • <span style="color: #6d28d9;">${raw.series}</span>
+              </div>
+              <div style="font-size: 12px; margin-bottom: 4px; display: flex; justify-content: space-between; gap: 14px;">
+                <span style="color: #64748b;">${raw.isQty ? 'Volume (Unit):' : 'Valuasi UPB:'}</span>
+                <strong style="color: #0f172a;">${raw.isQty ? formatInteger(raw.val) + ' Unit' : formatCurrency(raw.val)}</strong>
+              </div>
+              <div style="font-size: 11px; color: #64748b; margin-top: 6px; padding-top: 4px; border-top: 1px dashed #e2e8f0;">
+                <div>• Total Transaksi: <strong>${formatCurrency(raw.totalVal)}</strong> (${formatInteger(raw.totalQty)} Unit)</div>
+                <div style="color: #b45309;">• Expired ± 3 Bln: ${formatCurrency(raw.pm3Val)}</div>
+                <div style="color: #991b1b;">• Expired &lt; -3 Bln: ${formatCurrency(raw.belVal)}</div>
+                <div style="color: #0369a1;">• Expired &gt; 3 Bln: ${formatCurrency(raw.abvVal)}</div>
+              </div>
+            `;
+            tt.classList.add('visible');
+          });
+
+          pt.addEventListener('mousemove', (e) => {
+            tt.style.left = `${e.clientX + 14}px`;
+            tt.style.top = `${e.clientY - 30}px`;
+          });
+
+          pt.addEventListener('mouseleave', (e) => {
+            e.target.setAttribute('r', '4');
+            e.target.setAttribute('stroke-width', '2.5');
+            tt.classList.remove('visible');
+          });
+        });
+      }
+    }
+
+    computeTreemapLayout(items, width, height) {
+      const total = items.reduce((sum, d) => sum + (d.val || 0), 0);
+      if (total <= 0 || width <= 0 || height <= 0) return [];
+
+      const area = width * height;
+      const normItems = items.map(d => ({
+        ...d,
+        area: ((d.val || 0) / total) * area
+      }));
+
+      const rects = [];
+
+      function layoutRow(row, rx, ry, rw, rh, isVertical) {
+        const rowArea = row.reduce((sum, item) => sum + item.area, 0);
+        if (rowArea <= 0) return;
+        if (isVertical) {
+          const rowWidth = rh > 0 ? rowArea / rh : 0;
+          let curY = ry;
+          for (let item of row) {
+            const itemHeight = rowWidth > 0 ? item.area / rowWidth : 0;
+            rects.push({
+              ...item,
+              x: rx,
+              y: curY,
+              w: rowWidth,
+              h: itemHeight
+            });
+            curY += itemHeight;
+          }
+        } else {
+          const rowHeight = rw > 0 ? rowArea / rw : 0;
+          let curX = rx;
+          for (let item of row) {
+            const itemWidth = rowHeight > 0 ? item.area / rowHeight : 0;
+            rects.push({
+              ...item,
+              x: curX,
+              y: ry,
+              w: itemWidth,
+              h: rowHeight
+            });
+            curX += itemWidth;
+          }
+        }
+      }
+
+      function worstRatio(r, l) {
+        if (!r || r.length === 0) return Infinity;
+        const s = r.reduce((sum, item) => sum + item.area, 0);
+        if (s <= 0 || l <= 0) return Infinity;
+        const maxA = Math.max(...r.map(i => i.area));
+        const minA = Math.min(...r.map(i => i.area));
+        if (minA <= 0) return Infinity;
+        return Math.max((l * l * maxA) / (s * s), (s * s) / (l * l * minA));
+      }
+
+      function squarifyRec(children, row, rx, ry, rw, rh) {
+        if (!children || children.length === 0) {
+          if (row && row.length > 0) {
+            const isVertical = rw >= rh;
+            layoutRow(row, rx, ry, rw, rh, isVertical);
+          }
+          return;
+        }
+
+        const isVertical = rw >= rh;
+        const length = isVertical ? rh : rw;
+        const c = children[0];
+
+        if (!row || row.length === 0) {
+          squarifyRec(children.slice(1), [c], rx, ry, rw, rh);
+        } else {
+          const wCurr = worstRatio(row, length);
+          const wNext = worstRatio([...row, c], length);
+          if (wNext <= wCurr) {
+            squarifyRec(children.slice(1), [...row, c], rx, ry, rw, rh);
+          } else {
+            layoutRow(row, rx, ry, rw, rh, isVertical);
+            const rowArea = row.reduce((sum, item) => sum + item.area, 0);
+            if (isVertical) {
+              const rowW = rh > 0 ? rowArea / rh : 0;
+              squarifyRec(children, [], rx + rowW, ry, Math.max(0, rw - rowW), rh);
+            } else {
+              const rowH = rw > 0 ? rowArea / rw : 0;
+              squarifyRec(children, [], rx, ry + rowH, rw, Math.max(0, rh - rowH));
+            }
+          }
+        }
+      }
+
+      squarifyRec(normItems, [], 0, 0, width, height);
+      return rects;
+    }
+
+    renderUpbTreemap() {
+      const container = document.getElementById('treemapContainer');
+      const tooltip = document.getElementById('treemapTooltip');
+      if (!container) return;
+
+      const data = this.upbTreemapData;
+      if (!data || !data.nodes || data.nodes.length === 0) {
+        container.innerHTML = '<div style="padding: 60px; text-align: center; color: #64748b; font-weight: 600;">Tidak ada data UPB yang sesuai dengan filter.</div>';
+        return;
+      }
+
+      const width = Math.max(container.clientWidth || 960, 500);
+      const height = 480;
+      container.style.height = `${height}px`;
+
+      const rects = this.computeTreemapLayout(data.nodes, width, height);
+      const dimension = data.dimension || 'cabang';
+
+      const tileGradients = [
+        'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)', // Royal Blue
+        'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)', // Violet
+        'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', // Ocean Blue
+        'linear-gradient(135deg, #059669 0%, #047857 100%)', // Emerald
+        'linear-gradient(135deg, #d97706 0%, #b45309 100%)', // Amber
+        'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)', // Teal Cyan
+        'linear-gradient(135deg, #db2777 0%, #9d174d 100%)', // Magenta
+        'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)', // Indigo
+        'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)', // Orange
+        'linear-gradient(135deg, #475569 0%, #1e293b 100%)'  // Slate
+      ];
+
+      const formatCurrency = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v);
+      const formatCompact = (v) => {
+        if (v >= 1e9) return `Rp ${(v / 1e9).toFixed(2)} M`;
+        if (v >= 1e6) return `Rp ${(v / 1e6).toFixed(1)} Jt`;
+        return `Rp ${new Intl.NumberFormat('id-ID').format(Math.round(v))}`;
+      };
+
+      let html = '';
+      rects.forEach((r, idx) => {
+        let bg = tileGradients[idx % tileGradients.length];
+        if (dimension === 'category') {
+          if (r.id === 'plus_minus_3') bg = 'linear-gradient(135deg, #d97706 0%, #b45309 100%)';
+          else if (r.id === 'above_3') bg = 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)';
+          else if (r.id === 'below_-3' || r.id === 'below_minus_3') bg = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
+        }
+
+        const isSmall = (r.w < 70 || r.h < 45);
+        const isTiny = (r.w < 50 || r.h < 30);
+        const pctText = `${r.val_pct || 0}%`;
+
+        // Mini Category Breakdown Bar inside tile
+        let miniBarHtml = '';
+        if (r.category_breakdown && r.w >= 100 && r.h >= 65 && r.val > 0) {
+          const cb = r.category_breakdown;
+          const pm3Pct = Math.min(100, Math.max(0, ((cb.plus_minus_3 || 0) / r.val) * 100));
+          const belPct = Math.min(100, Math.max(0, ((cb.below_minus_3 || 0) / r.val) * 100));
+          const abvPct = Math.min(100, Math.max(0, ((cb.above_3 || 0) / r.val) * 100));
+
+          miniBarHtml = `
+            <div style="margin-top: 6px; width: 100%; height: 5px; background: rgba(255,255,255,0.25); border-radius: 3px; display: flex; overflow: hidden;" title="Breakdown: ±3 Bln (${pm3Pct.toFixed(0)}%), < -3 Bln (${belPct.toFixed(0)}%), > 3 Bln (${abvPct.toFixed(0)}%)">
+              <div style="width: ${pm3Pct}%; background: #fde047;" title="±3 Bln: ${pm3Pct.toFixed(0)}%"></div>
+              <div style="width: ${belPct}%; background: #f87171;" title="< -3 Bln: ${belPct.toFixed(0)}%"></div>
+              <div style="width: ${abvPct}%; background: #38bdf8;" title="> 3 Bln: ${abvPct.toFixed(0)}%"></div>
+            </div>
+          `;
+        }
+
+        const rawDataStr = encodeURIComponent(JSON.stringify(r));
+
+        html += `
+          <div class="treemap-tile" data-tile="${rawDataStr}" style="left: ${r.x.toFixed(1)}px; top: ${r.y.toFixed(1)}px; width: ${Math.max(1, r.w - 2).toFixed(1)}px; height: ${Math.max(1, r.h - 2).toFixed(1)}px; background: ${bg}; padding: ${isSmall ? '4px' : '8px'};">
+            ${isTiny ? '' : `
+              <div class="treemap-tile-header">
+                <span class="treemap-tile-title" style="font-size: ${isSmall ? '10px' : '12px'};">${r.name}</span>
+                ${r.w >= 90 ? `<span class="treemap-tile-badge">${pctText}</span>` : ''}
+              </div>
+              <div class="treemap-tile-val" style="font-size: ${isSmall ? '11px' : '13px'};">${formatCompact(r.val)}</div>
+              ${miniBarHtml}
+            `}
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+
+      // Bind Tile Events: Hover Tooltip & Click Filter
+      container.querySelectorAll('.treemap-tile').forEach(tile => {
+        tile.addEventListener('mouseenter', (e) => {
+          const raw = JSON.parse(decodeURIComponent(e.currentTarget.getAttribute('data-tile')));
+          if (!tooltip) return;
+
+          let catBreakdownHtml = '';
+          if (raw.category_breakdown && raw.val > 0) {
+            const cb = raw.category_breakdown;
+            const pm3Val = cb.plus_minus_3 || 0;
+            const abvVal = cb.above_3 || 0;
+            const belVal = cb.below_minus_3 || 0;
+            catBreakdownHtml = `
+              <div style="margin-top: 8px; padding-top: 6px; border-top: 1px dashed #e2e8f0; font-size: 11px;">
+                <div style="font-weight: 700; color: #475569; margin-bottom: 3px;">Pemisahan Kategori Expired:</div>
+                <div style="color: #b45309; display: flex; justify-content: space-between;">
+                  <span>• Expired ± 3 Bulan:</span> <strong>${formatCurrency(pm3Val)} (${((pm3Val / raw.val) * 100).toFixed(1)}%)</strong>
+                </div>
+                <div style="color: #991b1b; display: flex; justify-content: space-between;">
+                  <span>• Expired &lt; -3 Bulan:</span> <strong>${formatCurrency(belVal)} (${((belVal / raw.val) * 100).toFixed(1)}%)</strong>
+                </div>
+                <div style="color: #0369a1; display: flex; justify-content: space-between;">
+                  <span>• Expired &gt; 3 Bulan:</span> <strong>${formatCurrency(abvVal)} (${((abvVal / raw.val) * 100).toFixed(1)}%)</strong>
+                </div>
+              </div>
+            `;
+          }
+
+          tooltip.innerHTML = `
+            <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 4px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
+              ${dimension === 'cabang' ? '🏢 Cabang: ' : (dimension === 'item' ? '📦 Produk: ' : '⏳ ')}${raw.name}
+            </div>
+            <div style="font-size: 12px; margin-bottom: 2px; display: flex; justify-content: space-between; gap: 12px;">
+              <span style="color: #64748b;">Valuasi UPB:</span>
+              <strong style="color: #0f172a;">${formatCurrency(raw.val)}</strong>
+            </div>
+            <div style="font-size: 12px; margin-bottom: 2px; display: flex; justify-content: space-between; gap: 12px;">
+              <span style="color: #64748b;">Volume:</span>
+              <strong style="color: #0f172a;">${new Intl.NumberFormat('id-ID').format(raw.qty || 0)} Unit</strong>
+            </div>
+            <div style="font-size: 12px; display: flex; justify-content: space-between; gap: 12px;">
+              <span style="color: #64748b;">Share Total:</span>
+              <strong style="color: #6d28d9;">${raw.val_pct || 0}%</strong>
+            </div>
+            ${catBreakdownHtml}
+            <div style="margin-top: 8px; font-size: 10.5px; color: #0284c7; font-weight: 600; text-align: center; background: #f0f9ff; padding: 4px; border-radius: 4px;">
+              🔍 Klik untuk filter tabel transaksi detail
+            </div>
+          `;
+          tooltip.classList.add('visible');
+        });
+
+        tile.addEventListener('mousemove', (e) => {
+          if (!tooltip) return;
+          tooltip.style.left = `${e.clientX + 15}px`;
+          tooltip.style.top = `${e.clientY - 40}px`;
+        });
+
+        tile.addEventListener('mouseleave', () => {
+          if (tooltip) tooltip.classList.remove('visible');
+        });
+
+        tile.addEventListener('click', (e) => {
+          const raw = JSON.parse(decodeURIComponent(e.currentTarget.getAttribute('data-tile')));
+          if (dimension === 'cabang') {
+            this.filters.selectedCabangs = [raw.id];
+            const btnReset = document.getElementById('btnResetTreemapFilter');
+            if (btnReset) {
+              btnReset.style.display = 'inline-block';
+              btnReset.innerText = `✕ Reset Filter: ${raw.id}`;
+            }
+            this.populateFilterDropdowns();
+            this.refreshUpbData();
+          } else if (dimension === 'item') {
+            const upbSearch = document.getElementById('upbSearchInput');
+            if (upbSearch) {
+              upbSearch.value = raw.id;
+              this.upbFilters.search = raw.id;
+              this.upbFilters.page = 1;
+              const detailSec = document.getElementById('upbDetailSection');
+              if (detailSec) detailSec.scrollIntoView({ behavior: 'smooth' });
+              this.fetchUpbTableAndRender();
+            }
+          } else if (dimension === 'category') {
+            this.upbFilters.category = raw.id;
+            this.upbFilters.page = 1;
+            const catSelect = document.getElementById('upbCategorySelect');
+            if (catSelect) catSelect.value = raw.id;
+            document.querySelectorAll('.upb-status-card').forEach(c => {
+              if (c.getAttribute('data-upb-cat') === raw.id) c.classList.add('active');
+              else c.classList.remove('active');
+            });
+            this.refreshUpbData();
+          }
+        });
+      });
+    }
+
+    renderUpbTable() {
+      const tbody = document.getElementById('upbTableBody');
+      if (!tbody) return;
+
+      const data = this.upbTableData;
+      if (!data || !data.items || data.items.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="12" style="text-align: center; padding: 40px; color: #94a3b8; font-weight: 600;">
+              Tidak ada data transaksi UPB yang sesuai dengan kriteria pencarian dan filter.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      const formatCurrency = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v);
+      const formatNum = (v) => new Intl.NumberFormat('id-ID').format(v);
+      const totalVal = this.upbSummary ? (this.upbSummary.total_val || 1) : 1;
+
+      let rowsHtml = '';
+      data.items.forEach((item, idx) => {
+        const rowNo = ((data.page - 1) * data.page_size) + idx + 1;
+        const diff = item.month_diff || 0;
+        const diffSign = diff > 0 ? `+${diff}` : `${diff}`;
+
+        let catBadgeStyle = '';
+        if (item.category_key === 'plus_minus_3') {
+          catBadgeStyle = 'background: #fef3c7; color: #b45309; border: 1px solid #fde68a;';
+        } else if (item.category_key === 'above_3') {
+          catBadgeStyle = 'background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;';
+        } else {
+          catBadgeStyle = 'background: #fee2e2; color: #991b1b; border: 1px solid #fecaca;';
+        }
+
+        const pctShare = totalVal > 0 ? ((item.val / totalVal) * 100).toFixed(3) : '0.000';
+
+        rowsHtml += `
+          <tr>
+            <td style="text-align: center; color: #94a3b8; font-size: 11.5px;">${rowNo}</td>
+            <td style="font-weight: 600; color: #475569;">${item.period || item.tgl_transaksi || '-'}</td>
+            <td style="font-weight: 700; color: #0f172a;">${item.cabang}</td>
+            <td style="font-family: monospace; font-weight: 700; color: #0284c7;">${item.kode_produk}</td>
+            <td style="font-weight: 600; color: #1e293b; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.nama_produk}">${item.nama_produk}</td>
+            <td><span style="font-size: 11px; font-weight: 600; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${item.gb || '-'}</span></td>
+            <td style="color: #64748b;">${item.tgl_expired || '-'}</td>
+            <td style="text-align: right; font-weight: 700; color: ${diff < -3 ? '#dc2626' : (diff > 3 ? '#0284c7' : '#d97706')};">${diffSign} Bln</td>
+            <td>
+              <span style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 12px; display: inline-block; ${catBadgeStyle}">
+                ${item.category_label}
+              </span>
+            </td>
+            <td style="text-align: right; font-weight: 600; color: #334155;">${formatNum(item.qty)}</td>
+            <td style="text-align: right; font-weight: 700; color: #0f172a;">${formatCurrency(item.val)}</td>
+            <td style="text-align: right; font-size: 11.5px; color: #64748b;">${pctShare}%</td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = rowsHtml;
+    }
+
+    renderUpbPagination() {
+      const data = this.upbTableData;
+      const infoEl = document.getElementById('upbPaginationInfo');
+      const prevBtn = document.getElementById('btnUpbPrevPage');
+      const nextBtn = document.getElementById('btnUpbNextPage');
+
+      if (!data || !infoEl) return;
+
+      const formatNum = (v) => new Intl.NumberFormat('id-ID').format(v);
+      const totalCount = data.total_records !== undefined ? data.total_records : (data.total_count || 0);
+      const startItem = totalCount > 0 ? ((data.page - 1) * data.page_size) + 1 : 0;
+      const endItem = Math.min(data.page * data.page_size, totalCount);
+
+      infoEl.innerText = `Halaman ${data.page} dari ${data.total_pages || 1} • Menampilkan ${formatNum(startItem)} – ${formatNum(endItem)} dari ${formatNum(totalCount)} Transaksi UPB`;
+
+      if (prevBtn) prevBtn.disabled = (data.page <= 1);
+      if (nextBtn) nextBtn.disabled = (data.page >= data.total_pages);
     }
 
     showError(msg) {
