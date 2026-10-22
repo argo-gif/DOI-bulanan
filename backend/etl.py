@@ -273,7 +273,7 @@ class DataEngine:
             self.load_master_cabang()
         return dict(self.master_cabang)
 
-    ETL_VERSION = "2.6.0"
+    ETL_VERSION = "2.7.0"
 
     def _get_cache_checksum(self) -> str:
         h = hashlib.md5()
@@ -834,19 +834,31 @@ class DataEngine:
             doi_min_kx = 15.0
             doi_min_total = float(pinfo.get("doi_min_days", 45.0))
 
+            # Determine overstock threshold for MNJ:
+            # - Level Nasional (!is_cabang_filtered): semua cabang over bila diatas 45 hari
+            # - Filter Cabang (is_cabang_filtered): LPJ 90 hari, PJ 60 hari
+            if is_cabang_filtered:
+                if len(selected_cabs) == 1:
+                    over_thresh_mnj = self.get_cabang_over_doi(selected_cabs[0])
+                else:
+                    stk_max_tot = sum((self.get_cabang_over_doi(c) / 30.0) * (self._sales_cabang_cache.get(selected_period, {}).get(c, {}).get(pcode, 0.0)) for c in selected_cabs)
+                    over_thresh_mnj = (stk_max_tot / avg_sales_qty * 30.0) if avg_sales_qty > 0 else 90.0
+            else:
+                over_thresh_mnj = 45.0
+
             # Evaluation for MNJ:
-            # - If Level Nasional (!is_cabang_filtered): Format seperti sebelum ada dead & slow (Understock, Normal, Overstock).
-            # - If Filter Cabang (is_cabang_filtered): Tampil Dead Stock & Slow Moving, Overstock ditiadakan.
             if is_streamline:
                 health_status_mnj = "Streamline"
                 selisih_doi_mnj = 0.0
                 selisih_val_mnj = stok_mnj_value
                 selisih_qty_mnj = stok_mnj_qty
+                over_thresh_mnj = 0.0
             elif is_festive:
                 health_status_mnj = "Festive"
                 selisih_doi_mnj = 0.0
                 selisih_val_mnj = stok_mnj_value
                 selisih_qty_mnj = stok_mnj_qty
+                over_thresh_mnj = 0.0
             elif ket_lower == "produk baru":
                 health_status_mnj = "Produk Baru"
                 selisih_doi_mnj = 0.0
@@ -869,32 +881,11 @@ class DataEngine:
                 stok_min_qty_mnj = (doi_min_mnj / 30.0) * avg_sales_qty
                 selisih_val_mnj = round(stok_mnj_value - stok_min_val_mnj, 2)
                 selisih_qty_mnj = round(stok_mnj_qty - stok_min_qty_mnj, 2)
-            elif is_cabang_filtered:
-                # Level Cabang: LPJ menggunakan DOI 90, PJ menggunakan DOI 60
-                if len(selected_cabs) == 1:
-                    over_thresh_mnj = self.get_cabang_over_doi(selected_cabs[0])
-                else:
-                    stk_max_tot = sum((self.get_cabang_over_doi(c) / 30.0) * (self._sales_cabang_cache.get(selected_period, {}).get(c, {}).get(pcode, 0.0)) for c in selected_cabs)
-                    over_thresh_mnj = (stk_max_tot / avg_sales_qty * 30.0) if avg_sales_qty > 0 else 90.0
-
-                if doi_mnj > over_thresh_mnj:
-                    health_status_mnj = "Overstock"
-                    selisih_doi_mnj = round(doi_mnj - over_thresh_mnj, 1)
-                    stok_max_val_mnj = (over_thresh_mnj / 30.0) * avg_sales_value
-                    stok_max_qty_mnj = (over_thresh_mnj / 30.0) * avg_sales_qty
-                    selisih_val_mnj = round(stok_mnj_value - stok_max_val_mnj, 2)
-                    selisih_qty_mnj = round(stok_mnj_qty - stok_max_qty_mnj, 2)
-                else:
-                    health_status_mnj = "Normal"
-                    selisih_doi_mnj = 0.0
-                    selisih_val_mnj = 0.0
-                    selisih_qty_mnj = 0.0
-            elif (not is_cabang_filtered) and doi_max_mnj > 0 and doi_mnj > doi_max_mnj:
-                # Level Nasional: Overstock dihitung seperti format semula
+            elif over_thresh_mnj > 0 and doi_mnj > over_thresh_mnj:
                 health_status_mnj = "Overstock"
-                selisih_doi_mnj = round(doi_mnj - doi_max_mnj, 1)
-                stok_max_val_mnj = (doi_max_mnj / 30.0) * avg_sales_value
-                stok_max_qty_mnj = (doi_max_mnj / 30.0) * avg_sales_qty
+                selisih_doi_mnj = round(doi_mnj - over_thresh_mnj, 1)
+                stok_max_val_mnj = (over_thresh_mnj / 30.0) * avg_sales_value
+                stok_max_qty_mnj = (over_thresh_mnj / 30.0) * avg_sales_qty
                 selisih_val_mnj = round(stok_mnj_value - stok_max_val_mnj, 2)
                 selisih_qty_mnj = round(stok_mnj_qty - stok_max_qty_mnj, 2)
             else:
@@ -979,7 +970,7 @@ class DataEngine:
                 # DOI Days thresholds
                 "doi_min_days": ceil_doi(doi_min_total),
                 "doi_max_days": ceil_doi(doi_max_total),
-                "doi_max_mnj": ceil_doi(doi_max_mnj),
+                "doi_max_mnj": ceil_doi(over_thresh_mnj) if not is_special else 0.0,
                 "doi_max_kx": ceil_doi(doi_max_kx),
                 "doi_max_total": ceil_doi(doi_max_total),
                 "target_doi_days": ceil_doi(doi_max_total),
@@ -1505,7 +1496,7 @@ class DataEngine:
                             has_zero_sales_3m = (len(sales_3m) == 3) and all(s <= 0 for s in sales_3m)
                             c_doi = (c_curr_stock / c_avg_sales * 30.0) if c_avg_sales > 0 else 0.0
 
-                            c_thresh = self.get_cabang_over_doi(c)
+                            c_thresh = self.get_cabang_over_doi(c) if is_cabang_filtered else 45.0
                             if (has_stock_3m and has_zero_sales_3m) or (c_avg_sales > 0 and c_doi > 180.0):
                                 tot_slow_qty += c_curr_stock
                                 tot_slow_val += stok_val

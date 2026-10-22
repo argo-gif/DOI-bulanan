@@ -1191,6 +1191,7 @@
       const cardOver = document.getElementById('cardOverstock');
       const descUnder = document.getElementById('descUnderstock');
       const descNorm = document.getElementById('descNormal');
+      const descOver = document.getElementById('descOverstock') || (cardOver ? cardOver.querySelector('.status-card-desc') : null);
       const thDead = document.getElementById('detailThDeadStock');
       const thSlow = document.getElementById('detailThSlowMoving');
 
@@ -1228,11 +1229,8 @@
 
           if (cardDead) cardDead.style.display = '';
           if (cardSlow) cardSlow.style.display = '';
-          if (cardOver) {
-            cardOver.style.display = '';
-            const descOver = cardOver.querySelector('.status-card-desc');
-            if (descOver) descOver.innerText = overDaysText;
-          }
+          if (cardOver) cardOver.style.display = '';
+          if (descOver) descOver.innerText = overDaysText;
           if (descNorm) descNorm.innerText = normDaysText;
           if (thDead) thDead.style.display = '';
           if (thSlow) thSlow.style.display = '';
@@ -1248,7 +1246,7 @@
           if (trendSubtitle) trendSubtitle.innerText = `Visualisasi pergerakan tren Dead Stock, Slow Moving, dan ${overSubText} untuk ${cabNames} per bulan.`;
 
           if (gbTitle) gbTitle.innerHTML = `<span>🏢</span> Ringkasan DOI MNJ Per Group Business (GB) - ${cabNames} ${gbBadge}`;
-          if (gbSub) gbSub.innerText = `Perbandingan stok cabang (${cabNames}), realisasi DOI, Max DOI MNJ (Master), Dead Stock, Slow Moving, dan ${overSubText} per GB.`;
+          if (gbSub) gbSub.innerText = `Perbandingan stok cabang (${cabNames}), realisasi DOI, Max DOI Cabang (${overDaysText}), Dead Stock, Slow Moving, dan ${overSubText} per GB.`;
 
           if (catGbTitle) catGbTitle.innerHTML = `<span>📊</span> Matrix Impact Selisih DOI MNJ - ${cabNames} ${catGbBadge}`;
           if (catGbSub) catGbSub.innerText = `Matrix rincian dampak Selisih DOI MNJ untuk cabang (${cabNames}) per Status Evaluasi (Dead Stock, Slow Moving, ${overSubText}, Understock < 15 Hari, Streamline, Festive, Produk Baru).`;
@@ -1256,15 +1254,12 @@
           if (detailTitle) detailTitle.innerHTML = `<span>📋</span> Detail Evaluasi DOI MNJ - ${cabNames} ${detailBadge}`;
           if (detailSub) detailSub.innerText = `Rincian evaluasi stok cabang (${cabNames}). Tampil Dead Stock (6 bln 0 sales), Slow Moving (3 bln / DOI > 180d), ${overSubText}, & Understock (< 15 Hari).`;
         } else {
-          // Level Nasional: format seperti sebelum ada dead stok dan slow
+          // Level Nasional: semua cabang over bila diatas 45 hari
           if (cardDead) cardDead.style.display = 'none';
           if (cardSlow) cardSlow.style.display = 'none';
-          if (cardOver) {
-            cardOver.style.display = '';
-            const descOver = cardOver.querySelector('.status-card-desc');
-            if (descOver) descOver.innerText = '> 90d LPJ / > 60d PJ';
-          }
-          if (descNorm) descNorm.innerText = '15 – 60/90 Hari';
+          if (cardOver) cardOver.style.display = '';
+          if (descOver) descOver.innerText = '> 45 Hari DOI';
+          if (descNorm) descNorm.innerText = '15 – 45 Hari';
           if (thDead) thDead.style.display = 'none';
           if (thSlow) thSlow.style.display = 'none';
 
@@ -1280,16 +1275,16 @@
           }
 
           if (trendChartTitle) trendChartTitle.innerHTML = `<span>🏢</span> Trend Evaluasi Stok MNJ: Dead Stock, Slow Moving & Overstock (Konsolidasi Nasional)`;
-          if (trendSubtitle) trendSubtitle.innerText = 'Visualisasi pergerakan tren Dead Stock, Slow Moving, dan Overstock (LPJ > 90d, PJ > 60d) nasional per bulan.';
+          if (trendSubtitle) trendSubtitle.innerText = 'Visualisasi pergerakan tren Dead Stock, Slow Moving, dan Overstock (> 45 Hari DOI) nasional per bulan.';
 
           if (gbTitle) gbTitle.innerHTML = `<span>🏢</span> Ringkasan DOI MNJ Per Group Business (GB) ${gbBadge}`;
-          if (gbSub) gbSub.innerText = 'Perbandingan stok, realisasi DOI, Max DOI MNJ (Master), dan status understock/overstock nasional per GB.';
+          if (gbSub) gbSub.innerText = 'Perbandingan stok, realisasi DOI, Max DOI MNJ (45 Hari DOI), dan status understock/overstock nasional per GB.';
 
           if (catGbTitle) catGbTitle.innerHTML = `<span>📊</span> Matrix Impact Selisih DOI MNJ Per Status & Group Business ${catGbBadge}`;
-          if (catGbSub) catGbSub.innerText = 'Matrix rincian dampak Selisih DOI MNJ per Status Evaluasi Nasional (Understock < 15 Hari, Normal, Overstock [LPJ > 90d, PJ > 60d], Streamline, Festive, Produk Baru).';
+          if (catGbSub) catGbSub.innerText = 'Matrix rincian dampak Selisih DOI MNJ per Status Evaluasi Nasional (Understock < 15 Hari, Normal 15 – 45 Hari, Overstock > 45 Hari DOI, Streamline, Festive, Produk Baru).';
 
           if (detailTitle) detailTitle.innerHTML = `<span>📋</span> Detail Produk & Evaluasi Realisasi DOI MNJ (Nasional) ${detailBadge}`;
-          if (detailSub) detailSub.innerText = 'Rincian evaluasi DOI konsolidasi nasional distributor MNJ per produk. Threshold Overstock (LPJ > 90d, PJ > 60d), Understock < 15 Hari.';
+          if (detailSub) detailSub.innerText = 'Rincian evaluasi DOI konsolidasi nasional distributor MNJ per produk. Threshold Overstock > 45 Hari DOI, Understock < 15 Hari.';
         }
 
         if (descUnder) descUnder.innerText = '< 15 Hari DOI';
@@ -1299,6 +1294,7 @@
         if (cardOver) cardOver.style.display = '';
         if (descUnder) descUnder.innerText = '< 15 Hari DOI';
         if (descNorm) descNorm.innerText = '15 Hari – Max DOI';
+        if (descOver) descOver.innerText = '> Max DOI Master';
         if (thDead) thDead.style.display = 'none';
         if (thSlow) thSlow.style.display = 'none';
 
@@ -1320,16 +1316,17 @@
         if (gbSub) gbSub.innerText = 'Perbandingan stok, realisasi DOI, Max DOI KX (Master), dan status understock/overstock khusus Principal KX per GB.';
 
         if (catGbTitle) catGbTitle.innerHTML = `<span>📊</span> Matrix Impact Selisih DOI KX Per Status & Group Business ${catGbBadge}`;
-        if (catGbSub) catGbSub.innerText = 'Matrix rincian dampak Selisih DOI KX per Status Evaluasi (Understock < 15 Hari, Normal, Overstock > Max DOI KX).';
+        if (catGbSub) catGbSub.innerText = 'Matrix rincian dampak Selisih DOI KX per Status Evaluasi (Understock < 15 Hari, Normal, Overstock > Max DOI Master).';
 
         if (detailTitle) detailTitle.innerHTML = `<span>📋</span> Detail Produk & Evaluasi Realisasi DOI KX (Principal) ${detailBadge}`;
-        if (detailSub) detailSub.innerText = 'Rincian evaluasi DOI khusus principal KX per produk. Threshold Understock < 15 Hari.';
+        if (detailSub) detailSub.innerText = 'Rincian evaluasi DOI khusus principal KX per produk. Threshold Understock < 15 Hari, Overstock > Max DOI Master.';
       } else {
         if (cardDead) cardDead.style.display = 'none';
         if (cardSlow) cardSlow.style.display = 'none';
         if (cardOver) cardOver.style.display = '';
         if (descUnder) descUnder.innerText = '< 45 Hari DOI';
         if (descNorm) descNorm.innerText = '45 Hari – DOI Max';
+        if (descOver) descOver.innerText = '> DOI Max Master';
         if (thDead) thDead.style.display = 'none';
         if (thSlow) thSlow.style.display = 'none';
 
@@ -1351,10 +1348,10 @@
         if (gbSub) gbSub.innerText = 'Perbandingan stok persediaan MNJ, KX Principal, Total Combined, DOI Total, dan DOI Max Master per GB.';
 
         if (catGbTitle) catGbTitle.innerHTML = `<span>📊</span> Matrix Impact Selisih DOI GB Per Status & Group Business ${catGbBadge}`;
-        if (catGbSub) catGbSub.innerText = 'Matrix rincian dampak Selisih DOI GB per Status Evaluasi (Overstock, Understock, Streamline, Festive) untuk tiap Group Business dan Total Konsolidasi.';
+        if (catGbSub) catGbSub.innerText = 'Matrix rincian dampak Selisih DOI GB per Status Evaluasi (Overstock > DOI Max Master, Understock < 45 Hari, Streamline, Festive) untuk tiap Group Business dan Total Konsolidasi.';
 
         if (detailTitle) detailTitle.innerHTML = `<span>📋</span> Detail Produk & Evaluasi Realisasi DOI vs DOI Max Master ${detailBadge}`;
-        if (detailSub) detailSub.innerText = 'Rincian evaluasi DOI seluruh produk distributor dan principal. Threshold Understock < 45 Hari.';
+        if (detailSub) detailSub.innerText = 'Rincian evaluasi DOI seluruh produk distributor dan principal. Threshold Understock < 45 Hari, Overstock > DOI Max Master.';
       }
     }
 
@@ -1511,7 +1508,7 @@
           const isMetricDOI = (this.filters.trendMetric !== 'value');
           const totalLegendText = isMetricDOI ? 'DOI Total MNJ' : (this.filters.unit === 'qty' ? 'Total Stok MNJ (Unit)' : 'Valuasi Total MNJ (Rp)');
 
-          let overstockLegendText = 'Overstock (LPJ > 90d, PJ > 60d)';
+          let overstockLegendText = 'Overstock (> 45 Hari DOI)';
           if (this.filters.selectedCabangs && this.filters.selectedCabangs.length === 1) {
             const cName = this.filters.selectedCabangs[0];
             const reg = (this.metadata && this.metadata.cabang_regions) ? this.metadata.cabang_regions[cName] : 'PJ';
@@ -1604,7 +1601,8 @@
             ? (this.filters.selectedCabangs.length > 2 ? `${this.filters.selectedCabangs.length} Cabang Terpilih` : this.filters.selectedCabangs.join(', '))
             : 'Konsolidasi Seluruh Cabang (Nasional)';
           const metricText = (this.filters.trendMetric === 'value') ? 'Metrik Valuasi Stok' : 'Metrik Realisasi DOI (Hari)';
-          subtitleEl.innerHTML = `Perbandingan pergerakan Total Realisasi Stok MNJ vs Kategori Surplus (Dead Stock, Slow Moving, &amp; Overstock [LPJ &gt; 90d, PJ &gt; 60d]) — <strong style="color: var(--accent-cyan);">${cabLabel}</strong> [${metricText}] — <span>${filterLabel}</span>.`;
+          const overDescStr = isCabFiltered ? 'Overstock [LPJ &gt; 90d, PJ &gt; 60d]' : 'Overstock &gt; 45 Hari';
+          subtitleEl.innerHTML = `Perbandingan pergerakan Total Realisasi Stok MNJ vs Kategori Surplus (Dead Stock, Slow Moving, &amp; ${overDescStr}) — <strong style="color: var(--accent-cyan);">${cabLabel}</strong> [${metricText}] — <span>${filterLabel}</span>.`;
         } else {
           subtitleEl.innerHTML = `Visualisasi perbandingan tren pergerakan DOI historis 1 tahun terakhir — <strong style="color: var(--accent-cyan);">${filterLabel}</strong>.`;
         }
