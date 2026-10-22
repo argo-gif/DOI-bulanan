@@ -274,10 +274,18 @@
     const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0)
       ? filters.selectedCabangs.join(',')
       : (filters.cabang || 'All');
+    const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0)
+      ? filters.selectedGBs.join(',')
+      : (filters.gb || 'All');
+    const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0)
+      ? filters.selectedProducts.join(',')
+      : (filters.products || 'All');
     const params = new URLSearchParams({
       period: filters.period || 'All',
       unit: filters.unit || 'value',
       cabang: cabVal,
+      gb: gbVal,
+      products: prodVal,
       category: filters.category || 'All',
       search: filters.search || ''
     });
@@ -290,11 +298,19 @@
     const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0)
       ? filters.selectedCabangs.join(',')
       : (filters.cabang || 'All');
+    const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0)
+      ? filters.selectedGBs.join(',')
+      : (filters.gb || 'All');
+    const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0)
+      ? filters.selectedProducts.join(',')
+      : (filters.products || 'All');
     const params = new URLSearchParams({
       period: filters.period || '2026-09',
       limit_months: '12',
       unit: filters.unit || 'value',
       cabang: cabVal,
+      gb: gbVal,
+      products: prodVal,
       category: filters.category || 'All'
     });
     const res = await fetchWithRetry(`${API_BASE}/upb-trend?${params.toString()}`);
@@ -306,11 +322,19 @@
     const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0)
       ? filters.selectedCabangs.join(',')
       : (filters.cabang || 'All');
+    const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0)
+      ? filters.selectedGBs.join(',')
+      : (filters.gb || 'All');
+    const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0)
+      ? filters.selectedProducts.join(',')
+      : (filters.products || 'All');
     const params = new URLSearchParams({
       dimension: filters.treemapDimension || 'cabang',
       period: filters.period || 'All',
       unit: filters.unit || 'value',
       cabang: cabVal,
+      gb: gbVal,
+      products: prodVal,
       category: filters.category || 'All',
       limit: '100'
     });
@@ -323,9 +347,17 @@
     const cabVal = (filters.selectedCabangs && filters.selectedCabangs.length > 0)
       ? filters.selectedCabangs.join(',')
       : (filters.cabang || 'All');
+    const gbVal = (filters.selectedGBs && filters.selectedGBs.length > 0)
+      ? filters.selectedGBs.join(',')
+      : (filters.gb || 'All');
+    const prodVal = (filters.selectedProducts && filters.selectedProducts.length > 0)
+      ? filters.selectedProducts.join(',')
+      : (filters.products || 'All');
     const params = new URLSearchParams({
       period: filters.period || 'All',
       cabang: cabVal,
+      gb: gbVal,
+      products: prodVal,
       category: filters.category || 'All',
       search: filters.search || '',
       page: (filters.page || 1).toString(),
@@ -342,9 +374,17 @@
     const cabVal = (globalFilters.selectedCabangs && globalFilters.selectedCabangs.length > 0)
       ? globalFilters.selectedCabangs.join(',')
       : (upbFilters.cabang || 'All');
+    const gbVal = (globalFilters.selectedGBs && globalFilters.selectedGBs.length > 0)
+      ? globalFilters.selectedGBs.join(',')
+      : (globalFilters.gb || 'All');
+    const prodVal = (globalFilters.selectedProducts && globalFilters.selectedProducts.length > 0)
+      ? globalFilters.selectedProducts.join(',')
+      : (globalFilters.products || 'All');
     const params = new URLSearchParams({
       period: globalFilters.period || 'All',
       cabang: cabVal,
+      gb: gbVal,
+      products: prodVal,
       category: upbFilters.category || 'All',
       search: upbFilters.search || ''
     });
@@ -927,7 +967,11 @@
           this.filters.activeTab = tab;
           document.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'));
           e.currentTarget.classList.add('active');
-          this.updateTabUI(tab);
+          try {
+            this.updateTabUI(tab);
+          } catch (err) {
+            console.error('[DASHBOARD] updateTabUI error:', err);
+          }
           this.setFilter({ page: 1 });
         });
       });
@@ -2982,39 +3026,54 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
     // =========================================================================
 
     async refreshUpbData() {
-      try {
-        const upbParams = {
-          ...this.upbFilters,
-          period: this.filters.period || 'All',
-          unit: this.filters.unit || 'value',
-          selectedCabangs: this.filters.selectedCabangs || []
-        };
-
-        const [summaryRes, trendRes, treemapRes, dataRes] = await Promise.all([
-          fetchUpbSummary(upbParams),
-          fetchUpbTrend(upbParams),
-          fetchUpbTreemap(upbParams),
-          fetchUpbData(upbParams)
-        ]);
-
-        this.upbSummary = summaryRes;
-        this.upbTrendData = trendRes;
-        this.upbTreemapData = treemapRes;
-        this.upbTableData = dataRes;
-
-        this.updateApiStatus(true, 'API Live Connected');
-      } catch (err) {
-        console.error('[DASHBOARD] UPB fetch error:', err);
-        this.updateApiStatus(false, 'API Error');
-        return;
-      }
+      const upbParams = {
+        ...this.upbFilters,
+        period: this.filters.period || 'All',
+        unit: this.filters.unit || 'value',
+        selectedCabangs: this.filters.selectedCabangs || [],
+        selectedGBs: this.filters.selectedGBs || [],
+        selectedKets: this.filters.selectedKets || [],
+        selectedProducts: this.filters.selectedProducts || []
+      };
 
       try { this.updateTabUI('upb'); } catch (e) { console.error('[DASHBOARD] updateTabUI error:', e); }
-      try { this.renderUpbSummaryCards(); } catch (e) { console.error('[DASHBOARD] renderUpbSummaryCards error:', e); }
-      try { this.renderUpbTrendChart(); } catch (e) { console.error('[DASHBOARD] renderUpbTrendChart error:', e); }
-      try { this.renderUpbTreemap(); } catch (e) { console.error('[DASHBOARD] renderUpbTreemap error:', e); }
-      try { this.renderUpbTable(); } catch (e) { console.error('[DASHBOARD] renderUpbTable error:', e); }
-      try { this.renderUpbPagination(); } catch (e) { console.error('[DASHBOARD] renderUpbPagination error:', e); }
+
+      // 1. Fetch Summary & render cards immediately without blocking on treemap/table
+      fetchUpbSummary(upbParams)
+        .then(summaryRes => {
+          this.upbSummary = summaryRes;
+          this.renderUpbSummaryCards();
+          this.updateApiStatus(true, 'API Live Connected');
+        })
+        .catch(err => {
+          console.error('[DASHBOARD] UPB summary fetch error:', err);
+          this.updateApiStatus(false, 'API Error');
+        });
+
+      // 2. Fetch Trend chart independently
+      fetchUpbTrend(upbParams)
+        .then(trendRes => {
+          this.upbTrendData = trendRes;
+          this.renderUpbTrendChart();
+        })
+        .catch(err => console.error('[DASHBOARD] UPB trend error:', err));
+
+      // 3. Fetch Treemap independently
+      fetchUpbTreemap(upbParams)
+        .then(treemapRes => {
+          this.upbTreemapData = treemapRes;
+          this.renderUpbTreemap();
+        })
+        .catch(err => console.error('[DASHBOARD] UPB treemap error:', err));
+
+      // 4. Fetch Table independently
+      fetchUpbData(upbParams)
+        .then(dataRes => {
+          this.upbTableData = dataRes;
+          this.renderUpbTable();
+          this.renderUpbPagination();
+        })
+        .catch(err => console.error('[DASHBOARD] UPB table error:', err));
     }
 
     async fetchUpbTreemapAndRender() {
@@ -3023,7 +3082,10 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
           ...this.upbFilters,
           period: this.filters.period || 'All',
           unit: this.filters.unit || 'value',
-          selectedCabangs: this.filters.selectedCabangs || []
+          selectedCabangs: this.filters.selectedCabangs || [],
+          selectedGBs: this.filters.selectedGBs || [],
+          selectedKets: this.filters.selectedKets || [],
+          selectedProducts: this.filters.selectedProducts || []
         };
         this.upbTreemapData = await fetchUpbTreemap(upbParams);
         this.renderUpbTreemap();
@@ -3038,7 +3100,10 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
           ...this.upbFilters,
           period: this.filters.period || 'All',
           unit: this.filters.unit || 'value',
-          selectedCabangs: this.filters.selectedCabangs || []
+          selectedCabangs: this.filters.selectedCabangs || [],
+          selectedGBs: this.filters.selectedGBs || [],
+          selectedKets: this.filters.selectedKets || [],
+          selectedProducts: this.filters.selectedProducts || []
         };
         this.upbTableData = await fetchUpbData(upbParams);
         this.renderUpbTable();
@@ -3052,16 +3117,16 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
       if (!this.upbSummary) return;
       const s = this.upbSummary;
       const formatNum = (v) => new Intl.NumberFormat('id-ID').format(Math.round(v));
-      const formatCompact = (v) => {
-        if (v >= 1e9) return `Rp ${(v / 1e9).toFixed(2)} M`;
-        if (v >= 1e6) return `Rp ${(v / 1e6).toFixed(1)} Jt`;
-        return `Rp ${formatNum(v)}`;
+      const isVal = (this.filters.unit !== 'qty');
+      const formatCompact = (vVal, vQty) => {
+        if (!isVal) return `${formatNum(vQty)} Unit`;
+        return this.formatDisplayValue(vVal, true);
       };
 
       const valAll = document.getElementById('upbValAll');
       const subAll = document.getElementById('upbSubAll');
       const totalRecords = s.total_records || s.total_rows || s.total_count || 0;
-      if (valAll) valAll.innerText = formatCompact(s.total_val);
+      if (valAll) valAll.innerText = formatCompact(s.total_val, s.total_qty);
       if (subAll) subAll.innerText = `${formatNum(s.total_qty)} Unit • ${formatNum(totalRecords)} Transaksi`;
 
       const pm3 = (s.categories && s.categories.plus_minus_3) || s.cat_plus_minus_3 || { val: 0, qty: 0, count: 0, val_pct: 0 };
@@ -3072,21 +3137,21 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
       const pm3Count = pm3.count !== undefined ? pm3.count : (pm3.rows !== undefined ? pm3.rows : 0);
       const valPm3 = document.getElementById('upbValPm3');
       const subPm3 = document.getElementById('upbSubPm3');
-      if (valPm3) valPm3.innerHTML = `${formatCompact(pm3.val)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${pm3Pct}%)</span>`;
+      if (valPm3) valPm3.innerHTML = `${formatCompact(pm3.val, pm3.qty)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${pm3Pct}%)</span>`;
       if (subPm3) subPm3.innerText = `${formatNum(pm3.qty)} Unit • ${formatNum(pm3Count)} Transaksi`;
 
       const abvPct = abv.val_pct !== undefined ? abv.val_pct : (abv.pct_val !== undefined ? abv.pct_val : 0);
       const abvCount = abv.count !== undefined ? abv.count : (abv.rows !== undefined ? abv.rows : 0);
       const valAbove = document.getElementById('upbValAbove');
       const subAbove = document.getElementById('upbSubAbove');
-      if (valAbove) valAbove.innerHTML = `${formatCompact(abv.val)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${abvPct}%)</span>`;
+      if (valAbove) valAbove.innerHTML = `${formatCompact(abv.val, abv.qty)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${abvPct}%)</span>`;
       if (subAbove) subAbove.innerText = `${formatNum(abv.qty)} Unit • ${formatNum(abvCount)} Transaksi`;
 
       const belPct = bel.val_pct !== undefined ? bel.val_pct : (bel.pct_val !== undefined ? bel.pct_val : 0);
       const belCount = bel.count !== undefined ? bel.count : (bel.rows !== undefined ? bel.rows : 0);
       const valBelow = document.getElementById('upbValBelow');
       const subBelow = document.getElementById('upbSubBelow');
-      if (valBelow) valBelow.innerHTML = `${formatCompact(bel.val)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${belPct}%)</span>`;
+      if (valBelow) valBelow.innerHTML = `${formatCompact(bel.val, bel.qty)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${belPct}%)</span>`;
       if (subBelow) subBelow.innerText = `${formatNum(bel.qty)} Unit • ${formatNum(belCount)} Transaksi`;
 
       // Helper to format 'YYYY-MM' -> 'Mmm YYYY'
@@ -3114,7 +3179,7 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
 
         const valAllYtd = document.getElementById('upbValAllYtd');
         const subAllYtd = document.getElementById('upbSubAllYtd');
-        if (valAllYtd) valAllYtd.innerText = formatCompact(y.total_val);
+        if (valAllYtd) valAllYtd.innerText = formatCompact(y.total_val, y.total_qty);
         if (subAllYtd) subAllYtd.innerText = `${formatNum(y.total_qty)} Unit • ${formatNum(y.total_records || y.total_rows || 0)} Transaksi`;
 
         const yPm3 = (y.categories && y.categories.plus_minus_3) || y.cat_plus_minus_3 || { val: 0, qty: 0, count: 0, val_pct: 0 };
@@ -3125,21 +3190,21 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
         const yPm3Count = yPm3.count !== undefined ? yPm3.count : (yPm3.rows !== undefined ? yPm3.rows : 0);
         const valPm3Ytd = document.getElementById('upbValPm3Ytd');
         const subPm3Ytd = document.getElementById('upbSubPm3Ytd');
-        if (valPm3Ytd) valPm3Ytd.innerHTML = `${formatCompact(yPm3.val)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${yPm3Pct}%)</span>`;
+        if (valPm3Ytd) valPm3Ytd.innerHTML = `${formatCompact(yPm3.val, yPm3.qty)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${yPm3Pct}%)</span>`;
         if (subPm3Ytd) subPm3Ytd.innerText = `${formatNum(yPm3.qty)} Unit • ${formatNum(yPm3Count)} Transaksi`;
 
         const yAbvPct = yAbv.val_pct !== undefined ? yAbv.val_pct : (yAbv.pct_val !== undefined ? yAbv.pct_val : 0);
         const yAbvCount = yAbv.count !== undefined ? yAbv.count : (yAbv.rows !== undefined ? yAbv.rows : 0);
         const valAboveYtd = document.getElementById('upbValAboveYtd');
         const subAboveYtd = document.getElementById('upbSubAboveYtd');
-        if (valAboveYtd) valAboveYtd.innerHTML = `${formatCompact(yAbv.val)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${yAbvPct}%)</span>`;
+        if (valAboveYtd) valAboveYtd.innerHTML = `${formatCompact(yAbv.val, yAbv.qty)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${yAbvPct}%)</span>`;
         if (subAboveYtd) subAboveYtd.innerText = `${formatNum(yAbv.qty)} Unit • ${formatNum(yAbvCount)} Transaksi`;
 
         const yBelPct = yBel.val_pct !== undefined ? yBel.val_pct : (yBel.pct_val !== undefined ? yBel.pct_val : 0);
         const yBelCount = yBel.count !== undefined ? yBel.count : (yBel.rows !== undefined ? yBel.rows : 0);
         const valBelowYtd = document.getElementById('upbValBelowYtd');
         const subBelowYtd = document.getElementById('upbSubBelowYtd');
-        if (valBelowYtd) valBelowYtd.innerHTML = `${formatCompact(yBel.val)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${yBelPct}%)</span>`;
+        if (valBelowYtd) valBelowYtd.innerHTML = `${formatCompact(yBel.val, yBel.qty)} <span style="font-size: 13px; font-weight: 600; opacity: 0.85;">(${yBelPct}%)</span>`;
         if (subBelowYtd) subBelowYtd.innerText = `${formatNum(yBel.qty)} Unit • ${formatNum(yBelCount)} Transaksi`;
       }
     }

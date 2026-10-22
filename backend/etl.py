@@ -273,7 +273,7 @@ class DataEngine:
             self.load_master_cabang()
         return dict(self.master_cabang)
 
-    ETL_VERSION = "2.7.0"
+    ETL_VERSION = "2.8.0"
 
     def _get_cache_checksum(self) -> str:
         h = hashlib.md5()
@@ -312,6 +312,15 @@ class DataEngine:
                     self._dead_slow_items = cache_data.get("_dead_slow_items", {})
                     self._dead_slow_cabangs = cache_data.get("_dead_slow_cabangs", {})
                     self._upb_records = cache_data.get("_upb_records", [])
+                    self._upb_by_period = cache_data.get("_upb_by_period", {})
+                    if self._upb_records and not self._upb_by_period:
+                        by_p = {}
+                        for r in self._upb_records:
+                            p = r["trans_period"]
+                            if p not in by_p:
+                                by_p[p] = []
+                            by_p[p].append(r)
+                        self._upb_by_period = by_p
                     self._is_preloaded = True
                     print(f"[ENGINE] Fast cache load complete! {len(self.master_products)} products, {len(self.available_periods)} periods, {len(self._dead_slow_items)} Dead/Slow items, {len(self._upb_records)} UPB records.", flush=True)
                     return
@@ -534,6 +543,11 @@ class DataEngine:
         self._is_preloaded = True
         print(f"[ENGINE] Preload complete! {len(self.master_products)} products, {len(self.available_periods)} periods, {len(self._dead_slow_items)} Dead/Slow items.", flush=True)
 
+        # Preload UPB records so they are saved to pickle cache
+        if not self._upb_records:
+            print("[ENGINE] [4/4] Membaca UPB.xlsx dan membangun index periode...", flush=True)
+            self.load_upb_records()
+
         # Save to disk cache for instantaneous future server startups
         try:
             cache_data = {
@@ -549,11 +563,12 @@ class DataEngine:
                 "_sales_cabang_cache": self._sales_cabang_cache,
                 "_dead_slow_items": self._dead_slow_items,
                 "_dead_slow_cabangs": self._dead_slow_cabangs,
-                "_upb_records": self._upb_records
+                "_upb_records": self._upb_records,
+                "_upb_by_period": getattr(self, "_upb_by_period", {})
             }
             with open(cache_file, "wb") as f:
                 pickle.dump(cache_data, f)
-            print(f"[ENGINE] Saved cache to {cache_file}", flush=True)
+            print(f"[ENGINE] Saved cache to {cache_file} (termasuk {len(self._upb_records):,} baris UPB)", flush=True)
         except Exception as e:
             print(f"[ENGINE] Failed to save cache: {e}", flush=True)
 
@@ -1852,13 +1867,24 @@ class DataEngine:
     def load_upb_records(self) -> List[Dict[str, Any]]:
         """Loads and caches UPB.xlsx records if not already in memory."""
         if self._upb_records:
+            if not hasattr(self, "_upb_by_period") or not self._upb_by_period:
+                by_p = {}
+                for r in self._upb_records:
+                    p = r["trans_period"]
+                    if p not in by_p:
+                        by_p[p] = []
+                    by_p[p].append(r)
+                self._upb_by_period = by_p
             return self._upb_records
         if not os.path.exists(self.upb_file):
+            self._upb_records = []
+            self._upb_by_period = {}
             return []
 
         wb = openpyxl.load_workbook(self.upb_file, read_only=True, data_only=True)
         sheet = wb.active
         records = []
+        by_period = {}
         for r in sheet.iter_rows(min_row=2, values_only=True):
             if not r or r[0] is None:
                 continue
@@ -1890,7 +1916,7 @@ class DataEngine:
             trans_period = f"{t_raw[:4]}-{t_raw[4:6]}"
             exp_period = f"{e_raw[:4]}-{e_raw[4:6]}"
 
-            records.append({
+            rec = {
                 "trans_period": trans_period,
                 "exp_period": exp_period,
                 "diff_months": diff,
@@ -1901,9 +1927,15 @@ class DataEngine:
                 "gb": gb,
                 "qty": qty,
                 "val": val
-            })
+            }
+            records.append(rec)
+            if trans_period not in by_period:
+                by_period[trans_period] = []
+            by_period[trans_period].append(rec)
+
         wb.close()
         self._upb_records = records
+        self._upb_by_period = by_period
         return self._upb_records
 
     def _filter_upb_records(
@@ -1914,20 +1946,36 @@ class DataEngine:
         category: str = "All",
         product: str = "All"
     ) -> List[Dict[str, Any]]:
-        """Filters in-memory UPB records based on active multi-filters."""
+        """Filters in-memory UPB records with period indexing and O(1) set operations."""
         if not self._upb_records:
             self.load_upb_records()
+        elif not hasattr(self, "_upb_by_period") or not self._upb_by_period:
+            by_p = {}
+            for r in self._upb_records:
+                p = r["trans_period"]
+                if p not in by_p:
+                    by_p[p] = []
+                by_p[p].append(r)
+            self._upb_by_period = by_p
 
         sel_periods = [p.strip() for p in period.split(",") if p.strip() and p.strip().lower() != "all"] if period else []
-        sel_cabangs = [normalize_cabang_name(c.strip()) for c in cabang.split(",") if c.strip() and c.strip().lower() != "all"] if cabang else []
-        sel_gbs = [g.strip().upper() for g in gb.split(",") if g.strip() and g.strip().lower() != "all"] if gb else []
-        sel_cats = [k.strip() for k in category.split(",") if k.strip() and k.strip().lower() != "all"] if category else []
-        sel_prods = [p.strip() for p in product.split(",") if p.strip() and p.strip().lower() != "all"] if product else []
+        sel_cabangs = set(normalize_cabang_name(c.strip()) for c in cabang.split(",") if c.strip() and c.strip().lower() != "all") if cabang else set()
+        sel_gbs = set(g.strip().upper() for g in gb.split(",") if g.strip() and g.strip().lower() != "all") if gb else set()
+        sel_cats = set(k.strip() for k in category.split(",") if k.strip() and k.strip().lower() != "all") if category else set()
+        sel_prods = set(p.strip() for p in product.split(",") if p.strip() and p.strip().lower() != "all") if product else set()
+
+        if sel_periods:
+            candidates = []
+            for p in sel_periods:
+                candidates.extend(self._upb_by_period.get(p, []))
+        else:
+            candidates = self._upb_records
+
+        if not sel_cabangs and not sel_gbs and not sel_cats and not sel_prods:
+            return candidates
 
         res = []
-        for r in self._upb_records:
-            if sel_periods and r["trans_period"] not in sel_periods:
-                continue
+        for r in candidates:
             if sel_cabangs and r["cabang"] not in sel_cabangs:
                 continue
             if sel_gbs and r["gb"].upper() not in sel_gbs:
