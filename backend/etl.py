@@ -1511,7 +1511,7 @@ class DataEngine:
                             has_zero_sales_3m = (len(sales_3m) == 3) and all(s <= 0 for s in sales_3m)
                             c_doi = (c_curr_stock / c_avg_sales * 30.0) if c_avg_sales > 0 else 0.0
 
-                            c_thresh = self.get_cabang_over_doi(c) if is_cabang_filtered else 45.0
+                            c_thresh = self.get_cabang_over_doi(c)
                             if (has_stock_3m and has_zero_sales_3m) or (c_avg_sales > 0 and c_doi > 180.0):
                                 tot_slow_qty += c_curr_stock
                                 tot_slow_val += stok_val

@@ -1319,7 +1319,7 @@
           }
 
           if (trendChartTitle) trendChartTitle.innerHTML = `<span>🏢</span> Trend Evaluasi Stok MNJ: Dead Stock, Slow Moving & Overstock (Konsolidasi Nasional)`;
-          if (trendSubtitle) trendSubtitle.innerText = 'Visualisasi pergerakan tren Dead Stock, Slow Moving, dan Overstock (> 45 Hari DOI) nasional per bulan.';
+          if (trendSubtitle) trendSubtitle.innerText = 'Visualisasi pergerakan tren Dead Stock, Slow Moving, dan Overstock (LPJ > 90 Hari, PJ > 60 Hari) nasional per bulan.';
 
           if (gbTitle) gbTitle.innerHTML = `<span>🏢</span> Ringkasan DOI MNJ Per Group Business (GB) ${gbBadge}`;
           if (gbSub) gbSub.innerText = 'Perbandingan stok, realisasi DOI, Max DOI MNJ (45 Hari DOI), dan status understock/overstock nasional per GB.';
@@ -1530,6 +1530,17 @@
       const titleEl = document.getElementById('trendChartTitle');
       const activeTab = this.filters.activeTab || 'combined';
 
+      let overstockLegendText = 'Overstock (LPJ > 90d / PJ > 60d)';
+      if (this.filters.selectedCabangs && this.filters.selectedCabangs.length === 1) {
+        const cName = this.filters.selectedCabangs[0];
+        const reg = (this.metadata && this.metadata.cabang_regions) ? this.metadata.cabang_regions[cName] : 'PJ';
+        overstockLegendText = (reg === 'LPJ') ? 'Overstock (> 90 Hari - LPJ)' : 'Overstock (> 60 Hari - PJ)';
+      } else if (this.filters.selectedCabangs && this.filters.selectedCabangs.length > 1) {
+        const regs = new Set(this.filters.selectedCabangs.map(c => (this.metadata && this.metadata.cabang_regions) ? this.metadata.cabang_regions[c] : 'PJ'));
+        if (regs.size === 1 && regs.has('LPJ')) overstockLegendText = 'Overstock (> 90 Hari - LPJ)';
+        else if (regs.size === 1 && regs.has('PJ')) overstockLegendText = 'Overstock (> 60 Hari - PJ)';
+      }
+
       // 1. Dynamic Legend and Metric Toggle Visibility
       const legendContainer = document.getElementById('trendLegendContainer');
       const metricToggleContainer = document.getElementById('trendMetricToggleContainer');
@@ -1551,17 +1562,6 @@
           const sVis = this.trendSeriesVisibility || { total: true, dead: true, slow: true, over: true };
           const isMetricDOI = (this.filters.trendMetric !== 'value');
           const totalLegendText = isMetricDOI ? 'DOI Total MNJ' : (this.filters.unit === 'qty' ? 'Total Stok MNJ (Unit)' : 'Valuasi Total MNJ (Rp)');
-
-          let overstockLegendText = 'Overstock (> 45 Hari DOI)';
-          if (this.filters.selectedCabangs && this.filters.selectedCabangs.length === 1) {
-            const cName = this.filters.selectedCabangs[0];
-            const reg = (this.metadata && this.metadata.cabang_regions) ? this.metadata.cabang_regions[cName] : 'PJ';
-            overstockLegendText = (reg === 'LPJ') ? 'Overstock (> 90 Hari - LPJ)' : 'Overstock (> 60 Hari - PJ)';
-          } else if (this.filters.selectedCabangs && this.filters.selectedCabangs.length > 1) {
-            const regs = new Set(this.filters.selectedCabangs.map(c => (this.metadata && this.metadata.cabang_regions) ? this.metadata.cabang_regions[c] : 'PJ'));
-            if (regs.size === 1 && regs.has('LPJ')) overstockLegendText = 'Overstock (> 90 Hari - LPJ)';
-            else if (regs.size === 1 && regs.has('PJ')) overstockLegendText = 'Overstock (> 60 Hari - PJ)';
-          }
 
           legendContainer.innerHTML = `
             <button type="button" class="trend-legend-pill" data-toggle-series="total" style="display: flex; align-items: center; gap: 6px; background: ${sVis.total ? '#f5f3ff' : '#f8fafc'}; border: 1.5px solid ${sVis.total ? '#8b5cf6' : '#cbd5e1'}; padding: 4px 10px; border-radius: 20px; cursor: pointer; opacity: ${sVis.total ? '1' : '0.5'}; transition: all 0.2s ease;">
@@ -1645,7 +1645,16 @@
             ? (this.filters.selectedCabangs.length > 2 ? `${this.filters.selectedCabangs.length} Cabang Terpilih` : this.filters.selectedCabangs.join(', '))
             : 'Konsolidasi Seluruh Cabang (Nasional)';
           const metricText = (this.filters.trendMetric === 'value') ? 'Metrik Valuasi Stok' : 'Metrik Realisasi DOI (Hari)';
-          const overDescStr = isCabFiltered ? 'Overstock [LPJ &gt; 90d, PJ &gt; 60d]' : 'Overstock &gt; 45 Hari';
+          let overDescStr = 'Overstock [LPJ &gt; 90d, PJ &gt; 60d]';
+          if (this.filters.selectedCabangs && this.filters.selectedCabangs.length === 1) {
+            const cName = this.filters.selectedCabangs[0];
+            const reg = (this.metadata && this.metadata.cabang_regions) ? this.metadata.cabang_regions[cName] : 'PJ';
+            overDescStr = (reg === 'LPJ') ? 'Overstock &gt; 90 Hari (LPJ)' : 'Overstock &gt; 60 Hari (PJ)';
+          } else if (this.filters.selectedCabangs && this.filters.selectedCabangs.length > 1) {
+            const regs = new Set(this.filters.selectedCabangs.map(c => (this.metadata && this.metadata.cabang_regions) ? this.metadata.cabang_regions[c] : 'PJ'));
+            if (regs.size === 1 && regs.has('LPJ')) overDescStr = 'Overstock &gt; 90 Hari (LPJ)';
+            else if (regs.size === 1 && regs.has('PJ')) overDescStr = 'Overstock &gt; 60 Hari (PJ)';
+          }
           subtitleEl.innerHTML = `Perbandingan pergerakan Total Realisasi Stok MNJ vs Kategori Surplus (Dead Stock, Slow Moving, &amp; ${overDescStr}) — <strong style="color: var(--accent-cyan);">${cabLabel}</strong> [${metricText}] — <span>${filterLabel}</span>.`;
         } else {
           subtitleEl.innerHTML = `Visualisasi perbandingan tren pergerakan DOI historis 1 tahun terakhir — <strong style="color: var(--accent-cyan);">${filterLabel}</strong>.`;
@@ -1791,7 +1800,7 @@
 🟣 Total Realisasi MNJ: ${(d.doi_mnj_days || 0).toFixed(0)}d | ${this.formatDisplayValue(d.stok_mnj_value || 0, true)}
 🔴 Dead Stock: ${(d.doi_dead_days || 0).toFixed(1)}d | ${this.formatDisplayValue(d.dead_stock_val || 0, true)}
 🟠 Slow Moving: ${(d.doi_slow_days || 0).toFixed(1)}d | ${this.formatDisplayValue(d.slow_moving_val || 0, true)}
-🔵 Overstock (>90d): ${(d.doi_over_days || 0).toFixed(1)}d | ${this.formatDisplayValue(d.overstock_val || 0, true)}
+🔵 ${overstockLegendText}: ${(d.doi_over_days || 0).toFixed(1)}d | ${this.formatDisplayValue(d.overstock_val || 0, true)}
 Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
 
               return `
