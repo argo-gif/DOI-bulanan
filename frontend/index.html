@@ -330,7 +330,7 @@
 
         <div class="status-cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
           <!-- YTD Total UPB -->
-          <div class="upb-ytd-card" style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-left: 4px solid #6366f1;">
+          <div class="upb-ytd-card active" data-upb-cat="All" data-upb-scope="ytd" style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-left: 4px solid #6366f1; cursor: pointer;" title="Klik untuk memfilter Tree Map & Tabel transaksi ke mode YTD Total">
             <div class="status-card-header">
               <span class="status-card-icon">🏛️</span>
               <span class="status-card-title" style="color: #4338ca;">Total Valuasi UPB (YTD)</span>
@@ -340,7 +340,7 @@
           </div>
 
           <!-- YTD Expired +- 3 Bulan -->
-          <div class="upb-ytd-card" style="background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%); border-left: 4px solid #f59e0b;">
+          <div class="upb-ytd-card" data-upb-cat="plus_minus_3" data-upb-scope="ytd" style="background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%); border-left: 4px solid #f59e0b; cursor: pointer;" title="Klik untuk memfilter Tree Map & Tabel transaksi ke mode YTD Expired ± 3 Bulan">
             <div class="status-card-header">
               <span class="status-card-icon">⏳</span>
               <span class="status-card-title" style="color: #b45309;">Expired ± 3 Bulan (YTD)</span>
@@ -350,7 +350,7 @@
           </div>
 
           <!-- YTD Expired > 3 Bulan -->
-          <div class="upb-ytd-card" style="background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%); border-left: 4px solid #0284c7;">
+          <div class="upb-ytd-card" data-upb-cat="above_3" data-upb-scope="ytd" style="background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%); border-left: 4px solid #0284c7; cursor: pointer;" title="Klik untuk memfilter Tree Map & Tabel transaksi ke mode YTD Expired > 3 Bulan">
             <div class="status-card-header">
               <span class="status-card-icon">🕒</span>
               <span class="status-card-title" style="color: #0284c7;">Expired > 3 Bulan (YTD)</span>
@@ -360,7 +360,7 @@
           </div>
 
           <!-- YTD Expired < -3 Bulan -->
-          <div class="upb-ytd-card" style="background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%); border-left: 4px solid #ef4444;">
+          <div class="upb-ytd-card" data-upb-cat="below_-3" data-upb-scope="ytd" style="background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%); border-left: 4px solid #ef4444; cursor: pointer;" title="Klik untuk memfilter Tree Map & Tabel transaksi ke mode YTD Expired < -3 Bulan">
             <div class="status-card-header">
               <span class="status-card-icon">⚠️</span>
               <span class="status-card-title" style="color: #dc2626;">Expired &lt; -3 Bulan (YTD)</span>
@@ -650,15 +650,29 @@
         <p id="upbTreemapSubtitle" style="font-size: 13px; color: var(--text-secondary);">Distribusi visual proporsional nilai UPB. Ukuran kotak mencerminkan besaran Rupiah/Qty UPB.</p>
       </div>
 
-      <!-- Treemap Dimension Switcher -->
-      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <span style="font-size: 12.5px; font-weight: 700; color: var(--text-secondary);">Dimensi Tree Map:</span>
-        <div class="toggle-container" id="upbTreemapDimensionToggle">
-          <button type="button" class="toggle-btn active" data-treemap-dim="cabang">🏢 Berdasarkan Cabang</button>
-          <button type="button" class="toggle-btn" data-treemap-dim="item">📦 Berdasarkan Item / Produk</button>
-          <button type="button" class="toggle-btn" data-treemap-dim="category">⏳ Berdasarkan Kategori Expired</button>
+      <!-- Treemap Scope Switcher (MTD vs YTD) and Dimension Switcher -->
+      <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+        <!-- MTD / YTD Scope Toggle -->
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 12.5px; font-weight: 700; color: #4338ca;">Rentang Data:</span>
+          <div class="toggle-container" id="upbTreemapScopeToggle" style="margin: 0;">
+            <button type="button" class="toggle-btn active" data-upb-scope="mtd" title="Tampilkan transaksi usulan pemusnahan bulan yang dipilih saja (MTD)">📅 MTD (Bulanan)</button>
+            <button type="button" class="toggle-btn" data-upb-scope="ytd" title="Tampilkan akumulasi transaksi usulan pemusnahan dari Januari hingga bulan yang dipilih (YTD)">📈 YTD (Akumulasi)</button>
+          </div>
         </div>
-        <button type="button" id="btnResetTreemapFilter" style="display: none; padding: 6px 12px; font-size: 11.5px; font-weight: 700; border-radius: 6px; background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; cursor: pointer;">✕ Reset Filter</button>
+
+        <div style="width: 1px; height: 22px; background: #cbd5e1;"></div>
+
+        <!-- Dimension Switcher -->
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 12.5px; font-weight: 700; color: var(--text-secondary);">Dimensi:</span>
+          <div class="toggle-container" id="upbTreemapDimensionToggle" style="margin: 0;">
+            <button type="button" class="toggle-btn active" data-treemap-dim="cabang">🏢 Berdasarkan Cabang</button>
+            <button type="button" class="toggle-btn" data-treemap-dim="item">📦 Berdasarkan Item / Produk</button>
+            <button type="button" class="toggle-btn" data-treemap-dim="category">⏳ Berdasarkan Kategori Expired</button>
+          </div>
+          <button type="button" id="btnResetTreemapFilter" style="display: none; padding: 5px 12px; font-size: 11.5px; font-weight: 700; border-radius: 6px; background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; cursor: pointer;">✕ Reset Filter</button>
+        </div>
       </div>
     </div>
 
@@ -704,9 +718,18 @@
 
       <!-- Action Toolbar -->
       <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <!-- MTD / YTD Toggle for Table -->
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 700; color: #4338ca;">Rentang:</span>
+          <div class="toggle-container" id="upbTableScopeToggle" style="margin: 0;">
+            <button type="button" class="toggle-btn active" data-upb-scope="mtd">📅 MTD</button>
+            <button type="button" class="toggle-btn" data-upb-scope="ytd">📈 YTD</button>
+          </div>
+        </div>
+
         <!-- Search Input -->
         <div style="position: relative;">
-          <input type="text" id="upbSearchInput" class="popover-search-input" placeholder="🔍 Cari cabang, kode/nama produk..." style="width: 260px; padding: 7px 12px; font-size: 12px; border-radius: 6px; border: 1px solid #cbd5e1;" />
+          <input type="text" id="upbSearchInput" class="popover-search-input" placeholder="🔍 Cari cabang, kode/nama produk..." style="width: 240px; padding: 7px 12px; font-size: 12px; border-radius: 6px; border: 1px solid #cbd5e1;" />
         </div>
 
         <!-- Category Filter -->
@@ -772,6 +795,6 @@
     </div>
   </div>
 
-  <script src="app.bundle.js?v=20261022_v47"></script>
+  <script src="app.bundle.js?v=20261022_v48"></script>
 </body>
 </html>

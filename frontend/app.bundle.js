@@ -370,7 +370,7 @@
     return res.json();
   }
 
-  function getExportUpbExcelUrl(upbFilters, globalFilters) {
+  function getExportUpbExcelUrl(upbFilters, globalFilters, upbScope = 'mtd') {
     const cabVal = (globalFilters.selectedCabangs && globalFilters.selectedCabangs.length > 0)
       ? globalFilters.selectedCabangs.join(',')
       : (upbFilters.cabang || 'All');
@@ -380,8 +380,21 @@
     const prodVal = (globalFilters.selectedProducts && globalFilters.selectedProducts.length > 0)
       ? globalFilters.selectedProducts.join(',')
       : (globalFilters.products || 'All');
+
+    let periodVal = globalFilters.period || 'All';
+    if (upbScope === 'ytd' && globalFilters.period) {
+      const parts = globalFilters.period.split('-');
+      const year = parts[0];
+      const month = parseInt(parts[1] || '9', 10);
+      const ytdList = [];
+      for (let m = 1; m <= month; m++) {
+        ytdList.push(`${year}-${String(m).padStart(2, '0')}`);
+      }
+      periodVal = ytdList.join(',');
+    }
+
     const params = new URLSearchParams({
-      period: globalFilters.period || 'All',
+      period: periodVal,
       cabang: cabVal,
       gb: gbVal,
       products: prodVal,
@@ -421,6 +434,7 @@
       this.trendSeriesVisibility = { total: true, dead: true, slow: true, over: true };
 
       // UPB Specific State
+      this.upbScope = 'mtd'; // 'mtd' | 'ytd'
       this.upbFilters = {
         category: 'All',
         treemapDimension: 'cabang',
@@ -1016,7 +1030,32 @@
       }
 
 
-      // UPB Interactive Event Bindings
+      // UPB Scope Switcher (MTD vs YTD)
+      const setUpbScope = (scope) => {
+        this.upbScope = scope;
+        document.querySelectorAll('#upbTreemapScopeToggle button, #upbTableScopeToggle button').forEach(b => {
+          if (b.getAttribute('data-upb-scope') === scope) b.classList.add('active');
+          else b.classList.remove('active');
+        });
+        document.querySelectorAll('.upb-ytd-card').forEach(c => {
+          if (scope === 'ytd') {
+            c.classList.add('active');
+          } else {
+            c.classList.remove('active');
+          }
+        });
+        this.fetchUpbTreemapAndRender();
+        this.fetchUpbTableAndRender();
+      };
+
+      document.querySelectorAll('#upbTreemapScopeToggle button, #upbTableScopeToggle button').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const scope = e.currentTarget.getAttribute('data-upb-scope') || 'mtd';
+          setUpbScope(scope);
+        });
+      });
+
+      // UPB Interactive Event Bindings (Monthly Snapshot Cards)
       document.querySelectorAll('.upb-status-card').forEach(card => {
         card.addEventListener('click', (e) => {
           const cat = e.currentTarget.getAttribute('data-upb-cat') || 'All';
@@ -1026,7 +1065,23 @@
           e.currentTarget.classList.add('active');
           const catSelect = document.getElementById('upbCategorySelect');
           if (catSelect) catSelect.value = cat;
-          this.refreshUpbData();
+          setUpbScope('mtd');
+        });
+      });
+
+      // UPB Interactive Event Bindings (YTD Cumulative Cards)
+      document.querySelectorAll('.upb-ytd-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+          const cat = e.currentTarget.getAttribute('data-upb-cat') || 'All';
+          this.upbFilters.category = cat;
+          this.upbFilters.page = 1;
+          const catSelect = document.getElementById('upbCategorySelect');
+          if (catSelect) catSelect.value = cat;
+          document.querySelectorAll('.upb-status-card').forEach(c => {
+            if (c.getAttribute('data-upb-cat') === cat) c.classList.add('active');
+            else c.classList.remove('active');
+          });
+          setUpbScope('ytd');
         });
       });
 
@@ -1132,7 +1187,7 @@
       const btnExportUpb = document.getElementById('btnExportUpbExcel');
       if (btnExportUpb) {
         btnExportUpb.addEventListener('click', () => {
-          window.open(getExportUpbExcelUrl(this.upbFilters, this.filters), '_blank');
+          window.open(getExportUpbExcelUrl(this.upbFilters, this.filters, this.upbScope), '_blank');
         });
       }
 
@@ -3034,6 +3089,21 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
     // UPB METHODS (SUMMARY, TREND, TREEMAP, REPORT TABLE)
     // =========================================================================
 
+    getUpbPeriodParam() {
+      const p = this.filters.period || '2026-09';
+      if (this.upbScope === 'ytd') {
+        const parts = p.split('-');
+        const year = parts[0];
+        const month = parseInt(parts[1] || '9', 10);
+        const ytdList = [];
+        for (let m = 1; m <= month; m++) {
+          ytdList.push(`${year}-${String(m).padStart(2, '0')}`);
+        }
+        return ytdList.join(',');
+      }
+      return p;
+    }
+
     async refreshUpbData() {
       const upbParams = {
         ...this.upbFilters,
@@ -3067,16 +3137,22 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
         })
         .catch(err => console.error('[DASHBOARD] UPB trend error:', err));
 
-      // 3. Fetch Treemap independently
-      fetchUpbTreemap(upbParams)
+      // 3. Fetch Treemap independently with current scope (MTD or YTD)
+      fetchUpbTreemap({
+        ...upbParams,
+        period: this.getUpbPeriodParam()
+      })
         .then(treemapRes => {
           this.upbTreemapData = treemapRes;
           this.renderUpbTreemap();
         })
         .catch(err => console.error('[DASHBOARD] UPB treemap error:', err));
 
-      // 4. Fetch Table independently
-      fetchUpbData(upbParams)
+      // 4. Fetch Table independently with current scope (MTD or YTD)
+      fetchUpbData({
+        ...upbParams,
+        period: this.getUpbPeriodParam()
+      })
         .then(dataRes => {
           this.upbTableData = dataRes;
           this.renderUpbTable();
@@ -3089,7 +3165,7 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
       try {
         const upbParams = {
           ...this.upbFilters,
-          period: this.filters.period || 'All',
+          period: this.getUpbPeriodParam(),
           unit: this.filters.unit || 'value',
           selectedCabangs: this.filters.selectedCabangs || [],
           selectedGBs: this.filters.selectedGBs || [],
@@ -3107,7 +3183,7 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
       try {
         const upbParams = {
           ...this.upbFilters,
-          period: this.filters.period || 'All',
+          period: this.getUpbPeriodParam(),
           unit: this.filters.unit || 'value',
           selectedCabangs: this.filters.selectedCabangs || [],
           selectedGBs: this.filters.selectedGBs || [],
@@ -3643,12 +3719,31 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
         }
       }
 
-      const width = Math.max(container.clientWidth || 960, 500);
-      const height = 480;
+      const dimension = data.dimension || 'cabang';
+
+      // Dynamic height according to dimension
+      let height = 520;
+      if (dimension === 'item') {
+        height = 620;
+      } else if (dimension === 'category') {
+        height = 420;
+      }
       container.style.height = `${height}px`;
 
+      // Update subtitle dynamically based on MTD vs YTD
+      const upbTreemapSubtitle = document.getElementById('upbTreemapSubtitle');
+      if (upbTreemapSubtitle) {
+        const periodFull = formatPeriodFullLabel(this.filters.period || '2026-09');
+        const year = (this.filters.period || '2026-09').split('-')[0];
+        if (this.upbScope === 'ytd') {
+          upbTreemapSubtitle.innerHTML = `Distribusi visual proporsional nilai UPB <strong style="color: #4338ca;">(Akumulasi YTD Jan ${year} – ${periodFull})</strong>. Ukuran kotak mencerminkan besaran Rupiah/Qty UPB.`;
+        } else {
+          upbTreemapSubtitle.innerHTML = `Distribusi visual proporsional nilai UPB <strong style="color: #0284c7;">(Bulan ${periodFull} - MTD)</strong>. Ukuran kotak mencerminkan besaran Rupiah/Qty UPB.`;
+        }
+      }
+
+      const width = Math.max(container.clientWidth || 960, 500);
       const rects = this.computeTreemapLayout(nodesToRender, width, height);
-      const dimension = data.dimension || 'cabang';
 
       const tileGradients = [
         'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)', // Royal Blue
@@ -3679,47 +3774,111 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
           else if (r.id === 'below_-3' || r.id === 'below_minus_3') bg = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
         }
 
-        const isSmall = (r.w < 75 || r.h < 50);
-        const isTiny = (r.w < 45 || r.h < 28);
         const isPareto = Boolean(r.is_pareto);
         const pctVal = r.pct !== undefined ? r.pct : (r.val_pct !== undefined ? r.val_pct : 0);
         const pctText = `${Number(pctVal).toFixed(1)}%`;
         const cumPct = (r.cum_pct !== undefined && r.cum_pct !== null) ? `${Number(r.cum_pct).toFixed(1)}%` : '';
 
-        // Pareto pill badge with cumulative percentage
-        let badgeHtml = '';
-        if (r.w >= 45 && r.h >= 36) {
-          if (isPareto) {
-            if (r.w >= 140) {
-              badgeHtml = `<span class="treemap-pareto-pill">⭐ PARETO ${pctText} <span class="treemap-cum-tag">Kum ${cumPct}</span></span>`;
-            } else if (r.w >= 85) {
-              badgeHtml = `<span class="treemap-pareto-pill">⭐ ${pctText} <span class="treemap-cum-tag">Kum ${cumPct}</span></span>`;
-            } else if (r.w >= 58) {
-              badgeHtml = `<span class="treemap-pareto-pill">⭐ ${pctText} <span class="treemap-cum-tag">${cumPct}</span></span>`;
-            } else {
-              badgeHtml = `<span class="treemap-pareto-pill">⭐ ${pctText}</span>`;
-            }
-          } else {
-            if (r.w >= 100) {
-              badgeHtml = `<span class="treemap-norm-pill">${pctText} <span class="treemap-cum-tag-sub">Kum ${cumPct}</span></span>`;
-            } else if (r.w >= 58) {
-              badgeHtml = `<span class="treemap-norm-pill">${pctText} <span class="treemap-cum-tag-sub">${cumPct}</span></span>`;
-            } else {
-              badgeHtml = `<span class="treemap-norm-pill">${pctText}</span>`;
-            }
+        const tileW = Math.max(1, r.w - 2);
+        const tileH = Math.max(1, r.h - 2);
+
+        // Responsive tier layout
+        const isLarge = (tileW >= 125 && tileH >= 65);
+        const isMedium = (!isLarge && tileW >= 70 && tileH >= 42);
+        const isSmall = (!isLarge && !isMedium && tileW >= 40 && tileH >= 24);
+        const isMicro = (!isLarge && !isMedium && !isSmall);
+
+        let contentHtml = '';
+
+        if (dimension === 'item') {
+          const pCode = r.product_code || (r.name.includes(' - ') ? r.name.split(' - ')[0] : r.id);
+          const pName = r.product_name || (r.name.includes(' - ') ? r.name.split(' - ').slice(1).join(' - ') : r.name);
+
+          if (isLarge) {
+            contentHtml = `
+              <div class="treemap-tile-header">
+                <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 2px;">
+                  <span class="tile-code-tag">${pCode}</span>
+                  ${r.gb ? `<span class="tile-gb-tag">${r.gb}</span>` : ''}
+                </div>
+                <div class="treemap-tile-pname" title="${pCode} - ${pName}">${pName}</div>
+              </div>
+              <div class="treemap-tile-bottom-row">
+                <span class="treemap-tile-val">${formatCompact(r.val)}</span>
+                <span class="${isPareto ? 'treemap-pareto-pill' : 'treemap-norm-pill'}">${isPareto ? '⭐ ' : ''}${pctText} <span class="treemap-cum-tag">Kum ${cumPct}</span></span>
+              </div>
+            `;
+          } else if (isMedium) {
+            contentHtml = `
+              <div class="treemap-tile-header">
+                <div class="treemap-tile-pname-compact" title="${pCode} - ${pName}">
+                  <span style="font-weight: 800; opacity: 0.95;">${pCode}</span> ${pName}
+                </div>
+              </div>
+              <div class="treemap-tile-bottom-row">
+                <span class="treemap-tile-val" style="font-size: 10px;">${formatCompact(r.val)}</span>
+                <span class="${isPareto ? 'treemap-pareto-pill' : 'treemap-norm-pill'}" style="font-size: 8.5px; padding: 1px 3px;">${isPareto ? '⭐' : ''}${pctText}</span>
+              </div>
+            `;
+          } else if (isSmall) {
+            contentHtml = `
+              <div class="treemap-tile-header">
+                <div class="treemap-tile-pname-tiny" title="${pCode} - ${pName}">${pCode}</div>
+              </div>
+              <div class="treemap-tile-val-tiny">${formatCompact(r.val)}</div>
+            `;
+          } else if (!isMicro) {
+            contentHtml = `
+              <div class="treemap-tile-micro" title="${pCode}">${pCode}</div>
+            `;
+          }
+        } else {
+          // dimension === 'cabang' or 'category'
+          if (isLarge) {
+            contentHtml = `
+              <div class="treemap-tile-header">
+                <div class="treemap-tile-title" style="font-size: 13px; font-weight: 800;" title="${r.name}">${r.name}</div>
+                ${r.distinct_items ? `<div class="treemap-tile-sub" style="font-size: 10px;">${r.distinct_items} Item Terdaftar</div>` : ''}
+              </div>
+              <div class="treemap-tile-bottom-row">
+                <span class="treemap-tile-val">${formatCompact(r.val)}</span>
+                <span class="${isPareto ? 'treemap-pareto-pill' : 'treemap-norm-pill'}">${isPareto ? '⭐ ' : ''}${pctText} <span class="treemap-cum-tag">Kum ${cumPct}</span></span>
+              </div>
+            `;
+          } else if (isMedium) {
+            contentHtml = `
+              <div class="treemap-tile-header">
+                <div class="treemap-tile-title" style="font-size: 11px; font-weight: 700;" title="${r.name}">${r.name}</div>
+              </div>
+              <div class="treemap-tile-bottom-row">
+                <span class="treemap-tile-val" style="font-size: 10.5px;">${formatCompact(r.val)}</span>
+                <span class="${isPareto ? 'treemap-pareto-pill' : 'treemap-norm-pill'}" style="font-size: 8.5px; padding: 1px 4px;">${isPareto ? '⭐' : ''}${pctText}</span>
+              </div>
+            `;
+          } else if (isSmall) {
+            contentHtml = `
+              <div class="treemap-tile-header">
+                <div class="treemap-tile-title" style="font-size: 10px; font-weight: 700;" title="${r.name}">${r.name}</div>
+              </div>
+              <div class="treemap-tile-val-tiny">${formatCompact(r.val)}</div>
+            `;
+          } else if (!isMicro) {
+            contentHtml = `
+              <div class="treemap-tile-micro" title="${r.name}">${r.name.slice(0, 5)}</div>
+            `;
           }
         }
 
         // Mini Category Breakdown Bar inside tile (only for sufficiently tall & wide tiles)
         let miniBarHtml = '';
-        if (r.category_breakdown && r.w >= 130 && r.h >= 85 && r.val > 0) {
+        if (r.category_breakdown && tileW >= 150 && tileH >= 90 && r.val > 0) {
           const cb = r.category_breakdown;
           const pm3Pct = Math.min(100, Math.max(0, ((cb.plus_minus_3 || 0) / r.val) * 100));
           const belPct = Math.min(100, Math.max(0, ((cb.below_minus_3 || 0) / r.val) * 100));
           const abvPct = Math.min(100, Math.max(0, ((cb.above_3 || 0) / r.val) * 100));
 
           miniBarHtml = `
-            <div style="margin-top: 4px; width: 100%; height: 4px; background: rgba(255,255,255,0.25); border-radius: 2px; display: flex; overflow: hidden;" title="Breakdown: ±3 Bln (${pm3Pct.toFixed(0)}%), < -3 Bln (${belPct.toFixed(0)}%), > 3 Bln (${abvPct.toFixed(0)}%)">
+            <div style="margin-top: 4px; width: 100%; height: 3px; background: rgba(255,255,255,0.25); border-radius: 2px; display: flex; overflow: hidden;" title="Breakdown: ±3 Bln (${pm3Pct.toFixed(0)}%), < -3 Bln (${belPct.toFixed(0)}%), > 3 Bln (${abvPct.toFixed(0)}%)">
               <div style="width: ${pm3Pct}%; background: #fde047;" title="±3 Bln: ${pm3Pct.toFixed(0)}%"></div>
               <div style="width: ${belPct}%; background: #f87171;" title="< -3 Bln: ${belPct.toFixed(0)}%"></div>
               <div style="width: ${abvPct}%; background: #38bdf8;" title="> 3 Bln: ${abvPct.toFixed(0)}%"></div>
@@ -3730,17 +3889,9 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
         const rawDataStr = encodeURIComponent(JSON.stringify(r));
 
         html += `
-          <div class="treemap-tile ${isPareto ? 'is-pareto' : 'is-non-pareto'}" data-tile="${rawDataStr}" style="left: ${r.x.toFixed(1)}px; top: ${r.y.toFixed(1)}px; width: ${Math.max(1, r.w - 2).toFixed(1)}px; height: ${Math.max(1, r.h - 2).toFixed(1)}px; background: ${bg}; padding: ${isSmall ? '3px 5px' : '5px 7px'};">
-            ${isTiny ? '' : `
-              <div class="treemap-tile-header">
-                <div class="treemap-tile-title" style="font-size: ${isSmall ? '10px' : '11px'};" title="${r.name}">${r.name}</div>
-              </div>
-              <div class="treemap-tile-bottom">
-                <span class="treemap-tile-val" style="font-size: ${isSmall ? '10px' : '11.5px'};">${formatCompact(r.val)}</span>
-                ${badgeHtml}
-              </div>
-              ${miniBarHtml}
-            `}
+          <div class="treemap-tile ${isPareto ? 'is-pareto' : 'is-non-pareto'}" data-tile="${rawDataStr}" style="left: ${r.x.toFixed(1)}px; top: ${r.y.toFixed(1)}px; width: ${tileW.toFixed(1)}px; height: ${tileH.toFixed(1)}px; background: ${bg}; padding: ${isSmall ? '2px 4px' : (isMedium ? '4px 6px' : '6px 8px')};">
+            ${contentHtml}
+            ${miniBarHtml}
           </div>
         `;
       });
@@ -3870,9 +4021,26 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
         return;
       }
 
+      const upbPeriodBadge = document.getElementById('upbPeriodBadge');
+      if (upbPeriodBadge) {
+        const periodFull = formatPeriodFullLabel(this.filters.period || '2026-09');
+        const year = (this.filters.period || '2026-09').split('-')[0];
+        if (this.upbScope === 'ytd') {
+          upbPeriodBadge.innerText = `Periode: Jan ${year} – ${periodFull} (YTD)`;
+          upbPeriodBadge.style.background = '#e0e7ff';
+          upbPeriodBadge.style.color = '#3730a3';
+          upbPeriodBadge.style.borderColor = '#c7d2fe';
+        } else {
+          upbPeriodBadge.innerText = `Periode: ${periodFull} (MTD)`;
+          upbPeriodBadge.style.background = '#fef3c7';
+          upbPeriodBadge.style.color = '#b45309';
+          upbPeriodBadge.style.borderColor = '#fde68a';
+        }
+      }
+
       const formatCurrency = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v);
       const formatNum = (v) => new Intl.NumberFormat('id-ID').format(v);
-      const totalVal = this.upbSummary ? (this.upbSummary.total_val || 1) : 1;
+      const totalVal = data.total_val || (this.upbSummary ? this.upbSummary.total_val : 1);
 
       let rowsHtml = '';
       data.items.forEach((item, idx) => {
@@ -3889,7 +4057,9 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
           catBadgeStyle = 'background: #fee2e2; color: #991b1b; border: 1px solid #fecaca;';
         }
 
-        const pctShare = totalVal > 0 ? ((item.val / totalVal) * 100).toFixed(3) : '0.000';
+        const pctShare = (item.pct_of_total !== undefined && item.pct_of_total !== null)
+          ? Number(item.pct_of_total).toFixed(2)
+          : (totalVal > 0 ? ((item.val / totalVal) * 100).toFixed(2) : '0.00');
 
         rowsHtml += `
           <tr>
@@ -3908,7 +4078,7 @@ Total Penjualan: ${this.formatDisplayValue(d.avg_sales_value || 0, true)}`;
             </td>
             <td style="text-align: right; font-weight: 600; color: #334155;">${formatNum(item.qty)}</td>
             <td style="text-align: right; font-weight: 700; color: #0f172a;">${formatCurrency(item.val)}</td>
-            <td style="text-align: right; font-size: 11.5px; color: #64748b;">${pctShare}%</td>
+            <td style="text-align: right; font-size: 11.5px; font-weight: 600; color: #475569;">${pctShare}%</td>
           </tr>
         `;
       });
